@@ -9,7 +9,6 @@ const pathsRequireAdminLogin = [
     "/rtsp/stop", "/user", "/config/cam-picture",
     "/config/cam-video", "/images", "/videos"
 ]
-
 const requestLogger = (req, res, next) => {
     /* Check whether the request should be monitored */
     if (pathsToBeMonitored.includes(req.path)) {

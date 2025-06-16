@@ -25,7 +25,6 @@ const hikvisionApp = express();
         next();
     });
 });
-
 //test route for dahua
 dahuaApp.get('/test', (req, res) => {
     res.send('Dahua server is working!');

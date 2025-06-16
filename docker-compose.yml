@@ -102,3 +102,4 @@ services:
     volumes:
       - ./videos:/app/rtsp/videos
       - rtsp-resource:/app/rtsp
+  

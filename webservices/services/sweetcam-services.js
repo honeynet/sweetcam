@@ -24,7 +24,6 @@ const getLoginLimit = () => {
     const jsonString = fs.readFileSync("./config/sweetcam.json");
     return JSON.parse(jsonString).loginLimit;
 }
-
 //new function to load camera config based on CAMERA_TYPE
 const getCameraConfig = () => {
     const cameraType = process.env.CAMERA_TYPE || 'hikvision';

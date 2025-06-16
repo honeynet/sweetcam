@@ -70,8 +70,6 @@ cameraRouter.post('/login', async (req, res) => {
         session.loginTimes = 1;
         beginTimeOfLogin = Date.now()
     }
-
-
     const username = req.body.username
     const password = req.body.password
 
