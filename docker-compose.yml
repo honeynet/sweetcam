@@ -1,5 +1,3 @@
-version: '3.8'
-
 volumes:
   cowrie-var:
     driver: local
@@ -21,8 +19,6 @@ services:
       - ${COWRIE_LOCAL_PORT}:${COWRIE_DOCKER_PORT}
     volumes:
       - cowrie-var:/cowrie/cowrie-git/var
-      - ./cowrie-config/cowrie.cfg:/cowrie/cowrie-git/etc/cowrie.cfg
-      - ./cowrie-config/motd:/cowrie/cowrie-git/honeyfs/etc/motd
   mysql_service:
     image: mysql:8.0.28
     container_name: mysql_service
@@ -31,17 +27,17 @@ services:
     restart: unless-stopped
     env_file: ./.env
     environment:
-      - MYSQL_ROOT_PASSWORD=$MYSQLDB_ROOT_PASSWORD
+      - MYSQL_ROOT_PASSWORD=$MYSQLDB_ROOT_PASSWORD 
       - MYSQL_DATABASE=$MYSQLDB_DATABASE
     ports:
-      - ${MYSQLDB_LOCAL_PORT}:${MYSQLDB_DOCKER_PORT}
+      - "3306:3306"
     volumes:
       - ./initialize.sql:/docker-entrypoint-initdb.d/initialize.sql
   web_service:
     container_name: web_service
     depends_on:
       - mysql_service
-    build: ./webservices # Build the image from the Dockerfile under the webservices folder
+    build: ./webservices
     restart: unless-stopped
     env_file: ./.env
     environment:
@@ -63,22 +59,46 @@ services:
       - EMAIL_SERVICE=$EMAIL_SERVICE
       - EMAIL_HOST=$EMAIL_HOST
     ports:
-      - ${NODE_LOCAL_PORT}:${NODE_DOCKER_PORT}
+      - "3000:3000"
     volumes:
       - web-servie-log:/app/webservices/logs
+    stdin_open: true
+  dahua_web:
+    container_name: dahua_web
+    build: 
+      context: ./webservices
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - CAMERA_TYPE=dahua
+      - DAHUA_PORT=3000
+    ports:
+      - "3002:3000"
+    stdin_open: true
+    tty: true
+  hikvision_web:
+    container_name: hikvision_web
+    build: 
+      context: ./webservices
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - CAMERA_TYPE=hikvision
+      - HIKVISION_PORT=3000
+    ports:
+      - "3001:3000"
     stdin_open: true
     tty: true
   rtsp_service:
     build: ./rtspservices
     container_name: rtsp_service
     restart: unless-stopped
-    env_file: ./.env
     environment:
-      - RTSP_LOCAL_PORT=$RTSP_LOCAL_PORT
-      - RTSP_DOCKER_PORT=$RTSP_DOCKER_PORT
-      - MTX_PROTOCOLS=$MTX_PROTOCOLS
+      - RTSP_LOCAL_PORT=554
+      - RTSP_DOCKER_PORT=8554
+      - MTX_PROTOCOLS=tcp
     ports:
-      - ${RTSP_LOCAL_PORT}:${RTSP_DOCKER_PORT}
+      - "554:554"
     volumes:
       - ./videos:/app/rtsp/videos
       - rtsp-resource:/app/rtsp

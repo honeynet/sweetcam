@@ -1,4 +1,4 @@
-FROM aler9/rtsp-simple-server AS rtsp
+FROM bluenviron/mediamtx AS rtsp
 FROM alpine:3.12
 WORKDIR /app/rtsp
 RUN apk add --no-cache ffmpeg

@@ -1,0 +1,29 @@
+{
+    "timeout": 1000,
+    "xRotationAngle": 10,
+    "yRotationAngle": 10,
+    "width": 0.3,
+    "height": 0.3,
+    "zoomRatio": 83, 
+    "videoPathMp4": "/videos/hikvision.mp4",
+    "videoPathWebm": "/videos/hikvision.webm",
+    "brandImagePath": "/brands/Hikvision.png",
+    "brandImageWidth": "30%",
+    "rtspAddress": "rtsp://localhost:554/hikvision",
+    "brand": "Hikvision",
+    "model": "DS-2CD2142",
+    "type": "IP Camera",
+    "resolution": "1080p",
+    "features": {
+        "nightVision": true,
+        "motionDetection": true,
+        "audio": true,
+        "waterproof": "IP66"
+    },
+    "specifications": {
+        "sensor": "1/3\" CMOS",
+        "lens": "2.8mm",
+        "fps": "30fps@1080p",
+        "compression": "H.265"
+    }
+} 

@@ -1,9 +1,19 @@
-FROM node:18
+FROM node:18-slim
 
-WORKDIR /app/webservices
+WORKDIR /app
+
+#copy package files
 COPY package*.json ./
-RUN npm ci
-COPY . .
-EXPOSE 3001
 
+#install dependencies
+RUN npm install
+
+#copy the rest of the application
+COPY . .
+
+
+#expose the port
+EXPOSE 3000
+
+#start the application
 CMD ["npm", "start"]

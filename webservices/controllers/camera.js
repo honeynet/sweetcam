@@ -1,16 +1,35 @@
-const sweetcamRouter = require('express').Router()
+const cameraRouter = require('express').Router()
 const sweetcamServices = require('../services/sweetcam-services')
 const userServices = require('../services/user-services')
 const bcrypt = require("bcrypt");
 
 let beginTimeOfLogin = 0;
 
-sweetcamRouter.get('/', (req, res) => {
+//serve dahua camera page
+cameraRouter.get('/dahua', (req, res) => {
+    const config = {
+		...sweetcamServices.getCameraConfig(),
+        userName: 'Guest'
+    }
+    res.render('dahua', config)
+})
+
+//serve hikvision camera page
+cameraRouter.get('/hikvision', (req, res) => {
+    const config = {
+		...sweetcamServices.getCameraConfig(), 
+        userName: 'Guest'
+    }
+    res.render('hikvision', config)
+})
+
+cameraRouter.get('/', (req, res) => {
     const medium = sweetcamServices.getMedium()
     if (medium === "video") {
         const config = {
             ...sweetcamServices.getCamVideoConfig(),
             ...sweetcamServices.getBrandConfig(),
+            ...sweetcamServices.getCameraConfig(), 
             userName: req.session.username
         }
         res.render("video", config)
@@ -20,6 +39,7 @@ sweetcamRouter.get('/', (req, res) => {
         const config = {
             ...sweetcamServices.getCamPictureConfig(),
             ...sweetcamServices.getBrandConfig(),
+            ...sweetcamServices.getCameraConfig(),
             userName: req.session.username
         }
         console.log(config)
@@ -28,11 +48,11 @@ sweetcamRouter.get('/', (req, res) => {
 
 })
 
-sweetcamRouter.get('/login', (req, res) => {
+cameraRouter.get('/login', (req, res) => {
     res.render("login", sweetcamServices.getBrandConfig())
 })
 
-sweetcamRouter.post('/login', async (req, res) => {
+cameraRouter.post('/login', async (req, res) => {
     let session = req.session;
     let loginLimit = sweetcamServices.getLoginLimit()
     if (!session.loginTimes) {
@@ -67,9 +87,9 @@ sweetcamRouter.post('/login', async (req, res) => {
     }
 })
 
-sweetcamRouter.get('/logout', (req, res) => {
+cameraRouter.get('/logout', (req, res) => {
     req.session.destroy();
     res.redirect('/login');
 })
 
-module.exports = sweetcamRouter
+module.exports = cameraRouter

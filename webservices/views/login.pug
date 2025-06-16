@@ -51,7 +51,7 @@ html
         div
             div(style="display:inline")
                 img(id='brand_image' src=brandImagePath width=brandImageWidth)
-        form(action="/login" method="post")
+        form(action=`/${prefix}/login` method="post")
             div(class='container')
                 label Username
                 input(type='text' placeholder='Enter Username' name='username' required)
@@ -63,6 +63,7 @@ html
                 span(id="rateErrorMessage" style="font-size:13px; color:red; display: none") Login request reached limit, try one minute later
                 button(type='submit' onclick="login(event)") Login
         script.
+            const prefix = '#{prefix}'
             const login = (event) => {
                 event.preventDefault()
                 const username = $("input[name=username]").val()
@@ -72,7 +73,7 @@ html
                     password: password
                 }
                 axios
-                    .post('/login', sentData)
+                    .post(`/${prefix}/login`, sentData)
                     .then( () => window.location.href = "/" )
                     .catch(
                         (error) => {

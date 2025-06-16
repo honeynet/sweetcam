@@ -1,0 +1,42 @@
+doctype html
+html
+    head
+        meta(charset='UTF-8')
+        title #{brand} 
+        style.
+            body {
+                background-color: #1a1a1a;
+                color: #ffffff;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            }
+            .header {
+                background-color: #2c2c2c;
+                padding: 20px;
+                text-align: center;
+                border-bottom: 3px solid #00a4e4;
+            }
+            .container {
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 20px;
+            }
+            .brand-logo {
+                max-width: #{brandImageWidth};
+                margin: 0 auto;
+                display: block;
+            }
+            .camera-info {
+                margin-top: 20px;
+                padding: 15px;
+                background-color: #333333;
+                border-radius: 5px;
+                border-left: 4px solid #00a4e4;
+            }
+    body
+        .header
+            img.brand-logo(src=brandImagePath alt=brand)        
+        .container
+            .camera-info
+                h3 Camera specifications
+                p Sensor: #{specifications && specifications.sensor ? specifications.sensor : 'N/A'}
+                p Lens: #{specifications && specifications.lens ? specifications.lens : 'N/A'}

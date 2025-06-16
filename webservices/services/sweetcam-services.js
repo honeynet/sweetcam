@@ -25,4 +25,17 @@ const getLoginLimit = () => {
     return JSON.parse(jsonString).loginLimit;
 }
 
-module.exports = { getCamPictureConfig, getCamVideoConfig, getBrandConfig, getMedium, getLoginLimit}
+//new function to load camera config based on CAMERA_TYPE
+const getCameraConfig = () => {
+    const cameraType = process.env.CAMERA_TYPE || 'hikvision';
+    const configPath = `./config/${cameraType}.json`;
+    if (fs.existsSync(configPath)) {
+        const jsonString = fs.readFileSync(configPath);
+        return JSON.parse(jsonString);
+    } else {
+        console.error(`config file ${configPath} not found`);
+        return {};
+    }
+}
+
+module.exports = { getCamPictureConfig, getCamVideoConfig, getBrandConfig, getMedium, getLoginLimit, getCameraConfig }

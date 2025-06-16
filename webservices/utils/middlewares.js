@@ -2,8 +2,8 @@ const logger = require('./logger')
 const jwt = require('jsonwebtoken')
 const jwtServices = require('../utils/jwt-services')
 
-const pathsToBeMonitored = ["/", "/test", "/login"]
-const pathsRequireUserLogin = ["/"]
+const pathsToBeMonitored = ["/", "/test", "/login", "/dahua", "/hikvision"]
+const pathsRequireUserLogin = ["/", "/dahua", "/hikvision"]
 const pathsRequireAdminLogin = [
     "/picture", "/video", "/rtsp/start",
     "/rtsp/stop", "/user", "/config/cam-picture",
@@ -25,6 +25,11 @@ const requestLogger = (req, res, next) => {
 }
 
 const authentication = (req, res, next) => {
+    // Skip authentication for login route
+    if (req.path === '/login') {
+        return next();
+    }
+    
     if (pathsRequireUserLogin.includes(req.path) && req.session.username === undefined) {
         return res.redirect("/login")
     }
@@ -32,6 +37,11 @@ const authentication = (req, res, next) => {
 }
 
 const verifyToken = (req, res, next) => {
+    // Skip token verification for login route
+    if (req.path === '/login') {
+        return next();
+    }
+    
     if (pathsRequireAdminLogin.includes(req.path)) {
         const decodedToken = jwt.verify(jwtServices.getJWTToken(req), process.env.JWT_SECRET)
         if (!decodedToken.username) {

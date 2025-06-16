@@ -1,0 +1,28 @@
+{
+    "timeout": 1000,
+    "xRotationAngle": 10,
+    "yRotationAngle": 10,
+    "width": 0.3,
+    "height": 0.3,
+    "zoomRatio": 83, 
+    "videoPathMp4": "/videos/dahua.mp4",
+    "videoPathWebm": "/videos/dahua.webm",
+    "brandImagePath": "/brands/Dahua.png",
+    "brandImageWidth": "30%",
+    "rtspAddress": "rtsp://localhost:554/dahua",
+    "brand": "Dahua",
+    "model": "IPC-HDW4631C-A",
+    "type": "IP Camera",
+    "resolution": "1080p",
+    "features": {
+        "nightVision": true,
+        "motionDetection": true,
+        "audio": true
+     },
+    "specifications": {
+        "sensor": "1/2.9\" CMOS",
+        "lens": "2.8mm",
+        "fps": "25fps@1080p",
+        "compression": "H.265"
+    }
+} 
