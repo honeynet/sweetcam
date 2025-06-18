@@ -1,0 +1,43 @@
+doctype html
+html
+    head
+        meta(charset='UTF-8')
+        title #{brand} 
+        style.
+            body {
+                background-color: #f0f8ff;
+                font-family: Arial, sans-serif;
+            }
+            .header {
+                background-color: #0066cc;
+                color: white;
+                padding: 20px;
+                text-align: center;
+                margin-bottom: 20px;
+            }
+            .container {
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 20px;
+            }
+            .brand-logo {
+                max-width: #{brandImageWidth};
+                margin: 0 auto;
+                display: block;
+            }
+            .camera-info {
+                margin-top: 20px;
+                padding: 15px;
+                background-color: #f8f9fa;
+                border-radius: 5px;
+            }
+    body
+        .header
+            h3 MOBOTIX is working  
+        .container
+            .camera-info
+                h3 Camera specifications
+                p Sensor: #{specifications.sensor}
+                p Lens: #{specifications.lens}
+        
+        

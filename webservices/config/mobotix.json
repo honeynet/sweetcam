@@ -1,0 +1,28 @@
+{
+    "timeout": 1000,
+    "xRotationAngle": 10,
+    "yRotationAngle": 10,
+    "width": 0.3,
+    "height": 0.3,
+    "zoomRatio": 83, 
+    "videoPathMp4": "/videos/Mobotix.mp4",
+    "videoPathWebm": "/videos/Mobotix.webm",
+    "brandImagePath": "/brands/Mobotix.png",
+    "brandImageWidth": "30%",
+    "rtspAddress": "rtsp://localhost:554/mobotix",
+    "brand": "Mobotix",
+    "model": "MX VT1A-2-IR",
+    "type": "IP Camera",
+    "resolution": "2MP",
+    "features": {
+        "nightVision": true,
+        "motionDetection": true,
+        "audio": true
+     },
+    "specifications": {
+        "sensor": "1/2.8\" CMOS",
+        "lens": "2.8mm",
+        "fps": "25fps@1080p",
+        "compression": "H.265"
+    }
+} 

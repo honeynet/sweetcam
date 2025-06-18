@@ -23,6 +23,14 @@ cameraRouter.get('/hikvision', (req, res) => {
     res.render('hikvision', config)
 })
 
+//serve mobotix camera page 
+cameraRouter.get('/mobotix', (req, res) => {
+	const config = {
+		...sweetcamServices.getCameraConfig(), 
+		userName: 'Guest'
+	}
+	res.render('mobotix', config)
+})
 cameraRouter.get('/', (req, res) => {
     const medium = sweetcamServices.getMedium()
     if (medium === "video") {

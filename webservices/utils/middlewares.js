@@ -2,8 +2,8 @@ const logger = require('./logger')
 const jwt = require('jsonwebtoken')
 const jwtServices = require('../utils/jwt-services')
 
-const pathsToBeMonitored = ["/", "/test", "/login", "/dahua", "/hikvision"]
-const pathsRequireUserLogin = ["/", "/dahua", "/hikvision"]
+const pathsToBeMonitored = ["/", "/test", "/login", "/dahua", "/hikvision", "/mobotix"]
+const pathsRequireUserLogin = ["/", "/dahua", "/hikvision", "/mobotix"]
 const pathsRequireAdminLogin = [
     "/picture", "/video", "/rtsp/start",
     "/rtsp/stop", "/user", "/config/cam-picture",
