@@ -1,5 +1,5 @@
 <h1 align="center">
-    <img src="./images/logo.png" alt="MediaMTX / rtsp-simple-server" width='75%'>
+    <img src="./images/sweetcam.png" alt="MediaMTX / rtsp-simple-server" width='75%'>
 </h1>
 
 # Introduction
