@@ -33,75 +33,32 @@ services:
       - "3306:3306"
     volumes:
       - ./initialize.sql:/docker-entrypoint-initdb.d/initialize.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
   web_service:
     container_name: web_service
-    depends_on:
-      - mysql_service
-    build: ./webservices
+    build: 
+      context: ./webservices
+      dockerfile: Dockerfile
     restart: unless-stopped
-    env_file: ./.env
     environment:
       - DB_HOST=mysql_service
-      - DB_USER=$MYSQLDB_USER
-      - DB_PASSWORD=$MYSQLDB_ROOT_PASSWORD
-      - DB_NAME=$MYSQLDB_DATABASE
-      - DB_PORT=$MYSQLDB_DOCKER_PORT
-      - SESSION_SECRET=$SESSION_SECRET
-      - JWT_SECRET=$JWT_SECRET
-      - ADMIN_PATH=$ADMIN_PATH
-      - DEFAULT_ADMIN_NAME=$DEFAULT_ADMIN_NAME
-      - DEFAULT_ADMIN_PASSWORD=$DEFAULT_ADMIN_PASSWORD
-      - TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID
-      - TELEGRAM_TOKEN=$TELEGRAM_TOKEN
-      - EMAIL_ADDRESS=$EMAIL_ADDRESS
-      - EMAIL_PASSWORD=$EMAIL_PASSWORD
-      - EMAIL_ADDRESS_TARGET=$EMAIL_ADDRESS_TARGET
-      - EMAIL_SERVICE=$EMAIL_SERVICE
-      - EMAIL_HOST=$EMAIL_HOST
+      - DB_USER=root
+      - DB_PASSWORD=123456
+      - DB_NAME=sweetcam
+      - DB_PORT=3306
     ports:
-      - "3000:3000"
-    volumes:
-      - web-servie-log:/app/webservices/logs
-    stdin_open: true
-  dahua_web:
-    container_name: dahua_web
-    build: 
-      context: ./webservices
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    environment:
-      - CAMERA_TYPE=dahua
-      - DAHUA_PORT=3000
-    ports:
-      - "3002:3000"
+      - "80:80"
+      - "37777:37777"
+      - "443:443"
     stdin_open: true
     tty: true
-  hikvision_web:
-    container_name: hikvision_web
-    build: 
-      context: ./webservices
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    environment:
-      - CAMERA_TYPE=hikvision
-      - HIKVISION_PORT=3000
-    ports:
-      - "3001:3000"
-    stdin_open: true
-    tty: true
-  mobotix_web:
-    container_name: mobotix_web
-    build: 
-      context: ./webservices
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    environment:
-      - CAMERA_TYPE=mobotix
-      - MOBOTIX_PORT=3000
-    ports:
-      - "3003:3000"
-    stdin_open: true
-    tty: true
+    depends_on:
+      mysql_service:
+        condition: service_healthy
   rtsp_service:
     build: ./rtspservices
     container_name: rtsp_service

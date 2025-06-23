@@ -1,101 +1,72 @@
-const cameraRouter = require('express').Router()
-const sweetcamServices = require('../services/sweetcam-services')
-const userServices = require('../services/user-services')
-const bcrypt = require("bcrypt");
+const express = require('express');
+const cameraRouter = express.Router();
+const sweetcamServices = require('../services/sweetcam-services');
+const userServices = require('../services/user-services');
+const bcrypt = require('bcrypt');
 
 let beginTimeOfLogin = 0;
 
-//serve dahua camera page
-cameraRouter.get('/dahua', (req, res) => {
-    const config = {
-		...sweetcamServices.getCameraConfig(),
-        userName: 'Guest'
-    }
-    res.render('dahua', config)
-})
-
-//serve hikvision camera page
-cameraRouter.get('/hikvision', (req, res) => {
-    const config = {
-		...sweetcamServices.getCameraConfig(), 
-        userName: 'Guest'
-    }
-    res.render('hikvision', config)
-})
-
-//serve mobotix camera page 
-cameraRouter.get('/mobotix', (req, res) => {
-	const config = {
-		...sweetcamServices.getCameraConfig(), 
-		userName: 'Guest'
-	}
-	res.render('mobotix', config)
-})
-cameraRouter.get('/', (req, res) => {
-    const medium = sweetcamServices.getMedium()
-    if (medium === "video") {
-        const config = {
-            ...sweetcamServices.getCamVideoConfig(),
-            ...sweetcamServices.getBrandConfig(),
-            ...sweetcamServices.getCameraConfig(), 
-            userName: req.session.username
-        }
-        res.render("video", config)
-    }
-
-    if (medium === "picture") {
-        const config = {
-            ...sweetcamServices.getCamPictureConfig(),
-            ...sweetcamServices.getBrandConfig(),
-            ...sweetcamServices.getCameraConfig(),
-            userName: req.session.username
-        }
-        console.log(config)
-        res.render("picture", config);
-    }
-
-})
-
+// Login page
 cameraRouter.get('/login', (req, res) => {
-    res.render("login", sweetcamServices.getBrandConfig())
-})
+    if (req.session.username) {
+        return res.redirect('/');
+    }
+    res.render('login', sweetcamServices.getBrandConfig());
+});
 
+// Login handler
 cameraRouter.post('/login', async (req, res) => {
     let session = req.session;
-    let loginLimit = sweetcamServices.getLoginLimit()
+    let loginLimit = sweetcamServices.getLoginLimit();
+    
     if (!session.loginTimes) {
         session.loginTimes = 0;
-        beginTimeOfLogin = Date.now()
+        beginTimeOfLogin = Date.now();
     }
 
-    const currentTime = Date.now()
-    if (currentTime - beginTimeOfLogin <= 60_000) {
+    const currentTime = Date.now();
+    if (currentTime - beginTimeOfLogin <= 60000) {
         session.loginTimes += 1;
         if (session.loginTimes > loginLimit) {
-            return res.status(403).send({ error: "login request reached limit" })
+            return res.status(403).send({ error: "Login request reached limit" });
         }
     } else {
         session.loginTimes = 1;
-        beginTimeOfLogin = Date.now()
+        beginTimeOfLogin = currentTime;
     }
-    const username = req.body.username
-    const password = req.body.password
 
+    const { username, password } = req.body;
     const passwordHash = await userServices.findUserPasswordHashByName(username);
+    
     if (!passwordHash) {
-        return res.status(404).send({ error: "user not found" })
+        return res.status(404).send({ error: "User not found" });
     }
+    
     if (await bcrypt.compare(password, passwordHash)) {
-        session.username = username
-        return res.status(200).send({ message: "succeed" })
+        session.username = username;
+        return res.status(200).send({ message: "Login successful" });
     } else {
-        return res.status(401).send({ error: "wrong password" })
+        return res.status(401).send({ error: "Wrong password" });
     }
-})
+});
 
+// Logout handler
 cameraRouter.get('/logout', (req, res) => {
     req.session.destroy();
     res.redirect('/login');
-})
+});
 
-module.exports = cameraRouter
+// Add Hikvision page route
+cameraRouter.get('/hikvision', (req, res) => {
+    if (!req.session.username) {
+        return res.redirect('/login');
+    }
+    const sweetcamServices = require('../services/sweetcam-services');
+    const config = {
+        ...sweetcamServices.getCameraConfig(),
+        userName: req.session.username
+    };
+    res.render('hikvision', config);
+});
+
+module.exports = cameraRouter;

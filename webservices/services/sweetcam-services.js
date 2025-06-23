@@ -25,8 +25,7 @@ const getLoginLimit = () => {
     return JSON.parse(jsonString).loginLimit;
 }
 //new function to load camera config based on CAMERA_TYPE
-const getCameraConfig = () => {
-    const cameraType = process.env.CAMERA_TYPE || 'hikvision';
+const getCameraConfig = (cameraType) => {
     const configPath = `./config/${cameraType}.json`;
     if (fs.existsSync(configPath)) {
         const jsonString = fs.readFileSync(configPath);

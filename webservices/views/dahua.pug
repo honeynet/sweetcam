@@ -1,43 +1,635 @@
 doctype html
-html
+html(lang="en")
     head
         meta(charset='UTF-8')
-        title #{brand} 
+        title #{model}
+        link(rel="stylesheet", href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css")
         style.
+            :root {
+                --dahua-blue: #0072ff;
+                --background-color: #f0f2f5;
+                --header-bg: #ffffff;
+                --text-color: #333333;
+                --icon-color: #0072ff;
+                --card-bg: #ffffff;
+                --card-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+            }
             body {
-                background-color: #f0f8ff;
-                font-family: Arial, sans-serif;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background-color: var(--background-color);
+                margin: 0;
+                color: var(--text-color);
+                overflow-y: hidden;
             }
             .header {
-                background-color: #0066cc;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 15px 30px;
+                background-color: var(--header-bg);
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .header-logo img {
+                height: 30px;
+            }
+            .header-nav {
+                display: flex;
+                align-items: center;
+            }
+            .header-nav a {
+                color: #555;
+                text-decoration: none;
+                margin-left: 25px;
+                font-size: 18px;
+            }
+            .user-profile {
+                display: flex;
+                align-items: center;
+                font-weight: 500;
+            }
+            .user-profile i {
+                margin-right: 8px;
+            }
+            .logout-btn {
+                display: flex;
+                align-items: center;
+                color: #ffffff;
+                text-decoration: none;
+                margin-left: 25px;
+                font-size: 16px;
+                font-weight: 500;
+                padding: 8px 12px;
+                border-radius: 4px;
+                transition: background-color 0.2s, color 0.2s;
+            }
+            .logout-btn:hover {
+                background-color: #0072ff;
                 color: white;
+            }
+            .logout-btn i {
+                margin-right: 6px;
+            }
+            .main-content {
+                padding: 40px;
+            }
+            .dashboard-layout {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 30px;
+                align-items: start;
+            }
+            .dashboard-cards {
+                grid-template-columns: repeat(3, 1fr);
+                grid-template-rows: repeat(2, 1fr);
+            }
+  
+            .video-section {
+                background: var(--card-bg);
+                border-radius: 8px;
+                box-shadow: var(--card-shadow);
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+            }
+            .video-title {
                 padding: 20px;
+                background: var(--dahua-blue);
+                color: white;
+                font-weight: 600;
+                font-size: 18px;
                 text-align: center;
-                margin-bottom: 20px;
             }
-            .container {
-                max-width: 1200px;
-                margin: 0 auto;
+            .dashboard-section {
+                display: flex;
+                flex-direction: column;
+                gap: 20px;
+            }
+            .dashboard-title {
                 padding: 20px;
+                background: var(--dahua-blue);
+                color: white;
+                font-weight: 600;
+                font-size: 18px;
+                text-align: center;
+                border-radius: 8px;
             }
-            .brand-logo {
-                max-width: #{brandImageWidth};
-                margin: 0 auto;
-                display: block;
+            .dashboard-cards {
+                display: grid;
+                grid-template-columns: 1fr;
+                grid-template-rows: repeat(5, 1fr);
+                gap: 20px;
+                flex: 1;
             }
-            .camera-info {
+            .dashboard-grid {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 30px;
+            }
+            .dashboard-card {
+                background: var(--card-bg);
+                padding: 20px;
+                border-radius: 8px;
+                text-align: center;
+                box-shadow: var(--card-shadow);
+                transition: transform 0.2s, box-shadow 0.2s;
+                cursor: pointer;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+            }
+            .dashboard-card:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+            }
+            .card-icon {
+                font-size: 32px;
+                color: var(--icon-color);
+                margin-bottom: 15px;
+            }
+            .card-title {
+                font-size: 16px;
+                font-weight: 600;
+                margin-bottom: 8px;
+            }
+            .card-description {
+                font-size: 12px;
+                color: #777;
+                line-height: 1.4;
+            }
+            .live-video-card {
+                padding: 0;
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                background: black;
+                position: relative;
+                max-width: 800px;
+                max-height: 600px;
+                width: 100%;
+            }
+
+            #container {
+                width: 100%;
+                aspect-ratio: 4 / 3; 
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: #000;
+                overflow: hidden;
+                position: relative;
+            }
+            #imageViewer {
+                position: relative;
+                width: 100%;
+                height: 100%;
+                overflow: hidden;
+            }
+            #imageViewer img {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: auto;
+                height: auto;
+                max-width: none;
+                max-height: none;
+                transform-origin: center;
+            }
+            #control {
+                padding: 10px;
+                background: rgba(0,0,0,0.5);
+                width: 100%;
+                text-align: center;
+                position: absolute;
+                bottom: 0;
+                box-sizing: border-box;
+            }
+            #control button {
+                background-color: var(--dahua-blue);
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 4px;
+                cursor: pointer;
+                margin: 0 5px;
+            }
+            #control button:disabled {
+                background: #666;
+                cursor: not-allowed;
+            }
+            .image-info {
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                background: rgba(0,0,0,0.7);
+                color: white;
+                padding: 8px 12px;
+                border-radius: 4px;
+                font-size: 12px;
+            }
+            .no-images {
+                color: white;
+                text-align: center;
+                font-size: 16px;
+            }
+            /* Camera Info Modal Styles */
+            .modal-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.7);
+                display: none;
+                justify-content: center;
+                align-items: center;
+                z-index: 1000;
+            }
+            .modal-overlay.active {
+                display: flex;
+            }
+            .camera-info-modal {
+                background: white;
+                border-radius: 12px;
+                padding: 0;
+                max-width: 900px;
+                width: 90%;
+                max-height: 80vh;
+                overflow-y: auto;
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            }
+            .modal-header {
+                background: var(--dahua-blue);
+                color: white;
+                padding: 20px 30px;
+                border-radius: 12px 12px 0 0;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .modal-header h2 {
+                margin: 0;
+                font-size: 24px;
+                font-weight: 600;
+            }
+            .close-btn {
+                background: none;
+                border: none;
+                color: white;
+                font-size: 24px;
+                cursor: pointer;
+                padding: 0;
+                width: 30px;
+                height: 30px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 50%;
+                transition: background-color 0.2s;
+            }
+            .close-btn:hover {
+                background: rgba(255, 255, 255, 0.2);
+            }
+            .modal-content {
+                padding: 30px;
+            }
+            .info-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 20px;
                 margin-top: 20px;
-                padding: 15px;
-                background-color: #f8f9fa;
-                border-radius: 5px;
+            }
+            .info-item {
+                background: #f8f9fa;
+                padding: 20px;
+                border-radius: 8px;
+                border-left: 4px solid var(--dahua-blue);
+            }
+            .info-label {
+                font-weight: 600;
+                color: #333;
+                margin-bottom: 8px;
+                font-size: 14px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            .info-value {
+                color: #555;
+                font-size: 16px;
+            }
+            .status-indicator {
+                display: inline-block;
+                width: 12px;
+                height: 12px;
+                border-radius: 50%;
+                margin-right: 8px;
+            }
+            .status-online {
+                background: #4caf50;
+            }
+            .status-offline {
+                background: #f44336;
             }
     body
-        .header
-            img.brand-logo(src=brandImagePath alt=brand)        
-        .container
-            .camera-info
-                h3 Camera specifications
-                p Sensor: #{specifications.sensor}
-                p Lens: #{specifications.lens}
-        
-        
+        header.header
+            .header-logo
+                img(src=brandImagePath, alt=brand)
+            nav.header-nav
+                .user-profile
+                    i.fas.fa-user-circle
+                    span #{userName}
+                a.logout-btn(href="/logout")
+                    i.fas.fa-sign-out-alt
+                    span Logout
+
+        main.main-content
+            .dashboard-layout
+                .video-section
+                    .video-title 360 LIVE VIDEO 
+                    .live-video-card
+                        .image-info#imageInfo(style="display: none;")
+                        div#container
+                            div#imageViewer
+                                .no-images#noImages(style="display: none;") No images found
+                        div#control
+                            button#up(type='button') &#x25B2;
+                            button#down(type='button') &#x25BC;
+                            button#left(type='button') &#x25C0;
+                            button#right(type='button') &#x25B6;
+                .dashboard-section
+                    .dashboard-title Dashboard
+                    .dashboard-cards
+                        .dashboard-card#camera-info-btn
+                            .card-icon
+                                i.fas.fa-camera-retro
+                            h3.card-title Camera
+                            p.card-description Image attributes, audio & video config.  
+                        .dashboard-card
+                            .card-icon
+                                i.fas.fa-desktop
+                            h3.card-title System
+                            p.card-description User management, device operation and maintenance.    
+
+        // Camera Information Modal
+        .modal-overlay#camera-info-modal
+            .camera-info-modal
+                .modal-header
+                    h2 Camera Information
+                    button.close-btn#close-modal &times;
+                .modal-content
+                    .info-grid#camera-info-grid
+                        .info-item
+                            .info-label Camera Model
+                            .info-value#camera-model 
+                        .info-item
+                            .info-label Firmware Version
+                            .info-value#firmware-version 
+                        .info-item
+                            .info-label IP Address
+                            .info-value#ip-address 
+                        .info-item
+                            .info-label MAC Address
+                            .info-value#mac-address 
+                        .info-item
+                            .info-label Resolution
+                            .info-value#resolution 
+                        .info-item
+                            .info-label Frame Rate
+                            .info-value#frame-rate 
+                        .info-item
+                            .info-label Compression
+                            .info-value#compression 
+                        .info-item
+                            .info-label Status
+                            .info-value#status
+                                span.status-indicator.status-online
+                        .info-item
+                            .info-label Uptime
+                            .info-value#uptime 
+                        .info-item
+                            .info-label Last Restart
+                            .info-value#last-restart
+
+        script.
+            //modal functionality
+            const modal = document.getElementById('camera-info-modal');
+            const openModalBtn = document.getElementById('camera-info-btn');
+            const closeModalBtn = document.getElementById('close-modal');
+
+            openModalBtn.addEventListener('click', () => {
+                modal.classList.add('active');
+                loadCameraInfo(); //load camera info when modal opens
+            });
+
+            closeModalBtn.addEventListener('click', () => {
+                modal.classList.remove('active');
+            });
+
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.remove('active');
+                }
+            });
+
+            //close modal with Escape key
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && modal.classList.contains('active')) {
+                    modal.classList.remove('active');
+                }
+            });
+
+            //function to load camera information from API
+            function loadCameraInfo() {
+                const xhr = new XMLHttpRequest();
+                xhr.open('GET', '/api/camera-info', true);
+                xhr.withCredentials = true;
+                
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === 4) {
+                        if (xhr.status === 200) {
+                            try {
+                                const cameraData = JSON.parse(xhr.responseText);
+                                populateCameraInfo(cameraData);
+                            } catch (error) {
+                                console.error('Error parsing camera info:', error);
+                            }
+                        } else {
+                            console.error('Failed to load camera info:', xhr.status);
+                        }
+                    }
+                };
+                
+                xhr.send();
+            }
+
+            //function to populate camera information
+            function populateCameraInfo(data) {
+                //map JSON data to display fields
+                const fieldMappings = {
+                    'camera-model': data.model || 'N/A',
+                    'firmware-version': data.firmwareVersion || 'N/A',
+                    'ip-address': data.ipAddress || 'N/A',
+                    'mac-address': data.macAddress || 'N/A',
+                    'resolution': data.resolution || 'N/A',
+                    'frame-rate': data.specifications?.fps || 'N/A',
+                    'compression': data.specifications?.compression || 'N/A',
+                    'status': data.status || 'Online',
+                    'uptime': data.uptime || 'Live',
+                    'last-restart': data.lastRestart || 'N/A'
+                };
+
+                //update each field
+                Object.keys(fieldMappings).forEach(fieldId => {
+                    const element = document.getElementById(fieldId);
+                    if (element) {
+                        if (fieldId === 'status') {
+                            const statusIndicator = element.querySelector('.status-indicator');
+                            if (fieldMappings[fieldId] === 'Online') {
+                                statusIndicator.className = 'status-indicator status-online';
+                            } else {
+                                statusIndicator.className = 'status-indicator status-offline';
+                            }
+                            element.innerHTML = statusIndicator.outerHTML + fieldMappings[fieldId];
+                        } else {
+                            element.textContent = fieldMappings[fieldId];
+                        }
+                    }
+                });
+            }
+
+            document.querySelectorAll('.dashboard-card:not(.live-video-card):not(#camera-info-btn)').forEach(card => {
+                card.addEventListener('click', () => {
+                    const title = card.querySelector('.card-title').innerText;
+                });
+            });
+
+        script.
+            let currentImage = null;
+            let currentX = 0;
+            let currentY = 0;
+            let imageWidth = 0;
+            let imageHeight = 0;
+            let containerWidth = 0;
+            let containerHeight = 0;
+            const moveStep = 50; // pixels to move per arrow press
+            
+            //function to load the first image from the server
+            function loadImage() {
+                console.log('Attempting to load images...');
+                const xhr = new XMLHttpRequest();
+                xhr.open('GET', '/api/images', true);
+                xhr.withCredentials = true;
+                
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === 4) {
+                        console.log('Response status:', xhr.status);
+                        console.log('Response text:', xhr.responseText);
+                        if (xhr.status === 200) {
+                            try {
+                                const images = JSON.parse(xhr.responseText);
+                                if (images.length > 0) {
+                                    displayImage(images[0]);
+                                } else {
+                                    console.log('No images found');
+                                    document.getElementById('noImages').style.display = 'block';
+                                }
+                            } catch (error) {
+                                console.error('Error parsing response:', error);
+                                document.getElementById('noImages').style.display = 'block';
+                            }
+                        } else {
+                            console.error('API request failed:', xhr.status);
+                            document.getElementById('noImages').style.display = 'block';
+                        }
+                    }
+                };
+                
+                xhr.onerror = function() {
+                    console.error('XHR error occurred');
+                    document.getElementById('noImages').style.display = 'block';
+                };
+                
+                xhr.send();
+            }
+            
+            //function to display image
+            function displayImage(imageSrc) {
+                const imageViewer = document.getElementById('imageViewer');
+                const imageInfo = document.getElementById('imageInfo');
+                                
+                //clear previous content
+                imageViewer.innerHTML = '';
+                
+                //create and display image
+                const img = document.createElement('img');
+                img.src = imageSrc;
+                img.alt = '360 VIEW';
+            
+                img.onload = function() {
+                    //get image dimensions
+                    imageWidth = this.naturalWidth;
+                    imageHeight = this.naturalHeight;
+                    
+                    //get container dimensions
+                    containerWidth = imageViewer.clientWidth;
+                    containerHeight = imageViewer.clientHeight;
+                    
+                    currentX = Math.max(0, (imageWidth - containerWidth) / 2);
+                    currentY = Math.max(0, (imageHeight - containerHeight) / 2);
+                 
+                    updateImagePosition();
+                    
+                    //show image info
+                    imageInfo.textContent = `Image: ${imageSrc.split('/').pop()}`;
+                    imageInfo.style.display = 'block';
+                };
+                
+                img.onerror = function() {
+                    console.error('Image failed to load:', imageSrc);
+                    document.getElementById('noImages').style.display = 'block';
+                };
+                
+                imageViewer.appendChild(img);
+                currentImage = img;
+                console.log('Image appended to viewer');
+            }
+            
+            //function to update image position
+            function updateImagePosition() {
+                if (!currentImage) return;
+                
+                //constrain position within image bounds
+                const maxX = Math.max(0, imageWidth - containerWidth);
+                const maxY = Math.max(0, imageHeight - containerHeight);
+                
+                currentX = Math.max(0, Math.min(currentX, maxX));
+                currentY = Math.max(0, Math.min(currentY, maxY));
+                
+                //apply transform
+                currentImage.style.transform = `translate(-${currentX}px, -${currentY}px)`;
+            }
+            
+            //event listeners for navigation
+            document.getElementById('up').addEventListener('click', () => {
+                currentY -= moveStep;
+                updateImagePosition();
+            });
+            
+            document.getElementById('down').addEventListener('click', () => {
+                currentY += moveStep;
+                updateImagePosition();
+            });
+            
+            document.getElementById('left').addEventListener('click', () => {
+                currentX -= moveStep;
+                updateImagePosition();
+            });
+            
+            document.getElementById('right').addEventListener('click', () => {
+                currentX += moveStep;
+                updateImagePosition();
+            });
+           
+            //load image when page loads
+            document.addEventListener('DOMContentLoaded', loadImage);
