@@ -1,0 +1,52 @@
+{
+  "login": {
+    "title": "Login",
+    "username": "Username",
+    "password": "Password",
+    "loginButton": "Login",
+    "usernameError": "Username not found",
+    "passwordError": "Wrong password",
+    "rateError": "Too many attempts, try again later"
+  },
+  "main": {
+    "camera": "Camera",
+    "system": "System",
+    "logout": "Logout",
+    "backToDashboard": "Back to Dashboard",
+    "liveVideo": "LIVE VIDEO",
+    "systemInfo": "System Information",
+    "cameraModel": "Camera Model",
+    "firmwareVersion": "Firmware Version",
+    "ipAddress": "IP Address",
+    "macAddress": "MAC Address",
+    "resolution": "Resolution",
+    "frameRate": "Frame Rate",
+    "compression": "Compression",
+    "status": "Status",
+    "uptime": "Uptime",
+    "lastRestart": "Last Restart",
+    "online": "Online",
+    "offline": "Offline",
+    "noImages": "No images found",
+    "model": "Model",
+    "mode": "Mode",
+    "brightness": "Brightness",
+    "contrast": "Contrast",
+    "maxfps": "Max FPS",
+    "preset": "Preset",
+    "call": "Call",
+    "set": "Set",
+    "type": "Type",
+    "sensor": "Sensor",
+    "lens": "Lens",
+    "fps": "FPS",
+    "settings": "Settings",
+    "stream": "Stream",
+    "streamSettingsComingSoon": "Stream settings coming soon.",
+    "errorLoadingSystemInfo": "Error loading system information"
+  },
+  "language": {
+    "english": "English",
+    "spanish": "Español"
+  }
+} 

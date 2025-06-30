@@ -1,0 +1,527 @@
+doctype html
+html(lang="en")
+  head
+    meta(charset='UTF-8')
+    title VStarcam Camera
+    link(rel="stylesheet", href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css")
+    style.
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: #222;
+        margin: 0;
+        color: #fff;
+        min-height: 100vh;
+      }
+      .main-layout {
+        display: flex;
+        flex-direction: row;
+        height: 100vh;
+        width: 100vw;
+      }
+      .vstarcam-image-area {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: #181d23;
+        flex: 1;
+      }
+      .vstarcam-player {
+        background: #000;
+        border-radius: 10px;
+        width: 100%;
+        height: 100%;
+        max-width: 900px;
+        max-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #container {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #000;
+        overflow: hidden;
+        position: relative;
+        border-radius: 8px;
+      }
+      #imageViewer {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        overflow: hidden;
+      }
+      .no-images {
+        color: #b0b8c1;
+        font-size: 1.2em;
+      }
+
+      .vstarcam-panel {
+        width: 340px;
+        background: #fff;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 24px 18px;
+        border: 2px solid #e0e0e0;
+        border-radius: 24px;
+        height: 90vh;
+        position: relative;
+      }
+
+      .vstarcam-logo {
+        width: 200px;
+        margin-bottom: 5px;
+      }
+
+      .joystick {
+        position: relative;
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: radial-gradient(circle at center, #1e90ff, #0050a0);
+        box-shadow: inset 0 0 12px #002244;
+        border: 3px solid #fff;
+        margin-top: 16px;
+        margin-bottom: 24px;
+      }
+
+      .joystick-inner {
+        position: absolute;
+        width: 40px;
+        height: 40px;
+        background: #fff;
+        border-radius: 50%;
+        top: 40px;
+        left: 40px;
+        cursor: grab;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+      }
+
+      .camera-info {
+        margin-top: 12px;
+        width: 100%;
+        color: #222;
+        font-size: 1em;
+        background: #fff;
+        border-radius: 8px;
+        padding: 10px 12px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+        border: 1px solid #e0e0e0;
+      }
+
+      .camera-info-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 6px;
+      }
+
+      .camera-info-label {
+        color: #888;
+      }
+
+      .logo-underline {
+        width: 80%;
+        height: 2px;
+        background: #111;
+        margin: 0 auto 18px auto;
+        border-radius: 1px;
+      }
+
+      .camera-info-box {
+        width: 100%;
+        background: #f6f6f6;
+        border-radius: 10px;
+        padding: 14px 10px 10px 10px;
+        margin-top: 10px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+        border: 1px solid #e0e0e0;
+      }
+
+      .info-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+        font-size: 1em;
+      }
+
+      .label {
+        color: #222;
+        font-weight: 500;
+      }
+
+      .value {
+        color: #222;
+        font-weight: 600;
+        min-width: 80px;
+        text-align: right;
+      }
+
+      .camera-info-box select.value {
+        min-width: 80px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        border: 1px solid #888;
+        background: #fff;
+        color: #222;
+        font-size: 1em;
+      }
+
+      .settings-btn-rect {
+        position: absolute;
+        bottom: 70px;
+        left: 50%;
+        transform: translateX(-50%);
+        background:rgb(255, 255, 255);
+        border: 1.5px solid #888;
+        border-radius: 6px;
+        width: 350px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+        transition: background 0.2s;
+        font-size: 1em;
+        color: #222;
+        gap: 8px;
+      }
+
+      .settings-btn-rect:hover {
+        background: #d6d6d6;
+      }
+
+      .settings-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0,0,0,0.45);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .settings-modal.active {
+        display: flex;
+      }
+
+      .settings-modal-content {
+        background: #fff;
+        color: #222;
+        border-radius: 12px;
+        padding: 32px 28px 24px 28px;
+        min-width: 320px;
+        max-width: 90vw;
+        box-shadow: 0 4px 32px rgba(0,0,0,0.18);
+        position: relative;
+      }
+
+      .settings-modal-close {
+        position: absolute;
+        top: 12px;
+        right: 18px;
+        background: none;
+        border: none;
+        font-size: 2em;
+        color: #888;
+        cursor: pointer;
+      }
+
+      .settings-modal-close:hover {
+        color: #222;
+      }
+
+      .settings-modal-title {
+        font-size: 1.3em;
+        font-weight: bold;
+        margin-bottom: 18px;
+        color: #1e90ff;
+      }
+
+      .settings-modal-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+
+      .settings-modal-list li {
+        margin-bottom: 8px;
+      }
+
+      .settings-modal-list ul {
+        margin: 0 0 0 18px;
+      }
+       .logout-btn-rect {
+        position: absolute;
+        bottom: 18px;
+        left: 50%;
+        transform: translateX(-50%);
+        background:rgb(255, 255, 255);
+        border: 1.5px solid #888;
+        border-radius: 6px;
+        width: 350px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+        transition: background 0.2s;
+        font-size: 1em;
+        color: #000;
+        gap: 8px;
+        text-decoration: none;
+      }
+
+      .logout-btn-rect:hover {
+        background: #002244;
+      }
+  body
+    .main-layout
+      .vstarcam-image-area
+        .vstarcam-player
+          #container
+            #imageViewer
+              .no-images#noImages(style="display: none;") No images found
+      .vstarcam-panel
+        img.vstarcam-logo(src="/brands/Vstarcam.png" alt="VStarcam Logo")
+        .logo-underline
+        .joystick
+          .joystick-inner#joystickKnob
+        .camera-info-box
+          .info-row
+            span.label= __('main.model')
+            span.value #{model}
+          .info-row
+            span.label= __('main.resolution')
+            span.value #{resolution}
+          .info-row
+            span.label= __('main.mode')
+            select.value(name="mode")
+              option 50 Hz
+              option 60 Hz
+          .info-row
+            span.label= __('main.brightness')
+            select.value(name="brightness")
+              option 4
+              option 5
+              option 6(selected)
+              option 7
+              option 8
+          .info-row
+            span.label= __('main.contrast')
+            select.value(name="contrast")
+              option 2
+              option 3
+              option 4(selected)
+              option 5
+              option 6
+          .info-row
+            span.label= __('main.maxfps')
+            select.value(name="maxfps")
+              option full speed
+              option 15 fps
+              option 10 fps
+          .info-row
+            span.label= __('main.preset')
+            span.value
+              button.preset-btn= __('main.call')
+              button.preset-btn= __('main.set')
+        .preset-bar
+        button.settings-btn-rect(type="button" id="settingsBtn" title="Settings")
+          i.fas.fa-cog
+          span= __('main.settings')
+        a.logout-btn-rect(href="/logout")
+          i.fas.fa-sign-out-alt
+          span= __('main.logout')
+        .settings-modal#settingsModal
+          .settings-modal-content
+            button.settings-modal-close(type="button" id="settingsModalClose" aria-label="Close") &times;
+            div.settings-modal-title#settingsModalTitle #{__('main.settings')}
+            ul.settings-modal-list#settingsModalList
+            div#errorSettingsInfo(style="color:#ff4d4d; margin-top:12px; display:none;")
+    script(src='https://unpkg.com/axios/dist/axios.min.js')
+    script(src='https://code.jquery.com/jquery-3.6.3.min.js')
+    script.
+      let currentImage = null;
+      let currentX = 0;
+      let currentY = 0;
+      let imageWidth = 0;
+      let imageHeight = 0;
+      let containerWidth = 0;
+      let containerHeight = 0;
+      const moveStep = 30;
+
+      // Pass translated labels to JS
+      const labels = {
+        model: '!{__('main.model')}',
+        type: '!{__('main.type')}',
+        resolution: '!{__('main.resolution')}',
+        sensor: '!{__('main.sensor')}',
+        lens: '!{__('main.lens')}',
+        fps: '!{__('main.fps')}',
+        compression: '!{__('main.compression')}',
+        error: '!{__('main.errorLoadingSystemInfo')}'
+      };
+
+      function loadImage() {
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', '/api/images', true);
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState === 4 && xhr.status === 200) {
+              try {
+                const images = JSON.parse(xhr.responseText);
+              if (images.length > 0) displayImage(images[0]);
+              else document.getElementById('noImages').style.display = 'block';
+            } catch {
+              document.getElementById('noImages').style.display = 'block';
+            }
+          }
+        };
+        xhr.send();
+      }
+
+      function displayImage(imageSrc) {
+        const imageViewer = document.getElementById('imageViewer');
+        imageViewer.innerHTML = '';
+        const img = document.createElement('img');
+        img.src = imageSrc;
+        img.style.position = 'absolute';
+        img.style.top = '0';
+        img.style.left = '0';
+        img.style.maxWidth = 'none';
+        img.style.maxHeight = 'none';
+        img.draggable = false;
+        img.onload = function () {
+          imageWidth = this.naturalWidth;
+          imageHeight = this.naturalHeight;
+          containerWidth = imageViewer.clientWidth;
+          containerHeight = imageViewer.clientHeight;
+          currentX = Math.max(0, (imageWidth - containerWidth) / 2);
+          currentY = Math.max(0, (imageHeight - containerHeight) / 2);
+          updateImagePosition();
+        };
+        imageViewer.appendChild(img);
+        currentImage = img;
+      }
+
+      function updateImagePosition() {
+        if (!currentImage) return;
+        const maxX = Math.max(0, imageWidth - containerWidth);
+        const maxY = Math.max(0, imageHeight - containerHeight);
+        currentX = Math.max(0, Math.min(currentX, maxX));
+        currentY = Math.max(0, Math.min(currentY, maxY));
+        currentImage.style.transform = `translate(-${currentX}px, -${currentY}px)`;
+      }
+
+      function moveCamera(dx, dy) {
+        currentX += dx;
+        currentY += dy;
+          updateImagePosition();
+      }
+
+      document.addEventListener('DOMContentLoaded', function () {
+        const knob = document.getElementById('joystickKnob');
+        const joystick = knob.parentElement;
+        let dragging = false;
+        let origin = { x: 0, y: 0 };
+
+        knob.addEventListener('mousedown', (e) => {
+          dragging = true;
+          origin.x = e.clientX;
+          origin.y = e.clientY;
+          e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+          if (!dragging) return;
+          const dx = e.clientX - origin.x;
+          const dy = e.clientY - origin.y;
+          knob.style.transform = `translate(${dx}px, ${dy}px)`;
+        });
+
+        document.addEventListener('mouseup', (e) => {
+          if (!dragging) return;
+          dragging = false;
+          const dx = e.clientX - origin.x;
+          const dy = e.clientY - origin.y;
+          knob.style.transform = 'translate(0, 0)';
+          origin = { x: 0, y: 0 };
+
+          if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+            moveCamera(dx, dy);
+          }
+        });
+
+        // Keyboard control
+        document.addEventListener('keydown', (e) => {
+          switch (e.key.toLowerCase()) {
+            case 'arrowup':
+            case 'w': moveCamera(0, -moveStep); break;
+            case 'arrowdown':
+            case 's': moveCamera(0, moveStep); break;
+            case 'arrowleft':
+            case 'a': moveCamera(-moveStep, 0); break;
+            case 'arrowright':
+            case 'd': moveCamera(moveStep, 0); break;
+          }
+        });
+
+        loadImage();
+      });
+
+      document.addEventListener('DOMContentLoaded', function() {
+        const settingsBtn = document.getElementById('settingsBtn');
+        const settingsModal = document.getElementById('settingsModal');
+        const settingsModalClose = document.getElementById('settingsModalClose');
+        const settingsModalTitle = document.getElementById('settingsModalTitle');
+        const settingsModalList = document.getElementById('settingsModalList');
+        const errorSettingsInfo = document.getElementById('errorSettingsInfo');
+        function closeModal() {
+          settingsModal.classList.remove('active');
+        }
+        settingsBtn.addEventListener('click', async function() {
+          settingsModal.classList.add('active');
+          settingsModalTitle.textContent = labels.settings || 'Settings';
+          settingsModalList.innerHTML = '';
+          errorSettingsInfo.style.display = 'none';
+          try {
+            const res = await fetch('/config/vstarcam.json');
+            if (!res.ok) throw new Error('Failed to load');
+            const data = await res.json();
+            let html = '';
+            if (data.model) html += `<li><b>${labels.model}:</b> ${data.model}</li>`;
+            if (data.type) html += `<li><b>${labels.type}:</b> ${data.type}</li>`;
+            if (data.resolution) html += `<li><b>${labels.resolution}:</b> ${data.resolution}</li>`;
+            if (data.specifications) {
+              if (data.specifications.sensor) html += `<li><b>${labels.sensor}:</b> ${data.specifications.sensor}</li>`;
+              if (data.specifications.lens) html += `<li><b>${labels.lens}:</b> ${data.specifications.lens}</li>`;
+              if (data.specifications.fps) html += `<li><b>${labels.fps}:</b> ${data.specifications.fps}</li>`;
+              if (data.specifications.compression) html += `<li><b>${labels.compression}:</b> ${data.specifications.compression}</li>`;
+            }
+            Object.entries(data).forEach(([k,v]) => {
+              if (["features","specifications","brand","model","type","resolution"].includes(k)) return;
+              html += `<li><b>${k}:</b> ${v}</li>`;
+            });
+            settingsModalList.innerHTML = html;
+          } catch (e) {
+            errorSettingsInfo.textContent = labels.error;
+            errorSettingsInfo.style.display = '';
+          }
+        });
+        settingsModalClose.addEventListener('click', closeModal);
+        settingsModal.addEventListener('click', function(e) {
+          if (e.target === settingsModal) closeModal();
+        });
+      });

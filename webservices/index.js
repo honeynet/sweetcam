@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const session = require('express-session');
+const i18n = require('i18n');
 const sweetcamServices = require('./services/sweetcam-services');
 const userServices = require('./services/user-services');
 const bcrypt = require('bcrypt');
@@ -8,6 +9,16 @@ const fs = require('fs');
 
 const app = express();
 let beginTimeOfLogin = 0;
+
+// Configure i18n
+i18n.configure({
+    locales: ['en', 'es'],
+    defaultLocale: 'en',
+    directory: path.join(__dirname, 'locales'),
+    objectNotation: true,
+    updateFiles: false,
+    syncFiles: false
+});
 
 //middleware
 app.use(session({
@@ -21,18 +32,51 @@ app.use(session({
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
 }));
+
+// i18n middleware
+app.use(i18n.init);
+
+// Language switching middleware
+app.use((req, res, next) => {
+    // Set default locale if not set
+    if (!req.session.locale) {
+        req.session.locale = 'en';
+    }
+    
+    // Set locale for i18n
+    req.setLocale(req.session.locale);
+    
+    // Make locale available to templates
+    res.locals.locale = req.session.locale;
+    
+    next();
+});
+
 app.set('view engine', 'pug');
 app.set('views', path.join(__dirname, 'views'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/config', express.static(path.join(__dirname, 'config')));
+
+// Language switching route
+app.get('/set-language/:lang', (req, res) => {
+    const lang = req.params.lang;
+    if (['en', 'es'].includes(lang)) {
+        req.session.locale = lang;
+    }
+    res.redirect('back');
+});
 
 //helper function to get camera type based on port
 function getCameraTypeByPort(port) {
     switch(port) {
         case 80: return 'hikvision';
+        case 81: return 'vstarcam';
         case 37777: return 'dahua';
         case 443: return 'mobotix';
+        case 10000: return 'axis';
+        case 8081: return 'reolink';
         default: return 'hikvision';
     }
 }
@@ -93,7 +137,8 @@ app.get('/', requireAuth, (req, res) => {
         model: config.model,
         brand: config.brand,
         brandImagePath: config.brandImagePath,
-        brandImageWidth: config.brandImageWidth
+        brandImageWidth: config.brandImageWidth,
+        locale: req.session.locale || 'en'
     });
 });
 
@@ -105,7 +150,10 @@ app.get('/login', (req, res) => {
     const port = req.connection.server.address().port;
     const cameraType = getCameraTypeByPort(port);
     const config = sweetcamServices.getCameraConfig(cameraType);
-    res.render(`login-${cameraType}`, { config: config });
+    res.render(`login-${cameraType}`, { 
+        config: config,
+        locale: req.session.locale || 'en'
+    });
 });
 
 app.post('/login', async (req, res) => { //login endpoint
@@ -145,8 +193,8 @@ app.get('/logout', (req, res) => {
 });
 
 //start servers on different ports
-const ports = [80, 37777, 443];
-const cameraTypes = ['hikvision', 'dahua', 'mobotix'];
+const ports = [80, 81, 37777, 443, 10000, 8081];
+const cameraTypes = ['hikvision', 'vstarcam', 'dahua', 'mobotix', 'axis', 'reolink'];
 
 ports.forEach((port, index) => {
     const server = app.listen(port, '0.0.0.0', () => {

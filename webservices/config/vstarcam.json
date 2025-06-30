@@ -1,0 +1,28 @@
+{
+    "timeout": 1000,
+    "xRotationAngle": 0,
+    "yRotationAngle": 0,
+    "width": 0.3,
+    "height": 0.3,
+    "zoomRatio": 100,
+    "videoPathMp4": "/videos/vstarcam.mp4",
+    "videoPathWebm": "/videos/vstarcam.webm",
+    "brandImagePath": "/brands/VStarcam.png",
+    "brandImageWidth": "30%",
+    "rtspAddress": "rtsp://localhost:554/vstarcam",
+    "brand": "VStarcam",
+    "model": "c7824wip",
+    "type": "Network Camera",
+    "resolution": "640x480",
+    "features": {
+        "nightVision": true,
+        "motionDetection": true,
+        "audio": true
+    },
+    "specifications": {
+        "sensor": "CMOS",
+        "lens": "3.6mm",
+        "fps": "25 fps",
+        "compression": "H.264"
+    }
+} 

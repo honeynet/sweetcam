@@ -14,8 +14,34 @@ html
                 color: white;
                 padding: 18px 32px;
                 display: flex;
-                justify-content: flex-end;
+                justify-content: space-between;
                 align-items: center;
+            }
+            .language-chooser {
+                display: flex;
+                gap: 10px;
+            }
+            .lang-btn {
+                background-color: #EC412D;
+                color: white;
+                padding: 6px 12px;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 12px;
+                transition: background-color 0.3s;
+            }
+            .lang-btn:hover {
+                background-color: #d32f2f;
+            }
+            .lang-btn.active {
+                background-color: #d32f2f;
+                font-weight: bold;
+            }
+            .user-section {
+                display: flex;
+                align-items: center;
+                gap: 20px;
             }
             .sidebar-logo {
                 display: flex;
@@ -25,11 +51,6 @@ html
             }
             .sidebar-logo img {
                 height: 40px;
-            }
-            .user-section {
-                display: flex;
-                align-items: center;
-                gap: 20px;
             }
             .sidebar {
                 width: 220px;
@@ -246,22 +267,25 @@ html
             }
     body
         .topbar
+            .language-chooser
+                button.lang-btn#en-btn(class=locale === 'en' ? 'active' : '')= __('language.english')
+                button.lang-btn#es-btn(class=locale === 'es' ? 'active' : '')= __('language.spanish')
             .user-section
                 span.user-info Welcome, #{userName}!
-                a.logout-btn(href="/logout") Logout
+                a.logout-btn(href="/logout")= __('main.logout')
         .sidebar
             .sidebar-logo
                 img(src=brandImagePath, alt=brand)
             ul
-                li.tab-btn.active(data-tab="camera") Camera 1
-                li.tab-btn(data-tab="info") Camera Information
+                li.tab-btn.active(data-tab="camera")= __('main.camera')
+                li.tab-btn(data-tab="info")= __('main.system')
         .main-content
             .content-section.active#camera-section
                 .video-container
                     .image-info#imageInfo(style="display: none;")
                     div(id='container')
                         div(id='imageViewer')
-                            .no-images#noImages(style="display: none;") No images found
+                            .no-images#noImages(style="display: none;")= __('main.noImages')
                     div(id='control')
                         button(id='up' type='button') &#x25B2;
                         button(id='down' type='button') &#x25BC;
@@ -269,40 +293,48 @@ html
                         button(id='right' type='button') &#x25B6;
             .content-section#info-section
                 .camera-info-container
-                    h2 Camera Information
+                    h2= __('main.systemInfo')
                     .info-grid#camera-info-grid
                         .info-item
-                            .info-label Camera Model
+                            .info-label= __('main.cameraModel')
                             .info-value#camera-model
                         .info-item
-                            .info-label Firmware Version
+                            .info-label= __('main.firmwareVersion')
                             .info-value#firmware-version
                         .info-item
-                            .info-label IP Address
+                            .info-label= __('main.ipAddress')
                             .info-value#ip-address
                         .info-item
-                            .info-label MAC Address
+                            .info-label= __('main.macAddress')
                             .info-value#mac-address
                         .info-item
-                            .info-label Resolution
+                            .info-label= __('main.resolution')
                             .info-value#resolution
                         .info-item
-                            .info-label Frame Rate
+                            .info-label= __('main.frameRate')
                             .info-value#frame-rate
                         .info-item
-                            .info-label Compression
+                            .info-label= __('main.compression')
                             .info-value#compression
                         .info-item
-                            .info-label Status
+                            .info-label= __('main.status')
                             .info-value#status
                                 span.status-indicator.status-online
                         .info-item
-                            .info-label Uptime
+                            .info-label= __('main.uptime')
                             .info-value#uptime
                         .info-item
-                            .info-label Last Restart
+                            .info-label= __('main.lastRestart')
                             .info-value#last-restart
         script.
+            // Language switcher
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const lang = this.id.split('-')[0];
+                    window.location.href = '/set-language/' + lang;
+                });
+            });
+
             //tab switching functionality
             document.querySelectorAll('.tab-btn').forEach(button => {
                 button.addEventListener('click', () => {
@@ -400,7 +432,6 @@ html
                 
                 xhr.onreadystatechange = function() {
                     if (xhr.readyState === 4) {
-                       
                         if (xhr.status === 200) {
                             try {
                                 const images = JSON.parse(xhr.responseText);

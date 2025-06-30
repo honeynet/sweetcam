@@ -1,0 +1,52 @@
+{
+  "login": {
+    "title": "Iniciar Sesión",
+    "username": "Usuario",
+    "password": "Contraseña",
+    "loginButton": "Iniciar Sesión",
+    "usernameError": "Usuario no encontrado",
+    "passwordError": "Contraseña incorrecta",
+    "rateError": "Demasiados intentos, inténtalo más tarde"
+  },
+  "main": {
+    "camera": "Cámara",
+    "system": "Sistema",
+    "logout": "Cerrar Sesión",
+    "backToDashboard": "Volver al Panel",
+    "liveVideo": "VIDEO EN VIVO",
+    "systemInfo": "Información del Sistema",
+    "cameraModel": "Modelo de Cámara",
+    "firmwareVersion": "Versión de Firmware",
+    "ipAddress": "Dirección IP",
+    "macAddress": "Dirección MAC",
+    "resolution": "Resolución",
+    "frameRate": "Velocidad de Cuadros",
+    "compression": "Compresión",
+    "status": "Estado",
+    "uptime": "Tiempo Activo",
+    "lastRestart": "Último Reinicio",
+    "online": "En Línea",
+    "offline": "Desconectado",
+    "noImages": "No se encontraron imágenes",
+    "model": "Modelo",
+    "mode": "Modo",
+    "brightness": "Brillo",
+    "contrast": "Contraste",
+    "maxfps": "FPS Máx",
+    "preset": "Preajuste",
+    "call": "Llamar",
+    "set": "Establecer",
+    "type": "Tipo",
+    "sensor": "Sensor",
+    "lens": "Lente",
+    "fps": "FPS",
+    "settings": "Configuración",
+    "stream": "Transmisión",
+    "streamSettingsComingSoon": "Configuración de transmisión próximamente.",
+    "errorLoadingSystemInfo": "Error al cargar la información del sistema"
+  },
+  "language": {
+    "english": "English",
+    "spanish": "Español"
+  }
+} 

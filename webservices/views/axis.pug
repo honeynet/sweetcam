@@ -1,0 +1,585 @@
+doctype html
+html(lang="en")
+    head
+        meta(charset='UTF-8')
+        title #{model}
+        link(rel="stylesheet", href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css")
+        style.
+            :root {
+                --axis-yellow: #ffcc00;
+                --axis-gray: #f5f5f5;
+                --header-bg: #fff;
+                --text-color: #222;
+                --card-bg: #fff;
+                --card-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+            }
+            body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background-color: var(--axis-gray);
+                margin: 0;
+                color: var(--text-color);
+                min-height: 100vh;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: flex-start;
+            }
+            .header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 15px 30px;
+                background-color: var(--header-bg);
+                border-bottom: 4px solid var(--axis-yellow);
+                width: 100vw;
+                max-width: 100vw;
+                left: 0;
+                right: 0;
+                position: relative;
+                box-sizing: border-box;
+            }
+            .header-logo img {
+                max-width: 160px;
+                margin-bottom: 8px;
+            }
+            .header-title {
+                font-size: 1.5em;
+                font-weight: bold;
+                color: var(--axis-yellow);
+                letter-spacing: 1px;
+            }
+            .user-profile {
+                display: flex;
+                align-items: center;
+                font-weight: 500;
+            }
+            .user-profile i {
+                margin-right: 8px;
+            }
+            .logout-btn {
+                color: #fff;
+                background: var(--axis-yellow);
+                border: none;
+                border-radius: 4px;
+                padding: 8px 16px;
+                margin-left: 20px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: background 0.2s;
+            }
+            .logout-btn:hover {
+                background: #e6b800;
+            }
+            .main-content {
+                padding: 40px;
+            }
+            .axis-card {
+                background: #fff;
+                border-radius: 0;
+                box-shadow: 0 8px 32px 0 rgba(0,0,0,0.10);
+                padding: 48px 48px 32px 48px;
+                margin: 48px 0 32px 0;
+                max-width: 900px;
+                width: 100%;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+            .axis-title-bar {
+                width: 100%;
+                background: var(--axis-yellow);
+                color: #222;
+                font-size: 1.3em;
+                font-weight: 600;
+                text-align: center;
+                border-radius: 12px 12px 0 0;
+                padding: 18px 0 14px 0;
+                margin-bottom: 18px;
+                letter-spacing: 0.5px;
+            }
+            .axis-image-area {
+                background: transparent;
+                padding: 16px;
+                margin-bottom: 18px;
+                margin-top: 60px;
+                width: 100%;
+                max-width: 600px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                min-height: 340px;
+                position: relative;
+            }
+            #container {
+                width: 100%;
+                max-width: 600px;
+                aspect-ratio: 4/3;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: #e0e0e0;
+                overflow: hidden;
+                position: relative;
+                margin: 0 auto;
+                min-height: 360px;
+                height: 450px;
+                border-radius: 10px;
+            }
+            #imageViewer {
+                width: 100%;
+                height: 100%;
+                position: relative;
+                overflow: hidden;
+                border-radius: 10px;
+            }
+            #imageViewer img {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: auto;
+                height: auto;
+                max-width: none;
+                max-height: none;
+                user-select: none;
+                transform-origin: top left;
+            }
+            #control {
+                display: flex;
+                justify-content: center;
+                gap: 8px;
+                position: absolute;
+                bottom: 18px;
+                left: 0;
+                width: 100%;
+                background: none;
+            }
+            #control button {
+                background: var(--axis-yellow);
+                color: #222;
+                border: none;
+                padding: 6px 12px;
+                border-radius: 3px;
+                cursor: pointer;
+                font-size: 16px;
+                font-weight: 500;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+                transition: background 0.2s, color 0.2s, transform 0.1s;
+            }
+            #control button:disabled {
+                background: #eee;
+                color: #aaa;
+                cursor: not-allowed;
+            }
+            #control button:hover:not(:disabled), #control button:focus-visible:not(:disabled) {
+                background: #ffe066;
+                color: #111;
+                transform: translateY(-2px) scale(1.05);
+                outline: none;
+            }
+            .axis-main-center {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                width: 100vw;
+                margin-top: 32px;
+            }
+            #control {
+                display: flex;
+                justify-content: center;
+                gap: 18px;
+                margin-top: 18px;
+                width: 100%;
+                background: transparent;
+            }
+            #control button {
+                background: var(--axis-yellow);
+                color: #222;
+                border: none;
+                padding: 12px 28px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 22px;
+                font-weight: 600;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+                transition: background 0.2s, color 0.2s, transform 0.1s;
+            }
+            #control button:disabled {
+                background: #eee;
+                color: #aaa;
+                cursor: not-allowed;
+            }
+            #control button:hover:not(:disabled), #control button:focus-visible:not(:disabled) {
+                background: #ffe066;
+                color: #111;
+                transform: translateY(-2px) scale(1.05);
+                outline: none;
+            }
+            .axis-settings-btn {
+                position: fixed;
+                right: 32px;
+                bottom: 32px;
+                background: var(--axis-yellow);
+                color: #222;
+                border: none;
+                border-radius: 20px;
+                padding: 10px 22px 10px 18px;
+                font-size: 1.1em;
+                font-weight: 600;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+                cursor: pointer;
+                z-index: 1001;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .axis-settings-btn i {
+                font-size: 1.2em;
+            }
+            .axis-bottom-bar {
+                position: fixed;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                width: 100vw;
+                background: #fff;
+                box-shadow: 0 -2px 16px 0 rgba(0,0,0,0.10);
+                border-radius: 18px 18px 0 0;
+                padding: 24px 32px 16px 32px;
+                z-index: 1002;
+                min-height: 180px;
+                max-width: 100vw;
+                margin: 0;
+                box-sizing: border-box;
+                height: 340px;
+                max-height: 340px;
+                overflow-y: auto;
+            }
+            .axis-tabs {
+                display: flex;
+                gap: 32px;
+                margin-bottom: 18px;
+            }
+            .axis-tab {
+                font-size: 1.1em;
+                color: #888;
+                font-weight: 600;
+                cursor: pointer;
+                padding-bottom: 6px;
+                border-bottom: 2px solid transparent;
+                transition: color 0.2s, border-bottom 0.2s;
+            }
+            .axis-tab.active {
+                color: #222;
+                border-bottom: 2px solid var(--axis-yellow);
+            }
+            .axis-tab-content {
+                min-height: 80px;
+            }
+            #system-info-list {
+                list-style: none;
+                padding: 0;
+                margin: 0;
+            }
+            #system-info-list li {
+                margin-bottom: 6px;
+                color: #444;
+            }
+            .axis-settings-close {
+                position: absolute;
+                top: 16px;
+                right: 24px;
+                background: none;
+                border: none;
+                font-size: 2em;
+                color: #888;
+                cursor: pointer;
+                z-index: 1003;
+                padding: 0;
+                line-height: 1;
+                transition: color 0.2s;
+            }
+            .axis-settings-close:hover {
+                color: #222;
+            }
+            .axis-login-topbar {
+                width: 100vw;
+                display: flex;
+                align-items: center;
+                background: #fff;
+                padding: 8px 18px;
+                box-sizing: border-box;
+                position: fixed;
+                top: 0;
+                left: 0;
+                z-index: 10;
+                border-bottom: 3px solid var(--axis-yellow);
+                gap: 12px;
+                min-height: 38px;
+            }
+            .axis-login-topbar .brand-logo {
+                max-width: 80px;
+                margin-bottom: 0;
+            }
+            .axis-login-topbar .header-title {
+                flex: 1;
+                text-align: center;
+                font-size: 1.2em;
+                color: #222;
+                font-weight: 600;
+                letter-spacing: 0.5px;
+            }
+            .axis-login-topbar .user-profile {
+                display: flex;
+                align-items: center;
+                font-weight: 500;
+                margin-left: auto;
+            }
+            .axis-login-topbar .logout-btn {
+                color: #fff;
+                background: var(--axis-yellow);
+                border: none;
+                border-radius: 4px;
+                padding: 8px 16px;
+                margin-left: 20px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: background 0.2s;
+            }
+            .axis-login-topbar .logout-btn:hover {
+                background: #e6b800;
+            }
+    body
+        .axis-login-topbar
+            img.brand-logo(src=brandImagePath, alt=brand)
+            .header-title #{model}
+            .user-profile
+                i.fas.fa-user
+                | #{userName}
+                a.logout-btn(href="/logout" title="Logout")
+                  i.fas.fa-sign-out-alt
+        .axis-main-center
+            .axis-image-area
+                div#container
+                    div#imageViewer
+                        .no-images#noImages(style="display: none;") No images found
+            #control
+                button#up(type='button') &#x25B2;
+                button#down(type='button') &#x25BC;
+                button#left(type='button') &#x25C0;
+                button#right(type='button') &#x25B6;
+        button#settings-btn.axis-settings-btn(type='button')
+            i.fas.fa-cog
+            |  #{__('main.settings')}
+        .axis-bottom-bar#settings-bar(style='display:none;')
+            button.axis-settings-close(type='button', aria-label='Close') &times;
+            .axis-tabs
+                .axis-tab.active(data-tab='stream') Stream
+                .axis-tab(data-tab='system') System
+            .axis-tab-content#tab-stream
+                h3= __('main.stream')
+                p
+                  span.label= __('main.model')
+                  | : #{model}                  
+                p(style='color:#888;')= __('main.streamSettingsComingSoon')
+            .axis-tab-content#tab-system(style='display:none;')
+                h3= __('main.systemInfo')
+                ul#system-info-list
+                    li #{__('main.model')}: <span id="model-value"></span>
+                    li #{__('main.type')}: <span id="type-value"></span>
+                    li #{__('main.resolution')}: <span id="resolution-value"></span>
+                    li #{__('main.sensor')}: <span id="sensor-value"></span>
+                    li #{__('main.lens')}: <span id="lens-value"></span>
+                    li #{__('main.fps')}: <span id="fps-value"></span>
+                    li #{__('main.compression')}: <span id="compression-value"></span>
+        script(type="text/javascript").
+            // Pass translated labels to JS 
+            const labels = {
+              model: '!{__('main.model')}',
+              type: '!{__('main.type')}',
+              resolution: '!{__('main.resolution')}',
+              sensor: '!{__('main.sensor')}',
+              lens: '!{__('main.lens')}',
+              fps: '!{__('main.fps')}',
+              compression: '!{__('main.compression')}',
+              error: '!{__('main.errorLoadingSystemInfo')}'
+            };
+            let currentImage = null;
+            let currentX = 0;
+            let currentY = 0;
+            let imageWidth = 0;
+            let imageHeight = 0;
+            let containerWidth = 0;
+            let containerHeight = 0;
+            const moveStep = 50; // pixels to move per arrow press
+
+            // Function to load the first image from the server
+            function loadImage() {
+                const xhr = new XMLHttpRequest();
+                xhr.open('GET', '/api/images', true);
+                xhr.withCredentials = true;
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === 4) {
+                        if (xhr.status === 200) {
+                            try {
+                                const images = JSON.parse(xhr.responseText);
+                                if (images.length > 0) {
+                                    displayImage(images[0]);
+                                } else {
+                                    document.getElementById('noImages').style.display = 'block';
+                                }
+                            } catch (error) {
+                                document.getElementById('noImages').style.display = 'block';
+                            }
+                        } else {
+                            document.getElementById('noImages').style.display = 'block';
+                        }
+                    }
+                };
+                xhr.onerror = function() {
+                    document.getElementById('noImages').style.display = 'block';
+                };
+                xhr.send();
+            }
+
+            // Function to display image
+            function displayImage(imageSrc) {
+                const imageViewer = document.getElementById('imageViewer');
+                imageViewer.innerHTML = '';
+                const img = document.createElement('img');
+                img.src = imageSrc;
+                img.alt = '360 VIEW';
+                img.style.position = 'absolute';
+                img.style.top = '0';
+                img.style.left = '0';
+                img.style.width = 'auto';
+                img.style.height = 'auto';
+                img.style.maxWidth = 'none';
+                img.style.maxHeight = 'none';
+                img.style.userSelect = 'none';
+                img.draggable = false;
+                img.onload = function() {
+                    imageWidth = this.naturalWidth;
+                    imageHeight = this.naturalHeight;
+                    containerWidth = imageViewer.clientWidth;
+                    containerHeight = imageViewer.clientHeight;
+                    // Center image if smaller, else start at top-left
+                    currentX = imageWidth > containerWidth ? (imageWidth - containerWidth) / 2 : 0;
+                    currentY = imageHeight > containerHeight ? (imageHeight - containerHeight) / 2 : 0;
+                    updateImagePosition();
+                    // Enable navigation only if image is larger than container in that direction
+                    document.getElementById('up').disabled = !(imageHeight > containerHeight);
+                    document.getElementById('down').disabled = !(imageHeight > containerHeight);
+                    document.getElementById('left').disabled = !(imageWidth > containerWidth);
+                    document.getElementById('right').disabled = !(imageWidth > containerWidth);
+                };
+                img.onerror = function() {
+                    document.getElementById('noImages').style.display = 'block';
+                };
+                imageViewer.appendChild(img);
+                currentImage = img;
+            }
+
+            // Function to update image position (panning with object-position)
+            function updateImagePosition() {
+                if (!currentImage) return;
+                const maxX = Math.max(0, imageWidth - containerWidth);
+                const maxY = Math.max(0, imageHeight - containerHeight);
+                // If image is smaller, center it
+                let offsetX = 0;
+                let offsetY = 0;
+                if (imageWidth <= containerWidth) {
+                    offsetX = -(containerWidth - imageWidth) / 2;
+                } else {
+                    currentX = Math.max(0, Math.min(currentX, maxX));
+                    offsetX = -currentX;
+                }
+                if (imageHeight <= containerHeight) {
+                    offsetY = -(containerHeight - imageHeight) / 2;
+                } else {
+                    currentY = Math.max(0, Math.min(currentY, maxY));
+                    offsetY = -currentY;
+                }
+                currentImage.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+            }
+
+            // Event listeners for navigation
+            document.addEventListener('DOMContentLoaded', function() {
+                document.getElementById('up').addEventListener('click', () => {
+                    currentY -= moveStep;
+                    updateImagePosition();
+                });
+                document.getElementById('down').addEventListener('click', () => {
+                    currentY += moveStep;
+                    updateImagePosition();
+                });
+                document.getElementById('left').addEventListener('click', () => {
+                    currentX -= moveStep;
+                    updateImagePosition();
+                });
+                document.getElementById('right').addEventListener('click', () => {
+                    currentX += moveStep;
+                    updateImagePosition();
+                });
+                loadImage();
+
+                // Settings bar logic
+                const settingsBtn = document.getElementById('settings-btn');
+                const settingsBar = document.getElementById('settings-bar');
+                const settingsClose = document.querySelector('.axis-settings-close');
+                if (settingsBtn && settingsBar) {
+                    let settingsOpen = false;
+                    settingsBtn.addEventListener('click', function() {
+                        settingsOpen = !settingsOpen;
+                        settingsBar.style.display = settingsOpen ? 'block' : 'none';
+                    });
+                    if (settingsClose) {
+                        settingsClose.addEventListener('click', function() {
+                            settingsOpen = false;
+                            settingsBar.style.display = 'none';
+                        });
+                    }
+                }
+                const tabs = document.querySelectorAll('.axis-tab');
+                const tabStream = document.getElementById('tab-stream');
+                const tabSystem = document.getElementById('tab-system');
+                const systemInfoList = document.getElementById('system-info-list');
+                tabs.forEach(tab => {
+                    tab.addEventListener('click', function() {
+                        tabs.forEach(t => t.classList.remove('active'));
+                        tab.classList.add('active');
+                        if (tab.dataset.tab === 'stream') {
+                            tabStream.style.display = '';
+                            tabSystem.style.display = 'none';
+                        } else {
+                            tabStream.style.display = 'none';
+                            tabSystem.style.display = '';
+                        }
+                    });
+                });
+                // Load system info from axis.json
+                async function loadSystemInfo() {
+                    try {
+                        const res = await fetch('/config/axis.json');
+                        const data = await res.json();
+                        
+                        // Only update the values in the existing spans, don't replace the HTML
+                        if (data.model) document.getElementById('model-value').textContent = data.model;
+                        if (data.type) document.getElementById('type-value').textContent = data.type;
+                        if (data.resolution) document.getElementById('resolution-value').textContent = data.resolution;
+                        if (data.specifications) {
+                          if (data.specifications.sensor) document.getElementById('sensor-value').textContent = data.specifications.sensor;
+                          if (data.specifications.lens) document.getElementById('lens-value').textContent = data.specifications.lens;
+                          if (data.specifications.fps) document.getElementById('fps-value').textContent = data.specifications.fps;
+                          if (data.specifications.compression) document.getElementById('compression-value').textContent = data.specifications.compression;
+                        }
+                    } catch (e) {
+                        // Show error message in the correct language
+                        const errorElement = document.createElement('li');
+                        errorElement.textContent = labels.error;
+                        systemInfoList.innerHTML = '';
+                        systemInfoList.appendChild(errorElement);
+                    }
+                }
+                loadSystemInfo();
+            }); 

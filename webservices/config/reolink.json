@@ -1,0 +1,28 @@
+{
+    "timeout": 1000,
+    "xRotationAngle": 0,
+    "yRotationAngle": 0,
+    "width": 0.3,
+    "height": 0.3,
+    "zoomRatio": 100,
+    "videoPathMp4": "/videos/reolink.mp4",
+    "videoPathWebm": "/videos/reolink.webm",
+    "brandImagePath": "/brands/Reolink.png",
+    "brandImageWidth": "30%",
+    "rtspAddress": "rtsp://localhost:554/reolink",
+    "brand": "Reolink",
+    "model": "E1 Zoom",
+    "type": "Network Camera",
+    "resolution": "Full HD",
+    "features": {
+        "nightVision": true,
+        "motionDetection": true,
+        "audio": true
+    },
+    "specifications": {
+        "sensor": "1/2.7\" CMOS",
+        "lens": "2.8-8mm Motorized Lens",
+        "fps": "30 fps",
+        "compression": "H.264, H.265"
+    }
+} 
