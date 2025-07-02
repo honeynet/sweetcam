@@ -436,32 +436,45 @@ html(lang="en")
         const joystick = knob.parentElement;
         let dragging = false;
         let origin = { x: 0, y: 0 };
+        let lastDx = 0, lastDy = 0;
+        const maxRadius = 40; // px, max distance knob can move from center
+        const maxPan = 60; // px, max pan per drag
 
         knob.addEventListener('mousedown', (e) => {
           dragging = true;
           origin.x = e.clientX;
           origin.y = e.clientY;
+          lastDx = 0;
+          lastDy = 0;
           e.preventDefault();
         });
 
         document.addEventListener('mousemove', (e) => {
           if (!dragging) return;
-          const dx = e.clientX - origin.x;
-          const dy = e.clientY - origin.y;
+          let dx = e.clientX - origin.x;
+          let dy = e.clientY - origin.y;
+          // Limit knob movement to maxRadius
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist > maxRadius) {
+            dx = dx * maxRadius / dist;
+            dy = dy * maxRadius / dist;
+          }
           knob.style.transform = `translate(${dx}px, ${dy}px)`;
+          // Pan image in real time, proportional to drag
+          // (maxRadius maps to maxPan)
+          const panX = Math.round((dx / maxRadius) * maxPan);
+          const panY = Math.round((dy / maxRadius) * maxPan);
+          moveCamera(panX - lastDx, panY - lastDy);
+          lastDx = panX;
+          lastDy = panY;
         });
 
         document.addEventListener('mouseup', (e) => {
           if (!dragging) return;
           dragging = false;
-          const dx = e.clientX - origin.x;
-          const dy = e.clientY - origin.y;
           knob.style.transform = 'translate(0, 0)';
-          origin = { x: 0, y: 0 };
-
-          if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
-            moveCamera(dx, dy);
-          }
+          lastDx = 0;
+          lastDy = 0;
         });
 
         // Keyboard control
