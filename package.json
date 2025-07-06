@@ -4,5 +4,11 @@
     "bcrypt": "^6.0.0",
     "express-session": "^1.18.1",
     "jquery": "^3.7.1"
+  },
+  "scripts": {
+    "test": "jest --verbose",
+    "dev": "nodemon index.js",
+    "start": "node index.js",
+    "rtsp": "node rtspservices/rtsp-minimal-server.js"
   }
 }

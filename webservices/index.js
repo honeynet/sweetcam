@@ -192,12 +192,8 @@ app.get('/logout', (req, res) => {
     });
 });
 
-//start servers on different ports
-const ports = [80, 81, 37777, 443, 10000, 8081];
-const cameraTypes = ['hikvision', 'vstarcam', 'dahua', 'mobotix', 'axis', 'reolink'];
-
-ports.forEach((port, index) => {
-    const server = app.listen(port, '0.0.0.0', () => {
-        console.log(`${cameraTypes[index].charAt(0).toUpperCase() + cameraTypes[index].slice(1)} server running on port ${port}`);
-    });
+// Start server on configurable port
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Web service listening on port ${PORT}`);
 });

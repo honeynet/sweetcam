@@ -50,28 +50,112 @@ services:
       - DB_PASSWORD=123456
       - DB_NAME=sweetcam
       - DB_PORT=3306
-    ports:
-      - "80:80"
-      - "37777:37777"
-      - "443:443"
-      - "10000:10000"
-      - "8081:8081"
-      - "81:81"
     stdin_open: true
     tty: true
     depends_on:
       mysql_service:
         condition: service_healthy
-  rtsp_service:
-    build: ./rtspservices
-    container_name: rtsp_service
+
+  rtsp_streaming_service:
+    build:
+      context: ./rtspservices
+      dockerfile: Dockerfile
+    container_name: rtsp_streaming_service
     restart: unless-stopped
-    environment:
-      - RTSP_LOCAL_PORT=554
-      - RTSP_DOCKER_PORT=8554
-      - MTX_PROTOCOLS=tcp
+    cap_add:
+      - NET_BIND_SERVICE
     ports:
       - "554:554"
-    volumes:
-      - ./videos:/app/rtsp/videos
-      - rtsp-resource:/app/rtsp
+      - "8002:8002"
+      - "8003:8003"
+      - "8004:8004"
+      - "8005:8005"
+  axis_service:
+    build:
+      context: ./webservices
+      dockerfile: Dockerfile
+    container_name: axis_service
+    restart: unless-stopped
+    environment:
+      - BRAND=axis
+      - PORT=10000
+    ports:
+      - "10000:10000"
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+
+  dahua_service:
+    build:
+      context: ./webservices
+      dockerfile: Dockerfile
+    container_name: dahua_service
+    restart: unless-stopped
+    environment:
+      - BRAND=dahua
+      - PORT=37777
+    ports:
+      - "37777:37777"
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+
+  hikvision_service:
+    build:
+      context: ./webservices
+      dockerfile: Dockerfile
+    container_name: hikvision_service
+    restart: unless-stopped
+    environment:
+      - BRAND=hikvision
+      - PORT=80
+    ports:
+      - "80:80"
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+
+  mobotix_service:
+    build:
+      context: ./webservices
+      dockerfile: Dockerfile
+    container_name: mobotix_service
+    restart: unless-stopped
+    environment:
+      - BRAND=mobotix
+      - PORT=443
+    ports:
+      - "443:443"
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+
+  reolink_service:
+    build:
+      context: ./webservices
+      dockerfile: Dockerfile
+    container_name: reolink_service
+    restart: unless-stopped
+    environment:
+      - BRAND=reolink
+      - PORT=8081
+    ports:
+      - "8081:8081"
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+
+  vstarcam_service:
+    build:
+      context: ./webservices
+      dockerfile: Dockerfile
+    container_name: vstarcam_service
+    restart: unless-stopped
+    environment:
+      - BRAND=vstarcam
+      - PORT=81
+    ports:
+      - "81:81"
+    depends_on:
+      mysql_service:
+        condition: service_healthy

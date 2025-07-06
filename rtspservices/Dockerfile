@@ -1,8 +1,13 @@
-FROM bluenviron/mediamtx AS rtsp
-FROM alpine:3.12
-WORKDIR /app/rtsp
+FROM node:18-alpine
+WORKDIR /app
+
+#install ffmpeg for video processing
 RUN apk add --no-cache ffmpeg
-COPY --from=rtsp /mediamtx ./
-COPY mediamtx.yml ./
-RUN touch mediamtx.log
-ENTRYPOINT [ "./mediamtx" ]
+
+#copy the RTSP server and test image
+COPY rtsp-server.js ./
+COPY test.jpg ./
+
+EXPOSE 554 8002 8003 8004 8005
+
+CMD ["node", "rtsp-server.js"]
