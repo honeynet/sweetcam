@@ -1,87 +1,169 @@
 <h1 align="center">
-    <img src="./images/logo.png" alt="MediaMTX / rtsp-simple-server" width='75%'>
-</h1>
+    <img src="./images/sweetcam.png" alt="SweetCam IP Camera" width='75%'>
+   </h1>
 
-# Introduction
+# Introduction 
 
-The application *SweetCam* is a honeypot for IP camera. It can simulate a real IP camera vividly, including the interaction with user for rotating and zooming.
+The application SweetCam is a honeypot for IP camera. It can simulate a real IP camera vividly, including the interaction with user for rotating and zooming.
 
 # Components
 
-The SweetCam honeypot application is composed by four parts:
+The SweetCam honeypot consists of **11 containers**:
 
-1. The MySQL service for data storage.
-2. The RTSP service, this is used to provide the RTSP service for the attackers.
-3. The Web service, this is used to provide the web service for the attackers, including viewing the camera page, logging etc.
-4. The Cowrie service, this is used as the SSH honeypot for providing the SSH service for the attackers.
+### Core Services
+1. **MySQL service** is service for data storage.
+2. **RTSP streaming service** used to provide the RTSP service for attackers.
+3. **Web service** is main web interface.
+4. **Cowrie service** SSH honeypot service.
+
+### Camera Brand Services (6 containers)
+4. **Dahua Service**: port 37777
+5. **Hikvision Service**: port 80  
+6. **VStarcam Service**: port 81
+7. **Mobotix Service**: port 443
+8. **Axis Service**: port 10000
+9. **Reolink Service**: port 8081
 
 
+## Quick Start
 
-# How to run the application
-To run launch the application, just enter the root directory of the application and launch the application with the following command (remember to add a .env file with required environment variables):
+### Prerequisites
+- Docker and Docker Compose installed
+- Ports 22, 80, 81, 443, 554, 2222, 3306, 37777, 8081, 10000 available
 
+### Installation
+
+1. **Clone the repository:**
+   ```shell
+   git clone https://github.com/your-repo/sweetcam-GSOC.git
+   cd sweetcam-GSOC
+   ```
+
+2. **Create environment file:**
+   ```shell
+   cp .env.example .env
+   # Edit .env with your configuration
+   nano .env 
+   ```
+
+3. **Start all services:**
+   ```shell
+   docker compose up -d
+   ```
+
+4. **Verify containers are running:**
+   ```shell
+   docker ps
+   ```
+
+## Accessing Camera Interfaces
+
+All cameras can be accessed with defeault login credentials available in initialize.sql.
+To access cameras' web pages you can use your default browser. 
+
+#### 1. **Dahua Camera (Port 37777)**
+http://localhost:37777
+
+#### 2. **Hikvision Camera (Port 80)**
+http://localhost:80
+
+#### 3. **VStarcam Camera (Port 81)**
+http://localhost:81
+
+#### 4. **Mobotix Camera (Port 443)**
+http://localhost:443
+
+#### 5. **Axis Camera (Port 10000)**
+http://localhost:10000
+
+#### 6. **Reolink Camera (Port 8081)**
+http://localhost:8081
+
+## RTSP Streaming Access
 ```shell
-docker compose up -d
+# Stream URL
+rtsp://localhost:554/stream
+# Test with VLC
+vlc rtsp://localhost:554/stream
+# Test with FFplay
+ffplay rtsp://localhost:554/stream
 ```
 
-Thereafter, there should be four containers that are running as shown follows:
-
-1. web_service
-2. cowrie_service
-3. rtsp_service
-4. mysql_service
-
-Once the four services are lunched, there are several configurations should be made within the rtsp_service:
-
-1. Enter the rtsp_service container with the following command:
-
-   ```
-   docker exec -it rtsp_service /bin/sh
-   ```
-
-2. Revise the mediamtx.yml file to configure the logging function of the Mediamtx application.
-
-3. Then use the FFmpeg tool to push the video to mediamtx server (RTSP server)
-
-# Deploy on cloud
-Take Azure Cloud as example.
-## Configure SSH
-First we need to change the used SSH port since the default one 22 should be used by Cowrie honeypot.
-1. sudo vim /etc/ssh/sshd_config.
-2. Change the port to another one, 2404 for example.
-3. Restart ssh service: sudo service ssh restart
-4. Reconnect with new port: ssh -i ./sweetcam_key.pem azureuser@20.197.231.249 -p 2404
-5. Revise the virtual machine network policy to allow 2404 traffic.
-
-## Install Docker tool chain
-1. sudo apt-get -y update
-2. sudo apt-get -y install ca-certificates curl gnupg
-3. sudo install -m 0755 -d /etc/apt/keyrings 
-4. curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg 
-5. sudo chmod a+r /etc/apt/keyrings/docker.gpg
-6. echo \
-   "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-   "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | \
-   sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-7. sudo apt-get update
-8. sudo apt-get -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
-Or to use the script `./install-docker.sh`, before using it change its permission with `sudo chmod 776 install-docker.sh`
-
-## Deploy application
-The procedures are as follows:
-1. Revise the virtual machine network policy to allow 80, 554, 2404 (customized port for SSH), 22 traffic.
-2. git clone https://github.com/Agachily/sweetcam.git
-3. Create and populate the .env file 
-4. Run the application in the background: `docker compose up -d` (stop with `docker compose down -v`)
-5. Enter the container of rtsp service: docker exec -it rtsp_service /bin/sh and configure the logging function
-6. Use FFmpeg to push to video to RTSP server. ffmpeg -nostdin -re -stream_loop -1 -i ./videos/fake-video.mp4 -c copy -f rtsp rtsp://localhost:8554/mystream
-7. View it at rtsp://public_ip:554/mystream
-8. Check the volumes: docker volume ls
-9. Inspect volume: docker volume inspect  sweetcam_rtsp-resource
-10. Get the logs from the volume
-
-## Example of getting the logs from remote honeypot
+## Accessing Logs and Monitoring
+### 1. **Container Logs**
+#### View all container logs:
 ```shell
-scp -r -i ./key.pem -P 2404 azureuser@public_ip:/home/azureuser/logs/sweetcam_cowrie-log ./attack-logs/machine-a/
+# All containers
+docker compose logs
+# Specific service
+docker compose logs [service_name]
+```
+#### Real-time log monitoring:
+```shell
+# Follow logs in real-time
+docker compose logs -f
+```
+### Container Operations
+#### Restart Services:
+```shell
+# Restart all services
+docker compose restart
+# Restart specific service
+docker compose restart [service_name]
+```
+
+#### Stop/Start Services:
+```shell
+# Stop all services
+docker compose down
+# Start all services
+docker compose up -d
+# Stop with volume cleanup
+docker compose down -v
+```
+
+## Network Access
+
+### Port Mapping
+
+| Service      | Internal Port | External Port | Protocol | Purpose                    |
+|--------------|---------------|---------------|----------|----------------------------|
+| Dahua        | 37777         | 37777         | HTTP     | Dahua camera interface     |
+| Hikvision    | 80            | 80            | HTTP     | Hikvision camera interface |
+| VStarcam     | 81            | 81            | HTTP     | VStarcam camera interface  |
+| Mobotix      | 443           | 443           | HTTPS    | Mobotix camera interface   |
+| Axis         | 10000         | 10000         | HTTP     | Axis camera interface      |
+| Reolink      | 8081          | 8081          | HTTP     | Reolink camera interface   |
+| RTSP         | 554           | 554           | RTSP     | Video streaming            |
+| RTP          | 8002-8005     | 8002-8005     | UDP      | RTP/RTCP data              |
+| SSH Honeypot | 2222          | 2222          | SSH      | Cowrie SSH service         |
+| MySQL        | 3306          | 3306          | TCP      | Database                   |
+
+### Network Testing
+```shell
+# Test port accessibility
+nmap -sV -p- 127.0.0.1 
+# Look for specific ports
+nmap -sV -p 80 127.0.0.1
+# Test HTTP services
+curl -I http://localhost:80
+```
+## Troubleshooting
+### Common Issues
+#### 1. **Port Already in Use**
+```shell
+# Check what's using the port
+sudo netstat -tulpn | grep :80
+# Kill process using port
+sudo fuser -k 80/tcp
+```
+
+#### 2. **Container Won't Start**
+```shell
+# Check container logs
+docker compose logs [service_name]
+# Check container status
+docker ps -a
+# Restart specific service
+docker compose restart [service_name]
 ```

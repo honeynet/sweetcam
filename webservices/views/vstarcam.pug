@@ -431,6 +431,25 @@ html(lang="en")
           updateImagePosition();
       }
 
+      let moveInterval = null;
+      let moveDirection = { x: 0, y: 0 };
+      const moveDelay = 30; // ms per move
+      const threshold = 5; // px before movement starts
+
+      function startContinuousMove(dx, dy) {
+        if (moveInterval) clearInterval(moveInterval);
+        moveDirection = { x: dx, y: dy };
+        moveInterval = setInterval(() => {
+          moveCamera(moveDirection.x, moveDirection.y);
+        }, moveDelay);
+      }
+
+      function stopContinuousMove() {
+        if (moveInterval) clearInterval(moveInterval);
+        moveInterval = null;
+        moveDirection = { x: 0, y: 0 };
+      }
+
       document.addEventListener('DOMContentLoaded', function () {
         const knob = document.getElementById('joystickKnob');
         const joystick = knob.parentElement;
@@ -460,13 +479,15 @@ html(lang="en")
             dy = dy * maxRadius / dist;
           }
           knob.style.transform = `translate(${dx}px, ${dy}px)`;
-          // Pan image in real time, proportional to drag
-          // (maxRadius maps to maxPan)
-          const panX = Math.round((dx / maxRadius) * maxPan);
-          const panY = Math.round((dy / maxRadius) * maxPan);
-          moveCamera(panX - lastDx, panY - lastDy);
-          lastDx = panX;
-          lastDy = panY;
+          // Start continuous movement if drag exceeds threshold
+          if (Math.abs(dx) > threshold || Math.abs(dy) > threshold) {
+            // Normalize direction to -1, 0, or 1
+            let dirX = dx === 0 ? 0 : dx / Math.abs(dx);
+            let dirY = dy === 0 ? 0 : dy / Math.abs(dy);
+            startContinuousMove(Math.round(dirX * moveStep), Math.round(dirY * moveStep));
+          } else {
+            stopContinuousMove();
+          }
         });
 
         document.addEventListener('mouseup', (e) => {
@@ -475,6 +496,7 @@ html(lang="en")
           knob.style.transform = 'translate(0, 0)';
           lastDx = 0;
           lastDy = 0;
+          stopContinuousMove();
         });
 
         // Keyboard control
