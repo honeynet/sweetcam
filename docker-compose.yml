@@ -51,6 +51,8 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
       - DB_PORT=${DB_PORT}
+    ports:
+      - "3000:3000"
     stdin_open: true
     tty: true
     depends_on:
