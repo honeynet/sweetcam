@@ -79,6 +79,16 @@ html(lang="en")
       .login-btn:hover, .exit-btn:hover {
         background: #d6d6d6;
       }
+      .error-message {
+        color: red;
+        font-size: 14px;
+        margin-top: 10px;
+        height: 20px;
+        text-align: center;
+        width: 100%;
+        font-weight: bold;
+        display: block;
+      }
 
   body
     select.lang-select(name='language' onchange='changeLanguage(this.value)')
@@ -98,6 +108,7 @@ html(lang="en")
         input.form-input(type="password" id="password" name="password" required)
       .button-row
         button.login-btn(type="submit")= __('login.loginButton')
+      div#errorMessage.error-message
 
     script(src="https://code.jquery.com/jquery-3.6.3.min.js")
     script(src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js")
@@ -112,6 +123,9 @@ html(lang="en")
           const password = $('input[name="password"]').val();
           const $errorMessage = $('#errorMessage');
 
+          //clear previous error message
+          $errorMessage.text('');
+
           axios.post('/login', {
             username: username,
             password: password
@@ -119,16 +133,24 @@ html(lang="en")
           .then(response => {
             if (response.data.message === "Login successful") {
               window.location.href = '/';
+            } else {
+              $errorMessage.text('Login failed - please try again.');
             }
           })
           .catch(error => {
             if (error.response) {
               let message = 'An unknown error occurred.';
-              if (error.response.status === 404) message = __('login.usernameError');
-              if (error.response.status === 401) message = __('login.passwordError');
-              if (error.response.status === 403) message = __('login.rateError');
+              if (error.response.status === 404) message = 'Username not found.';
+              if (error.response.status === 401) message = 'Wrong password.';
+              if (error.response.status === 403) message = 'Too many attempts. Try again later.';
               $errorMessage.text(message);
+              console.log('Error displayed:', message); //debug log
             }
           });
+        });
+        
+        //clear error message when user starts typing
+        $('input[name="username"], input[name="password"]').on('input', function() {
+          $('#errorMessage').text('');
         });
       });

@@ -4,7 +4,6 @@ html(lang="en")
         meta(charset='UTF-8')
         title= 'Login'
         link(rel="stylesheet", href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css")
-        script(src='https://unpkg.com/axios/dist/axios.min.js')
         script(src='https://code.jquery.com/jquery-3.6.3.min.js')
         style.
             :root {
@@ -115,10 +114,13 @@ html(lang="en")
                 text-decoration: underline;
             }
             .error-message {
-                color: #ff4d4d;
+                color: red;
                 font-size: 14px;
                 margin-top: 10px;
                 height: 20px;
+                text-align: center;
+                font-weight: bold;
+                display: block;
             }
     body
         .background-overlay
@@ -148,24 +150,39 @@ html(lang="en")
                     const password = $('input[name="password"]').val();
                     const $errorMessage = $('#errorMessage');
 
-                    axios.post('/login', {
-                        username: username,
-                        password: password
-                    })
-                    .then(response => {
-                        if (response.data.message === "Login successful") {
-                            window.location.href = '/';
-                        }
-                    })
-                    .catch(error => {
-                        if (error.response) {
+                    //clear previous error message
+                    $errorMessage.text('');
+
+                    $.ajax({
+                        url: '/login',
+                        method: 'POST',
+                        data: {
+                            username: username,
+                            password: password
+                        },
+                        success: function(response) {
+                            console.log('Login success:', response);
+                            if (response.message === "Login successful") {
+                                window.location.href = '/';
+                            } else {
+                                $errorMessage.text('Login failed - please try again.');
+                            }
+                        },
+                        error: function(xhr, status, error) {
+                            console.log('Login error:', xhr.status, xhr.responseText);
                             let message = 'An unknown error occurred.';
-                            if (error.response.status === 404) message = 'Username not found.';
-                            if (error.response.status === 401) message = 'Incorrect password.';
-                            if (error.response.status === 403) message = 'Too many attempts. Try again later.';
+                            if (xhr.status === 404) message = 'Username not found.';
+                            if (xhr.status === 401) message = 'Wrong password.';
+                            if (xhr.status === 403) message = 'Too many attempts. Try again later.';
                             
                             $errorMessage.text(message);
+                            console.log('Error displayed:', message);
                         }
                     });
+                });
+                
+                //clear error message when user starts typing
+                $('input[name="username"], input[name="password"]').on('input', function() {
+                    $('#errorMessage').text('');
                 });
             }); 

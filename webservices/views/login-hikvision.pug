@@ -87,6 +87,7 @@ html
             .form-group {
                 margin-bottom: 18px;
                 position: relative;
+                min-height: 60px;
             }
             .form-group input {
                 width: 100%;
@@ -96,14 +97,18 @@ html
                 font-size: 15px;
                 background: #fff;
                 box-sizing: border-box;
+                position: absolute;
+                top: 0;
+                left: 0;
             }
             .form-group i {
                 position: absolute;
                 left: 12px;
                 top: 50%;
-                transform: translateY(-50%);
+                transform: translateY(-100%);
                 color: #bdbdbd;
                 font-size: 16px;
+                z-index: 1;
             }
             .login-btn {
                 background-color: #d32f2f;
@@ -124,8 +129,11 @@ html
             .error-message {
                 color: red;
                 font-size: 13px;
-                margin-top: 5px;
+                position: absolute;
+                bottom: 0;
+                left: 0;
                 display: none;
+                line-height: 1.2;
             }
         link(rel="stylesheet", href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css")
     body
@@ -162,9 +170,18 @@ html
                     const username = $('input[name="username"]').val();
                     const password = $('input[name="password"]').val();
                     
+                    // Disable the login button to prevent multiple submissions
+                    const loginBtn = $('.login-btn');
+                    loginBtn.prop('disabled', true).text('Logging in...');
+                    
+                    // Hide any previous error messages
+                    $('.error-message').hide();
+                    
                     axios.post('/login', {
                         username: username,
                         password: password
+                    }, {
+                        timeout: 10000 // 10 second timeout
                     })
                     .then(response => {
                         if (response.data.message === "Login successful") {
@@ -172,14 +189,36 @@ html
                         }
                     })
                     .catch(error => {
-                        if (error.response) {
+                        console.error('Login error:', error);
+                        
+                        if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+                            $('#rateErrorMessage').text('Connection timeout. Please check your network and try again.').show().delay(5000).fadeOut();
+                        } else if (error.code === 'ERR_NETWORK' || error.message.includes('net_reset')) {
+                            $('#rateErrorMessage').text('Network connection error. Please check your connection and try again.').show().delay(5000).fadeOut();
+                        } else if (error.response) {
                             const errorElement = 
                                 error.response.status === 404 ? '#usernameErrorMessage' :
                                 error.response.status === 401 ? '#passwordErrorMessage' :
+                                error.response.status === 503 ? '#rateErrorMessage' :
                                 '#rateErrorMessage';
                             
-                            $(errorElement).show().delay(3000).fadeOut();
+                            let errorMessage = '';
+                            if (error.response.status === 503) {
+                                errorMessage = 'Service temporarily unavailable. Please try again in a moment.';
+                            } else if (error.response.status === 500) {
+                                errorMessage = 'Server error. Please try again later.';
+                            } else {
+                                errorMessage = error.response.data.error || 'An error occurred. Please try again.';
+                            }
+                            
+                            $(errorElement).text(errorMessage).show().delay(5000).fadeOut();
+                        } else {
+                            $('#rateErrorMessage').text('An unexpected error occurred. Please try again.').show().delay(5000).fadeOut();
                         }
+                    })
+                    .finally(() => {
+                        // Re-enable the login button
+                        loginBtn.prop('disabled', false).text('Login');
                     });
                 });
             });

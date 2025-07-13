@@ -27,10 +27,11 @@ app.use(session({
     saveUninitialized: false,
     cookie: { 
         secure: false,
-        httpOnly: false,
+        httpOnly: true,
         sameSite: 'lax',
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    }
+    },
+    name: 'sweetcam_session'
 }));
 
 // i18n middleware
@@ -58,6 +59,28 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/config', express.static(path.join(__dirname, 'config')));
+
+// Health check endpoint
+app.get('/health', async (req, res) => {
+    try {
+        // Test database connection
+        const sequelize = require('./database/database');
+        await sequelize.authenticate();
+        res.status(200).json({ 
+            status: 'healthy',
+            database: 'connected',
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('Health check failed:', error);
+        res.status(503).json({ 
+            status: 'unhealthy',
+            database: 'disconnected',
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
 
 // Language switching route
 app.get('/set-language/:lang', (req, res) => {
@@ -157,32 +180,47 @@ app.get('/login', (req, res) => {
 });
 
 app.post('/login', async (req, res) => { //login endpoint
-    let sess = req.session;
-    if (!sess.loginTimes) {
-        sess.loginTimes = 0;
-        beginTimeOfLogin = Date.now();
-    }
-    const currentTime = Date.now();
-    if (currentTime - beginTimeOfLogin <= 60000) { //check if login request is within 60 seconds
-        sess.loginTimes += 1;
-        if (sess.loginTimes > sweetcamServices.getLoginLimit()) {
-            return res.status(403).send({ error: "Login request reached limit" });
+    try {
+        let sess = req.session;
+        if (!sess.loginTimes) {
+            sess.loginTimes = 0;
+            beginTimeOfLogin = Date.now();
         }
-    } else {
-        sess.loginTimes = 1;
-        beginTimeOfLogin = currentTime;
-    }
+        const currentTime = Date.now();
+        if (currentTime - beginTimeOfLogin <= 60000) { //check if login request is within 60 seconds
+            sess.loginTimes += 1;
+            if (sess.loginTimes > sweetcamServices.getLoginLimit()) {
+                return res.status(403).send({ error: "Login request reached limit" });
+            }
+        } else {
+            sess.loginTimes = 1;
+            beginTimeOfLogin = currentTime;
+        }
 
-    const { username, password } = req.body;
-    const passwordHash = await userServices.findUserPasswordHashByName(username);
-    if (!passwordHash) {
-        return res.status(404).send({ error: "User not found" });
-    }
-    if (await bcrypt.compare(password, passwordHash)) {
-        sess.username = username;
-        return res.status(200).send({ message: "Login successful" });
-    } else {
-        return res.status(401).send({ error: "Wrong password" });
+        const { username, password } = req.body;
+        
+        // Validate input
+        if (!username || !password) {
+            return res.status(400).send({ error: "Username and password are required" });
+        }
+        
+        const passwordHash = await userServices.findUserPasswordHashByName(username);
+        if (!passwordHash) {
+            return res.status(404).send({ error: "User not found" });
+        }
+        if (await bcrypt.compare(password, passwordHash)) {
+            sess.username = username;
+            return res.status(200).send({ message: "Login successful" });
+        } else {
+            return res.status(401).send({ error: "Wrong password" });
+        }
+    } catch (error) {
+        console.error('Login error:', error);
+        // Check if it's a database connection error
+        if (error.name === 'SequelizeConnectionError' || error.name === 'SequelizeHostNotFoundError') {
+            return res.status(503).send({ error: "Database connection failed. Please try again later." });
+        }
+        return res.status(500).send({ error: "Internal server error. Please try again." });
     }
 });
 

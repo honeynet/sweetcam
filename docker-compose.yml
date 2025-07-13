@@ -44,12 +44,13 @@ services:
       context: ./webservices
       dockerfile: Dockerfile
     restart: unless-stopped
+    env_file: ./.env
     environment:
-      - DB_HOST=mysql_service
-      - DB_USER=root
-      - DB_PASSWORD=123456
-      - DB_NAME=sweetcam
-      - DB_PORT=3306
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
     stdin_open: true
     tty: true
     depends_on:
@@ -76,9 +77,15 @@ services:
       dockerfile: Dockerfile
     container_name: axis_service
     restart: unless-stopped
+    env_file: ./.env
     environment:
       - BRAND=axis
       - PORT=10000
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
     ports:
       - "10000:10000"
     depends_on:
@@ -91,9 +98,15 @@ services:
       dockerfile: Dockerfile
     container_name: dahua_service
     restart: unless-stopped
+    env_file: ./.env
     environment:
       - BRAND=dahua
       - PORT=37777
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
     ports:
       - "37777:37777"
     depends_on:
@@ -106,9 +119,15 @@ services:
       dockerfile: Dockerfile
     container_name: hikvision_service
     restart: unless-stopped
+    env_file: ./.env
     environment:
       - BRAND=hikvision
       - PORT=80
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
     ports:
       - "80:80"
     depends_on:
@@ -121,9 +140,15 @@ services:
       dockerfile: Dockerfile
     container_name: mobotix_service
     restart: unless-stopped
+    env_file: ./.env
     environment:
       - BRAND=mobotix
       - PORT=443
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
     ports:
       - "443:443"
     depends_on:
@@ -136,9 +161,15 @@ services:
       dockerfile: Dockerfile
     container_name: reolink_service
     restart: unless-stopped
+    env_file: ./.env
     environment:
       - BRAND=reolink
       - PORT=8081
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
     ports:
       - "8081:8081"
     depends_on:
@@ -151,9 +182,15 @@ services:
       dockerfile: Dockerfile
     container_name: vstarcam_service
     restart: unless-stopped
+    env_file: ./.env
     environment:
       - BRAND=vstarcam
       - PORT=81
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
     ports:
       - "81:81"
     depends_on:
