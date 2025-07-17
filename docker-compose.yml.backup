@@ -131,7 +131,7 @@ services:
       - DB_NAME=${DB_NAME}
       - DB_PORT=${DB_PORT}
     ports:
-      - "80:80"
+      - "8080:80"
     depends_on:
       mysql_service:
         condition: service_healthy
@@ -152,7 +152,7 @@ services:
       - DB_NAME=${DB_NAME}
       - DB_PORT=${DB_PORT}
     ports:
-      - "443:443"
+      - "8080:443"
     depends_on:
       mysql_service:
         condition: service_healthy
@@ -173,7 +173,7 @@ services:
       - DB_NAME=${DB_NAME}
       - DB_PORT=${DB_PORT}
     ports:
-      - "8081:8081"
+      - "8080:8081"
     depends_on:
       mysql_service:
         condition: service_healthy
@@ -194,7 +194,7 @@ services:
       - DB_NAME=${DB_NAME}
       - DB_PORT=${DB_PORT}
     ports:
-      - "81:81"
+      - "8080:81"
     depends_on:
       mysql_service:
         condition: service_healthy

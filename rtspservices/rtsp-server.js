@@ -13,14 +13,14 @@ class RTSPServer {
 
     setupStreams() {
         this.streams.set('/stream', {
-            name: 'Test stream',
+            name: 'Video stream',
             sdp: this.generateSDP(),
             rtpPort: 8002,
             rtcpPort: 8003 
         });
     }
 
-    generateSDP(name = 'Test stream') { 
+    generateSDP(name = 'Video stream') { 
         return `v=0\r
 o=- 0 0 IN IP4 127.0.0.1\r
 s=${name}\r

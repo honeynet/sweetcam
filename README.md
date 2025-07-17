@@ -139,7 +139,115 @@ docker compose down -v
 | SSH Honeypot | 2222          | 2222          | SSH      | Cowrie SSH service         |
 | MySQL        | 3306          | 3306          | TCP      | Database                   |
 
-### Network Testing
+## Port Management
+
+SweetCam includes a **Port Manager** CLI tool to easily manage port changes for Docker containers with automatic port availability checking and container restart functionality.
+
+### Features
+- Check if a port is available before changing
+- Update docker-compose.yml automatically
+- Ask for user confirmation before making changes
+- Automatically restart the specific container after port change
+- List current port configuration
+- Support for all SweetCam services
+
+### Prerequisites
+- Node.js installed on your system
+- Docker and Docker Compose running
+- Root/sudo access (for port checking)
+
+### Usage
+
+#### Method 1: Using the wrapper script (Recommended)
+```shell
+# Make the wrapper executable (if not already)
+chmod +x ./port-manager
+
+# Show current port configuration
+./port-manager list
+
+# Change port for a service
+./port-manager change dahua_service 8080
+
+# Show help
+./port-manager help
+```
+
+#### Method 2: Using Node.js directly
+```shell
+# Show current port configuration
+node port-manager.js list
+
+# Change port for a service
+node port-manager.js change dahua_service 8080
+
+# Show help
+node port-manager.js help
+```
+
+### Available Services for Port Management
+
+| Service | Default Port | Description |
+|---------|-------------|-------------|
+| `web_service` | 3000 | Main web service |
+| `axis_service` | 10000 | Axis camera service |
+| `dahua_service` | 37777 | Dahua camera service |
+| `hikvision_service` | 80 | Hikvision camera service |
+| `mobotix_service` | 443 | Mobotix camera service |
+| `reolink_service` | 8081 | Reolink camera service |
+| `vstarcam_service` | 81 | Vstarcam camera service |
+| `rtsp_streaming_service` | 554 | RTSP streaming service |
+| `mysql_service` | 3306 | MySQL database service |
+| `cowrie_service` | ENV_VAR | Cowrie honeypot service (uses environment variables) |
+
+### Port Management Examples
+
+#### Change Dahua service from port 37777 to 8080
+```shell
+./port-manager change dahua_service 8080
+```
+
+**Output:**
+```
+Port Change Request:
+Service: dahua_service
+New Port: 8080
+
+Are you sure you want to change dahua_service from port 37777 to port 8080? (y/N): y
+
+Updating docker-compose.yml...
+Port updated in docker-compose.yml
+
+Restarting dahua_service...
+dahua_service
+dahua_service restarted successfully!
+
+Successfully changed dahua_service from port 37777 to port 8080!
+```
+
+#### List current port configuration
+```shell
+./port-manager list
+```
+
+**Output:**
+```
+Current Port Configuration:
+==================================================
+web_service              | Port 3000
+axis_service             | Port 10000
+dahua_service            | Port 37777
+hikvision_service        | Port 80
+mobotix_service          | Port 443
+reolink_service          | Port 8081
+vstarcam_service         | Port 81
+rtsp_streaming_service   | Port 554
+mysql_service            | Port 3306
+cowrie_service           | Uses environment variables
+==================================================
+```
+
+### Network testing
 ```shell
 # Test port accessibility
 nmap -sV -p- 127.0.0.1 
@@ -147,23 +255,4 @@ nmap -sV -p- 127.0.0.1
 nmap -sV -p 80 127.0.0.1
 # Test HTTP services
 curl -I http://localhost:80
-```
-## Troubleshooting
-### Common Issues
-#### 1. **Port Already in Use**
-```shell
-# Check what's using the port
-sudo netstat -tulpn | grep :80
-# Kill process using port
-sudo fuser -k 80/tcp
-```
-
-#### 2. **Container Won't Start**
-```shell
-# Check container logs
-docker compose logs [service_name]
-# Check container status
-docker ps -a
-# Restart specific service
-docker compose restart [service_name]
 ```
