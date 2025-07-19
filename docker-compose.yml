@@ -20,7 +20,7 @@ services:
     volumes:
       - cowrie-var:/cowrie/cowrie-git/var
   mysql_service:
-    image: mysql:8.0.28
+    image: mysql:8.0
     container_name: mysql_service
     cap_add:
       - SYS_NICE
@@ -65,6 +65,13 @@ services:
       dockerfile: Dockerfile
     container_name: rtsp_streaming_service
     restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
     cap_add:
       - NET_BIND_SERVICE
     ports:
@@ -73,6 +80,9 @@ services:
       - "8003:8003"
       - "8004:8004"
       - "8005:8005"
+    depends_on:
+      mysql_service:
+        condition: service_healthy
   axis_service:
     build:
       context: ./webservices

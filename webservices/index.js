@@ -10,7 +10,7 @@ const fs = require('fs');
 const app = express();
 let beginTimeOfLogin = 0;
 
-// Configure i18n
+//configure i18n
 i18n.configure({
     locales: ['en', 'es'],
     defaultLocale: 'en',
@@ -37,17 +37,17 @@ app.use(session({
 // i18n middleware
 app.use(i18n.init);
 
-// Language switching middleware
+//language switching middleware
 app.use((req, res, next) => {
-    // Set default locale if not set
+    //set default locale if not set
     if (!req.session.locale) {
         req.session.locale = 'en';
     }
     
-    // Set locale for i18n
+    //set locale for i18n
     req.setLocale(req.session.locale);
     
-    // Make locale available to templates
+    //make locale available to templates
     res.locals.locale = req.session.locale;
     
     next();
@@ -60,10 +60,10 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/config', express.static(path.join(__dirname, 'config')));
 
-// Health check endpoint
+//health check endpoint
 app.get('/health', async (req, res) => {
     try {
-        // Test database connection
+        //test database connection
         const sequelize = require('./database/database');
         await sequelize.authenticate();
         res.status(200).json({ 
@@ -82,7 +82,7 @@ app.get('/health', async (req, res) => {
     }
 });
 
-// Language switching route
+//language switching route
 app.get('/set-language/:lang', (req, res) => {
     const lang = req.params.lang;
     if (['en', 'es'].includes(lang)) {
@@ -150,7 +150,7 @@ app.get('/api/camera-info', requireAuth, (req, res) => {
 
 //routes
 app.get('/', requireAuth, (req, res) => {
-    //get camera type from the server port
+    //get camera type from server port
     const port = req.connection.server.address().port;
     const cameraType = getCameraTypeByPort(port);
     const config = sweetcamServices.getCameraConfig(cameraType);
@@ -166,7 +166,7 @@ app.get('/', requireAuth, (req, res) => {
 });
 
 app.get('/login', (req, res) => {
-    //if user is already logged in, redirect to home
+    //if user is already logged in, redirect to home page
     if (req.session && req.session.username) {
         return res.redirect('/');
     }
@@ -199,7 +199,7 @@ app.post('/login', async (req, res) => { //login endpoint
 
         const { username, password } = req.body;
         
-        // Validate input
+        //validate input
         if (!username || !password) {
             return res.status(400).send({ error: "Username and password are required" });
         }
@@ -216,7 +216,7 @@ app.post('/login', async (req, res) => { //login endpoint
         }
     } catch (error) {
         console.error('Login error:', error);
-        // Check if it's a database connection error
+        //check if it's a database connection error
         if (error.name === 'SequelizeConnectionError' || error.name === 'SequelizeHostNotFoundError') {
             return res.status(503).send({ error: "Database connection failed. Please try again later." });
         }
@@ -230,7 +230,7 @@ app.get('/logout', (req, res) => {
     });
 });
 
-// Start server on configurable port
+//start server on configurable port
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Web service listening on port ${PORT}`);

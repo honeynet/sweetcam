@@ -56,9 +56,9 @@ The SweetCam honeypot consists of **11 containers**:
    docker ps
    ```
 
-## Accessing Camera Interfaces
+## Accessing camera interfaces
 
-All cameras can be accessed with defeault login credentials available in initialize.sql.
+All cameras can be accessed with default login credentials available in initialize.sql.
 To access cameras' web pages you can use your default browser. 
 
 #### 1. **Dahua Camera (Port 37777)**
@@ -79,7 +79,7 @@ http://localhost:10000
 #### 6. **Reolink Camera (Port 8081)**
 http://localhost:8081
 
-## RTSP Streaming Access
+## RTSP streaming access
 ```shell
 # Stream URL
 rtsp://localhost:554/stream
@@ -89,8 +89,8 @@ vlc rtsp://localhost:554/stream
 ffplay rtsp://localhost:554/stream
 ```
 
-## Accessing Logs and Monitoring
-### 1. **Container Logs**
+## Accessing logs and monitoring
+### 1. **Container logs**
 #### View all container logs:
 ```shell
 # All containers
@@ -103,8 +103,8 @@ docker compose logs [service_name]
 # Follow logs in real-time
 docker compose logs -f
 ```
-### Container Operations
-#### Restart Services:
+### Container operations
+#### Restart services:
 ```shell
 # Restart all services
 docker compose restart
@@ -112,7 +112,7 @@ docker compose restart
 docker compose restart [service_name]
 ```
 
-#### Stop/Start Services:
+#### Stop/start services:
 ```shell
 # Stop all services
 docker compose down
@@ -122,7 +122,7 @@ docker compose up -d
 docker compose down -v
 ```
 
-## Network Access
+## Network access
 
 ### Port Mapping
 
@@ -139,7 +139,7 @@ docker compose down -v
 | SSH Honeypot | 2222          | 2222          | SSH      | Cowrie SSH service         |
 | MySQL        | 3306          | 3306          | TCP      | Database                   |
 
-## Port Management
+## Port management
 
 SweetCam includes a **Port Manager** CLI tool to easily manage port changes for Docker containers with automatic port availability checking and container restart functionality.
 
@@ -150,11 +150,6 @@ SweetCam includes a **Port Manager** CLI tool to easily manage port changes for 
 - Automatically restart the specific container after port change
 - List current port configuration
 - Support for all SweetCam services
-
-### Prerequisites
-- Node.js installed on your system
-- Docker and Docker Compose running
-- Root/sudo access (for port checking)
 
 ### Usage
 
@@ -185,7 +180,7 @@ node port-manager.js change dahua_service 8080
 node port-manager.js help
 ```
 
-### Available Services for Port Management
+### Available services for port management
 
 | Service | Default Port | Description |
 |---------|-------------|-------------|
@@ -200,7 +195,7 @@ node port-manager.js help
 | `mysql_service` | 3306 | MySQL database service |
 | `cowrie_service` | ENV_VAR | Cowrie honeypot service (uses environment variables) |
 
-### Port Management Examples
+### Port management examples
 
 #### Change Dahua service from port 37777 to 8080
 ```shell
@@ -255,4 +250,23 @@ nmap -sV -p- 127.0.0.1
 nmap -sV -p 80 127.0.0.1
 # Test HTTP services
 curl -I http://localhost:80
+```
+## Troubleshooting
+### Common issues
+#### 1. **Port already in use**
+```shell
+# Check what's using the port
+sudo netstat -tulpn | grep :80
+# Kill process using port
+sudo fuser -k 80/tcp
+```
+
+#### 2. **Container won't start**
+```shell
+# Check container logs
+docker compose logs [service_name]
+# Check container status
+docker ps -a
+# Restart specific service
+docker compose restart [service_name]
 ```
