@@ -8,21 +8,22 @@ The application SweetCam is a honeypot for IP camera. It can simulate a real IP 
 
 # Components
 
-The SweetCam honeypot consists of **11 containers**:
+The SweetCam honeypot consists of **12 containers**:
 
 ### Core Services
 1. **MySQL service** is service for data storage.
 2. **RTSP streaming service** used to provide the RTSP service for attackers.
 3. **Web service** is main web interface.
 4. **Cowrie service** SSH honeypot service.
+5. **ONVIF service** ONVIF-compliant camera honeypot service.
 
 ### Camera Brand Services (6 containers)
-4. **Dahua Service**: port 37777
-5. **Hikvision Service**: port 80  
-6. **VStarcam Service**: port 81
-7. **Mobotix Service**: port 443
-8. **Axis Service**: port 10000
-9. **Reolink Service**: port 8081
+6. **Dahua Service**: port 37777
+7. **Hikvision Service**: port 80  
+8. **VStarcam Service**: port 81
+9. **Mobotix Service**: port 443
+10. **Axis Service**: port 10000
+11. **Reolink Service**: port 8081
 
 
 ## Quick Start
@@ -79,6 +80,12 @@ http://localhost:10000
 #### 6. **Reolink Camera (Port 8081)**
 http://localhost:8081
 
+#### 7. **ONVIF Camera (Port 3702)**
+http://localhost:3702
+- Device Service: http://localhost:3702/onvif/device_service
+- Media Service: http://localhost:3702/onvif/media_service
+- Health Check: http://localhost:3702/health
+
 ## RTSP streaming access
 ```shell
 # Stream URL
@@ -87,6 +94,38 @@ rtsp://localhost:554/stream
 vlc rtsp://localhost:554/stream
 # Test with FFplay
 ffplay rtsp://localhost:554/stream
+
+## ONVIF testing
+
+The ONVIF honeypot responds to WS-Discovery probes and provides SOAP services for device interaction.
+
+### Test WS-Discovery
+```shell
+# Using netcat to send a probe
+echo '<wsd:Probe xmlns:wsd="http://schemas.xmlsoap.org/ws/2005/04/discovery"/>' | nc -u 239.255.255.250 3702
+```
+
+### Test SOAP Services
+```shell
+# Test device information
+curl -X POST http://localhost:3702/onvif/device_service \
+  -H "Content-Type: text/xml" \
+  -H "SOAPAction: http://www.onvif.org/ver10/device/wsdl/GetDeviceInformation" \
+  -d '<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+        <soap:Body>
+          <GetDeviceInformation xmlns="http://www.onvif.org/ver10/device/wsdl"/>
+        </soap:Body>
+      </soap:Envelope>'
+```
+
+### Run ONVIF Tests
+```shell
+# Navigate to ONVIF service directory
+cd onvifservices
+
+# Run comprehensive tests
+npm test
+```
 ```
 
 ## Accessing logs and monitoring
@@ -137,6 +176,8 @@ docker compose down -v
 | RTSP         | 554           | 554           | RTSP     | Video streaming            |
 | RTP          | 8002-8005     | 8002-8005     | UDP      | RTP/RTCP data              |
 | SSH Honeypot | 2222          | 2222          | SSH      | Cowrie SSH service         |
+| ONVIF        | 3702          | 3702          | HTTP     | ONVIF SOAP services        |
+| ONVIF Discovery | 3702        | 3702          | UDP      | WS-Discovery multicast      |
 | MySQL        | 3306          | 3306          | TCP      | Database                   |
 
 ## Port management
@@ -191,6 +232,7 @@ node port-manager.js help
 | `mobotix_service` | 443 | Mobotix camera service |
 | `reolink_service` | 8081 | Reolink camera service |
 | `vstarcam_service` | 81 | Vstarcam camera service |
+| `onvif_service` | 3702 | ONVIF honeypot service |
 | `rtsp_streaming_service` | 554 | RTSP streaming service |
 | `mysql_service` | 3306 | MySQL database service |
 | `cowrie_service` | ENV_VAR | Cowrie honeypot service (uses environment variables) |

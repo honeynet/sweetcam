@@ -120,7 +120,7 @@ services:
       - DB_NAME=${DB_NAME}
       - DB_PORT=${DB_PORT}
     ports:
-      - "8080:37777"
+      - "37777:37777"
     depends_on:
       mysql_service:
         condition: service_healthy
@@ -199,12 +199,36 @@ services:
       - BRAND=vstarcam
       - PORT=81
       - DB_HOST=${DB_HOST}
-      - DB_USER=${DB_USER}
+      - DB_USER=${DB_USER}  
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
       - DB_PORT=${DB_PORT}
     ports:
       - "81:81"
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+
+  onvif_service:
+    build:
+      context: ./onvifservices
+      dockerfile: Dockerfile
+    container_name: onvif_service
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+      - ONVIF_HTTP_PORT=8080
+      - ONVIF_HTTP_ADDRESS=192.168.1.100
+    ports:
+      - "3702:3702/udp"
+      - "8080:8080"
+    cap_add:
+      - NET_BIND_SERVICE
     depends_on:
       mysql_service:
         condition: service_healthy
