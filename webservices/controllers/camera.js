@@ -6,7 +6,7 @@ const bcrypt = require('bcrypt');
 
 let beginTimeOfLogin = 0;
 
-// Login page
+//login page
 cameraRouter.get('/login', (req, res) => {
     if (req.session.username) {
         return res.redirect('/');
@@ -14,7 +14,7 @@ cameraRouter.get('/login', (req, res) => {
     res.render('login', sweetcamServices.getBrandConfig());
 });
 
-// Login handler
+//login handler
 cameraRouter.post('/login', async (req, res) => {
     let session = req.session;
     let loginLimit = sweetcamServices.getLoginLimit();
@@ -36,27 +36,27 @@ cameraRouter.post('/login', async (req, res) => {
     }
 
     const { username, password } = req.body;
-    const passwordHash = await userServices.findUserPasswordHashByName(username);
     
-    if (!passwordHash) {
-        return res.status(404).send({ error: "User not found" });
-    }
+    const isValidPassword = await userServices.validateUserPassword(username, password);
     
-    if (await bcrypt.compare(password, passwordHash)) {
+    if (isValidPassword) {
         session.username = username;
         return res.status(200).send({ message: "Login successful" });
     } else {
-        return res.status(401).send({ error: "Wrong password" });
+        const passwordHashes = await userServices.findUserPasswordHashesByName(username);
+        if (!passwordHashes || passwordHashes.length === 0) {
+            return res.status(404).send({ error: "User not found" });
+        } else {
+            return res.status(401).send({ error: "Wrong password" });
+        }
     }
 });
 
-// Logout handler
 cameraRouter.get('/logout', (req, res) => {
     req.session.destroy();
     res.redirect('/login');
 });
 
-// Add Hikvision page route
 cameraRouter.get('/hikvision', (req, res) => {
     if (!req.session.username) {
         return res.redirect('/login');

@@ -7,7 +7,17 @@ const jwt = require('jsonwebtoken')
 const jwtServices = require("../utils/jwt-services")
 const telegramBot = require("../utils/telegram-bot")
 
-const prefix = process.env.ADMIN_PATH
+const prefix = process.env.ADMIN_PATH || 'admin'
+
+console.log('Admin router initialized with prefix:', prefix);
+
+//admin login page
+adminRouter.get(`/${prefix}/login`, (req, res) => {
+    res.render('admin-login', {
+        title: 'Admin Login',
+        error: null
+    });
+});
 
 adminRouter.post(`/${prefix}/login`, async (req, res) => {
     const {username, password} = req.body
@@ -16,22 +26,34 @@ adminRouter.post(`/${prefix}/login`, async (req, res) => {
         return res.status(400).send({error: 'username or password is null'}).end()
     }
 
-    const {passwordHash, name, id} = await adminServices.findAdminCredentialsByName(username)
-    if (await bcrypt.compare(password, passwordHash)) {
-        const userForToken = {
-            id: id,
-            username: username
+    try {
+        //check if admin exists and password is valid
+        const isValidPassword = await adminServices.validateAdminPassword(username, password);
+        
+        if (isValidPassword) {
+            //set up session for admin user
+            req.session.username = username;
+            
+            //get admin credentials for token generation
+            const {passwordHash, name, id} = await adminServices.findAdminCredentialsByName(username)
+            const userForToken = {
+                id: id,
+                username: username
+            }
+            const token = jwt.sign(userForToken, process.env.JWT_SECRET || 'default-secret-key', { expiresIn: 60 * 60 })
+            res.status(200).send({ token, username })
+        } else {
+           
+            adminServices.sendEmail("Attempt to login as admin failed");
+            res.status(401).send({ error: 'failed' })
         }
-        /* The token will be valid for 60 * 60 seconds */
-        const token = jwt.sign(userForToken, process.env.JWT_SECRET, { expiresIn: 60 * 60 })
-        res.status(200).send({ token, username })
-    } else {
-        /*const chatId = await adminServices.findChatIdByName(username)
-        if (chatId) {
-            await telegramBot.sendMessage(chatId, 'Attempt to login as admin failed')
-        }*/
-        adminServices.sendEmail("Attempt to login as admin failed");
-        res.status(401).send({ error: 'failed' })
+    } catch (error) {
+        console.error('Admin login error:', error);
+        if (error.message === 'Admin not found') {
+            res.status(404).send({ error: 'Admin not found' })
+        } else {
+            res.status(500).send({ error: 'Internal server error' })
+        }
     }
 })
 
@@ -41,7 +63,7 @@ adminRouter.patch(`/${prefix}/password`, async (req, res) => {
     if (!newPassword) {
         return res.status(400).send({error: 'provide new password is null'}).end()
     }
-    const decodedToken = jwt.verify(jwtServices.getJWTToken(req), process.env.JWT_SECRET)
+    const decodedToken = jwt.verify(jwtServices.getJWTToken(req), process.env.JWT_SECRET || 'default-secret-key')
     const id = decodedToken.id
     await adminServices.updatePassword(id, newPassword)
     return res.status(200).send({message: "password update succeed"}).end()
@@ -66,71 +88,48 @@ adminRouter.get(`/${prefix}/video`, (req, res) => {
     res.render("video", config)
 })
 
-/**
- * Add user for the sweetcam service
- */
+
 adminRouter.post(`/${prefix}/user`, async (req, res) => {
     const userInfo = req.body
     const savedUser = await userServices.addUser(userInfo.name, userInfo.password)
     res.status(201).json(savedUser)
 })
 
-/**
- * Revise the configuration for the sweetcam service in the picture model
- */
 adminRouter.patch(`/${prefix}/config/cam-picture`, (req, res) => {
     const {name, value} = req.body
     adminServices.configCamPicture(name, value)
     res.status(200).send({ message: `${name} has been updated to ${value}` })
 })
 
-/**
- * Get the configuration for the sweetcam service in the picture model
- */
 adminRouter.get(`/${prefix}/config/cam-picture`, (req, res) => {
     const camPictureConfig = sweetcamServices.getCamPictureConfig()
     res.json(camPictureConfig)
 })
 
-/**
- * Revise the configuration for the sweetcam service in the video model
- */
+
 adminRouter.patch(`/${prefix}/cam-video`, (req, res) => {
     const {name, value} = req.body
     adminServices.configCamVideo(name, value)
     res.status(200).send({ message: `${name} has been updated to ${value}` })
 })
 
-/**
- * Get the configuration for the sweetcam service in the video model
- */
 adminRouter.get(`/${prefix}/cam-video`, (req, res) => {
     const camVideoConfig = sweetcamServices.getCamVideoConfig()
     res.json(camVideoConfig)
 })
 
-/**
- * Upload brand image
- */
+
 adminRouter.post(`/${prefix}/brands`, adminServices.uploadBrands, (req, res) => {
-    const path = (req.file.path).split(/public/)[1]
-    res.status(200).send({ message: 'Succeed', storedPath: path })
+    res.status(200).send({ message: "Brand uploaded successfully" })
 })
 
-/**
- * Upload panoramic image
- */
+
 adminRouter.post(`/${prefix}/images`, adminServices.uploadImages, (req, res) => {
-    const path = (req.file.path).split(/public/)[1]
-    res.status(200).send({ message: 'Succeed', storedPath: path })
+    res.status(200).send({ message: "Image uploaded successfully" })
 })
 
-/**
- * Upload panoramic video
- */
 adminRouter.post(`/${prefix}/videos`, adminServices.uploadVideos, (req, res) => {
-    const path = (req.file.path).split(/public/)[1]
-    res.status(200).send({ message: 'Succeed', storedPath: path })
+    res.status(200).send({ message: "Video uploaded successfully" })
 })
 
 module.exports = adminRouter

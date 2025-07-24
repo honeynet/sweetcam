@@ -53,6 +53,7 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
       - DB_PORT=${DB_PORT}
+      - ADMIN_PATH=admin
     ports:
       - "3000:3000"
     stdin_open: true
@@ -265,6 +266,7 @@ services:
     environment:
       - BRAND=axis
       - PORT=10000
+      - ADMIN_PATH=admin
       - DB_HOST=${DB_HOST}
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
@@ -286,6 +288,7 @@ services:
     environment:
       - BRAND=dahua
       - PORT=37777
+      - ADMIN_PATH=admin
       - DB_HOST=${DB_HOST}
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
@@ -307,6 +310,7 @@ services:
     environment:
       - BRAND=hikvision
       - PORT=80
+      - ADMIN_PATH=admin
       - DB_HOST=${DB_HOST}
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
@@ -328,6 +332,7 @@ services:
     environment:
       - BRAND=mobotix
       - PORT=443
+      - ADMIN_PATH=admin
       - DB_HOST=${DB_HOST}
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
@@ -349,6 +354,7 @@ services:
     environment:
       - BRAND=reolink
       - PORT=8081
+      - ADMIN_PATH=admin
       - DB_HOST=${DB_HOST}
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
@@ -370,6 +376,7 @@ services:
     environment:
       - BRAND=vstarcam
       - PORT=81
+      - ADMIN_PATH=admin
       - DB_HOST=${DB_HOST}
       - DB_USER=${DB_USER}  
       - DB_PASSWORD=${DB_PASSWORD}

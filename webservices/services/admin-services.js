@@ -30,14 +30,42 @@ const updatePassword = async (id, password) => {
 
 const findAdminCredentialsByName = async (name) => {
     await Admin.sync()
-    const result = await Admin.findOne({where: {}})
+    const result = await Admin.findOne({where: {name: name}})
+    if (!result) {
+        throw new Error('Admin not found');
+    }
     return {name: result.name, id: result.id, passwordHash: result.passwordHash}
+}
+
+const findAdminPasswordHashesByName = async (name) => {
+    await Admin.sync()
+    const results = await Admin.findAll({where: {name: name}})
+    return results.map(result => result.passwordHash)
+}
+
+const validateAdminPassword = async (username, password) => {
+    try {
+        const passwordHashes = await findAdminPasswordHashesByName(username);
+        if (!passwordHashes || passwordHashes.length === 0) {
+            return false;
+        }
+        
+        for (const hash of passwordHashes) {
+            if (await bcrypt.compare(password, hash)) {
+                return true;
+            }
+        }
+        return false;
+    } catch (error) {
+        console.error('Error validating admin password:', error);
+        throw error;
+    }
 }
 
 const findChatIdByName = async (name) => {
     await Admin.sync()
-    const result = await Admin.findOne({where: {}})
-    return result.chatId
+    const result = await Admin.findOne({where: {name: name}})
+    return result ? result.chatId : null
 }
 
 const configCamPicture = (name, value) => {
@@ -97,8 +125,8 @@ const uploadVideos = multer({storage: videoStorage}).single('video')
 const sendEmail = (message) => {
     const sendHtml = `<p>${message}</p>`;
     const mailOptions = {
-        from: process.env.EMAIL_ADDRESS,
-        to: process.env.EMAIL_ADDRESS_TARGET,
+        from: process.env.EMAIL_ADDRESS || 'default@example.com',
+        to: process.env.EMAIL_ADDRESS_TARGET || 'default@example.com',
         subject: 'Sweetcam Notification',
         html: sendHtml
     };
@@ -109,6 +137,8 @@ module.exports = {
     getNumberOfAdmins,
     addAdmin,
     findAdminCredentialsByName,
+    findAdminPasswordHashesByName,
+    validateAdminPassword,
     findChatIdByName,
     configCamPicture,
     configCamVideo,

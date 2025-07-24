@@ -1,0 +1,130 @@
+doctype html
+html(lang="en")
+  head
+    meta(charset="UTF-8")
+    meta(name="viewport", content="width=device-width, initial-scale=1.0")
+    title Admin Login
+    style.
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f4f4f4;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+      }
+      .login-container {
+        background: white;
+        padding: 40px;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        width: 100%;
+        max-width: 400px;
+      }
+      .login-container h1 {
+        text-align: center;
+        color: #333;
+        margin-bottom: 30px;
+      }
+      .form-group {
+        margin-bottom: 20px;
+      }
+      .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        color: #555;
+        font-weight: bold;
+      }
+      .form-group input {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 16px;
+        box-sizing: border-box;
+      }
+      .form-group input:focus {
+        outline: none;
+        border-color: #007bff;
+      }
+      .btn {
+        width: 100%;
+        padding: 12px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-size: 16px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+      }
+      .btn:hover {
+        background-color: #0056b3;
+      }
+      .error-message {
+        color: #dc3545;
+        text-align: center;
+        margin-bottom: 20px;
+        display: none;
+      }
+      .success-message {
+        color: #28a745;
+        text-align: center;
+        margin-bottom: 20px;
+        display: none;
+      }
+
+  body
+    .login-container
+      h1 Admin Login
+      #errorMessage.error-message
+      #successMessage.success-message
+      form#loginForm
+        .form-group
+          label(for="username") Username:
+          input#username(type="text", name="username", required)
+        .form-group
+          label(for="password") Password:
+          input#password(type="password", name="password", required)
+        button.btn(type="submit") Login
+
+    script.
+      document.getElementById('loginForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        const errorMessage = document.getElementById('errorMessage');
+        const successMessage = document.getElementById('successMessage');
+        
+        errorMessage.style.display = 'none';
+        successMessage.style.display = 'none';
+        
+        try {
+          const response = await fetch('/admin/login', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ username, password })
+          });
+          
+          const data = await response.json();
+          
+          if (response.ok) {
+            successMessage.textContent = 'Login successful! Redirecting...';
+            successMessage.style.display = 'block';
+            setTimeout(() => {
+              window.location.href = '/';
+            }, 1000);
+          } else {
+            errorMessage.textContent = data.error || 'Login failed';
+            errorMessage.style.display = 'block';
+          }
+        } catch (error) {
+          errorMessage.textContent = 'Network error. Please try again.';
+          errorMessage.style.display = 'block';
+        }
+      }); 

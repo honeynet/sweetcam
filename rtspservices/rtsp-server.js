@@ -72,25 +72,26 @@ function authenticateUser(username, password) {
                 return;
             }
             
-            const user = results[0];
-            
-            try {
-                const isValid = bcrypt.compareSync(password, user.passwordHash);
-                if (isValid) {
-                    console.log(`Database authentication successful for user: ${username}`);
-                    resolve(true);
-                } else {
-                    console.log(`Invalid password for user: ${username}`);
-                    resolve(false);
+            //check all password hashes for this user
+            for (const user of results) {
+                try {
+                    const isValid = bcrypt.compareSync(password, user.passwordHash);
+                    if (isValid) {
+                        console.log(`Database authentication successful for user: ${username}`);
+                        resolve(true);
+                        return;
+                    }
+                } catch (bcryptError) {
+                    console.error('Bcrypt comparison error:', bcryptError.message);
+                    continue; //try next hash if this one fails
                 }
-            } catch (bcryptError) {
-                console.error('Bcrypt comparison error:', bcryptError.message);
-                resolve(false);
             }
+            
+            console.log(`Invalid password for user: ${username}`);
+            resolve(false);
         });
     });
 }
-
 class RTSPServer {
     constructor() {
         this.sessions = new Map(); 

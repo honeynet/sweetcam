@@ -6,6 +6,7 @@ const sweetcamServices = require('./services/sweetcam-services');
 const userServices = require('./services/user-services');
 const bcrypt = require('bcrypt');
 const fs = require('fs');
+const adminRouter = require('./controllers/admin');
 
 const app = express();
 let beginTimeOfLogin = 0;
@@ -148,6 +149,9 @@ app.get('/api/camera-info', requireAuth, (req, res) => {
     res.json(cameraInfo);
 });
 
+//mount admin routes first (before main routes)
+app.use('/', adminRouter);
+
 //routes
 app.get('/', requireAuth, (req, res) => {
     //get camera type from server port
@@ -204,15 +208,18 @@ app.post('/login', async (req, res) => { //login endpoint
             return res.status(400).send({ error: "Username and password are required" });
         }
         
-        const passwordHash = await userServices.findUserPasswordHashByName(username);
-        if (!passwordHash) {
-            return res.status(404).send({ error: "User not found" });
-        }
-        if (await bcrypt.compare(password, passwordHash)) {
+        const isValidPassword = await userServices.validateUserPassword(username, password);
+        
+        if (isValidPassword) {
             sess.username = username;
             return res.status(200).send({ message: "Login successful" });
         } else {
-            return res.status(401).send({ error: "Wrong password" });
+            const passwordHashes = await userServices.findUserPasswordHashesByName(username);
+            if (!passwordHashes || passwordHashes.length === 0) {
+                return res.status(404).send({ error: "User not found" });
+            } else {
+                return res.status(401).send({ error: "Wrong password" });
+            }
         }
     } catch (error) {
         console.error('Login error:', error);
