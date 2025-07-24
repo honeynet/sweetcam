@@ -1,15 +1,20 @@
 const dgram = require('dgram');
 const { v4: uuidv4 } = require('uuid');
+const brandConfigs = require('../config/brand-configs');
 
-class UDPWSDiscoveryService { //key properties
+class UDPWSDiscoveryService {
   constructor() {
+    // Get brand from environment variable, default to hikvision
+    this.brand = process.env.ONVIF_BRAND || 'hikvision';
+    this.brandConfig = brandConfigs[this.brand] || brandConfigs.hikvision;
+    
     this.deviceInfo = {
-      manufacturer: 'Original Equipment Manufacturer',
-      model: 'DK-49382947',
-      firmwareVersion: '1.0.0',
-      serialNumber: '4495375829',
-      hardwareId: '4495375829',
-      deviceId: uuidv4()
+      manufacturer: this.brandConfig.manufacturer,
+      model: this.brandConfig.model,
+      firmwareVersion: this.brandConfig.firmwareVersion,
+      serialNumber: this.brandConfig.serialNumber,
+      hardwareId: this.brandConfig.hardwareId,
+      deviceId: this.brandConfig.deviceId
     };
     
     this.httpPort = process.env.ONVIF_HTTP_PORT || 8080;
@@ -72,40 +77,49 @@ class UDPWSDiscoveryService { //key properties
     }
   }
 
-  handleUDPProbe(messageStr, remote) { ///for general UDP probes
+  handleUDPProbe(messageStr, remote) {
     const sourceIp = remote.address;
     const sourcePort = remote.port;
      
     if (messageStr.length === 0 || messageStr.length < 10) {
-      //empty packet or very short probe, respond with a minimal WS-Discovery response
-      const response = this.createMinimalResponse();
+      //empty packet or very short probe, respond with brand-specific fault pattern
+      const response = this.createBrandSpecificFaultResponse();
       
       this.socket.send(response, sourcePort, sourceIp);
     } else {
-      //unknown probe, still respond to show port is open
-      const response = this.createMinimalResponse();
+      //unknown probe, respond with brand-specific ONVIF pattern
+      const response = this.createBrandSpecificONVIFResponse();
       this.socket.send(response, sourcePort, sourceIp);
     }
   }
 
-  createMinimalResponse() {
-    //create a minimal WS-Discovery response that will satisfy nmap
+  createBrandSpecificFaultResponse() {
+    //Create response matching the brand-specific fault pattern
     return `<?xml version="1.0" encoding="UTF-8"?>
-<env:Envelope xmlns:env="http://www.w3.org/2003/05/soap-envelope"
-              xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing"
-              xmlns:wsd="http://schemas.xmlsoap.org/ws/2005/04/discovery">
-  <env:Header>
-    <wsa:MessageID>urn:uuid:${uuidv4()}</wsa:MessageID>
-    <wsa:To>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</wsa:To>
-    <wsa:Action>http://schemas.xmlsoap.org/ws/2005/04/discovery/ProbeMatches</wsa:Action>
-  </env:Header>
-  <env:Body>
-    <wsd:ProbeMatches/>
-  </env:Body>
-</env:Envelope>`;
+<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://www.w3.org/2003/05/soap-envelope" xmlns:SOAP-ENC="http://www.w3.org/2003/05/soap-encoding" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:d="http://schemas.xmlsoap.org/ws/2005/04/discovery" xmlns:d3="http://www.onvif.org/ver10/network/wsdl/RemoteDiscoveryBinding" xmlns:d4="http://www.onvif.org/ver10/network/wsdl/DiscoveryLookupBinding" xmlns:dn="http://www.onvif.org/ver10/network/wsdl"><SOAP-ENV:Body><SOAP-ENV:Fault><faultcode>SOAP-ENV:Client</faultcode><faultstring>No XML element tag</faultstring></SOAP-ENV:Fault></SOAP-ENV:Body></SOAP-ENV:Envelope>`;
   }
 
-  async handleProbe(probeMessage, remote) { //network video transmitter, supporting video encoding and streaming, has an ONVIF device services
+  createBrandSpecificONVIFResponse() {
+    //Create response matching the brand-specific ONVIF pattern
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://www.w3.org/2003/05/soap-envelope" xmlns:SOAP-ENC="http://www.w3.org/2003/05/soap-encoding" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:d="http://schemas.xmlsoap.org/ws/2005/04/discovery" xmlns:d3="http://www.onvif.org/ver10/network/wsdl/RemoteDiscoveryBinding" xmlns:d4="http://www.onvif.org/ver10/network/wsdl/DiscoveryLookupBinding" xmlns:dn="http://www.onvif.org/ver10/network/wsdl">
+<SOAP-ENV:Body>
+<d:ProbeMatches>
+<d:ProbeMatch>
+<wsa:EndpointReference>
+<wsa:Address>urn:uuid:${this.deviceInfo.deviceId}</wsa:Address>
+</wsa:EndpointReference>
+<d:Types>dn:NetworkVideoTransmitter</d:Types>
+<d:Scopes>onvif://www.onvif.org/type/video_encoder onvif://www.onvif.org/Profile/Streaming onvif://www.onvif.org/name/${this.deviceInfo.model}</d:Scopes>
+<d:XAddrs>http://${this.httpAddress}:${this.httpPort}/onvif/device_service</d:XAddrs>
+<d:MetadataVersion>1</d:MetadataVersion>
+</d:ProbeMatch>
+</d:ProbeMatches>
+</SOAP-ENV:Body>
+</SOAP-ENV:Envelope>`;
+  }
+
+  async handleProbe(probeMessage, remote) {
     try {
       const sourceIp = remote.address;
       const sourcePort = remote.port;
@@ -115,7 +129,7 @@ class UDPWSDiscoveryService { //key properties
       const messageIdMatch = probeMessage.match(/<[^:]*:MessageID[^>]*>([^<]+)<\/[^:]*:MessageID>/);
       const relatesTo = messageIdMatch ? messageIdMatch[1] : null;
 
-      //create ProbeMatches response
+      //create ProbeMatches response with brand-specific pattern
       const response = this.createProbeMatchesResponse(messageId, relatesTo);
       
       //send response back to the source
@@ -136,7 +150,7 @@ class UDPWSDiscoveryService { //key properties
       const messageIdMatch = resolveMessage.match(/MessageID>([^<]+)<\/a:MessageID/);
       const relatesTo = messageIdMatch ? messageIdMatch[1] : null;
 
-      //create ResolveMatches response
+      //create ResolveMatches response with brand-specific pattern
       const response = this.createResolveMatchesResponse(messageId, relatesTo);
       
       //send response back to the source
@@ -152,72 +166,54 @@ class UDPWSDiscoveryService { //key properties
     const relatesToId = relatesTo || `urn:uuid:${uuidv4()}`;
     
     return `<?xml version="1.0" encoding="UTF-8"?>
-<env:Envelope xmlns:env="http://www.w3.org/2003/05/soap-envelope"
-              xmlns:dn="http://www.onvif.org/ver10/network/wsdl"
-              xmlns:wsd="http://schemas.xmlsoap.org/ws/2005/04/discovery"
-              xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing"
-              xmlns:tds="http://www.onvif.org/ver10/device/wsdl">
-  <env:Header>
-    <wsa:MessageID>urn:uuid:${messageId}</wsa:MessageID>
-    <wsa:RelatesTo>${relatesToId}</wsa:RelatesTo>
-    <wsa:To>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</wsa:To>
-    <wsa:Action>http://schemas.xmlsoap.org/ws/2005/04/discovery/ProbeMatches</wsa:Action>
-  </env:Header>
-  <env:Body>
-    <wsd:ProbeMatches>
-      <wsd:ProbeMatch>
-        <wsa:EndpointReference>
-          <wsa:Address>urn:uuid:${this.deviceInfo.deviceId}</wsa:Address>
-        </wsa:EndpointReference>
-        <wsd:Types>dn:NetworkVideoTransmitter tds:Device</wsd:Types>
-        <wsd:Scopes>
-          onvif://www.onvif.org/type/video_encoder
-          onvif://www.onvif.org/Profile/Streaming
-          onvif://www.onvif.org/name/${this.deviceInfo.model}
-          onvif://www.onvif.org/location/name/ONVIFCamera
-          onvif://www.onvif.org/hardware/${this.deviceInfo.hardwareId}
-          onvif://www.onvif.org/Profile/Device
-        </wsd:Scopes>
-        <wsd:XAddrs>http://${this.httpAddress}:${this.httpPort}/onvif/device_service</wsd:XAddrs>
-        <wsd:MetadataVersion>1</wsd:MetadataVersion>
-      </wsd:ProbeMatch>
-    </wsd:ProbeMatches>
-  </env:Body>
-</env:Envelope>`;
+<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://www.w3.org/2003/05/soap-envelope" xmlns:SOAP-ENC="http://www.w3.org/2003/05/soap-encoding" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:d="http://schemas.xmlsoap.org/ws/2005/04/discovery" xmlns:d3="http://www.onvif.org/ver10/network/wsdl/RemoteDiscoveryBinding" xmlns:d4="http://www.onvif.org/ver10/network/wsdl/DiscoveryLookupBinding" xmlns:dn="http://www.onvif.org/ver10/network/wsdl">
+<SOAP-ENV:Body>
+<d:ProbeMatches>
+<d:ProbeMatch>
+<wsa:EndpointReference>
+<wsa:Address>urn:uuid:${this.deviceInfo.deviceId}</wsa:Address>
+</wsa:EndpointReference>
+<d:Types>dn:NetworkVideoTransmitter</d:Types>
+<d:Scopes>
+onvif://www.onvif.org/type/video_encoder
+onvif://www.onvif.org/Profile/Streaming
+onvif://www.onvif.org/name/${this.deviceInfo.model}
+onvif://www.onvif.org/location/name/${this.deviceInfo.manufacturer}Camera
+onvif://www.onvif.org/hardware/${this.deviceInfo.hardwareId}
+onvif://www.onvif.org/Profile/Device
+onvif://www.onvif.org/Profile/Media
+onvif://www.onvif.org/Profile/PTZ
+</d:Scopes>
+<d:XAddrs>http://${this.httpAddress}:${this.httpPort}/onvif/device_service</d:XAddrs>
+<d:MetadataVersion>1</d:MetadataVersion>
+</d:ProbeMatch>
+</d:ProbeMatches>
+</SOAP-ENV:Body>
+</SOAP-ENV:Envelope>`;
   }
 
   createResolveMatchesResponse(messageId, relatesTo) {
     return `<?xml version="1.0" encoding="UTF-8"?>
-<env:Envelope xmlns:env="http://www.w3.org/2003/05/soap-envelope"
-              xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing"
-              xmlns:wsd="http://schemas.xmlsoap.org/ws/2005/04/discovery"
-              xmlns:tds="http://www.onvif.org/ver10/device/wsdl"
-              xmlns:dn="http://www.onvif.org/ver10/network/wsdl">
-  <env:Header>
-    <wsa:MessageID>urn:uuid:${messageId}</wsa:MessageID>
-    ${relatesTo ? `<wsa:RelatesTo>${relatesTo}</wsa:RelatesTo>` : ''}
-    <wsa:To>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</wsa:To>
-    <wsa:Action>http://schemas.xmlsoap.org/ws/2005/04/discovery/ResolveMatches</wsa:Action>
-  </env:Header>
-  <env:Body>
-    <wsd:ResolveMatches>
-      <wsd:ResolveMatch>
-        <wsa:EndpointReference>
-          <wsa:Address>urn:uuid:${this.deviceInfo.deviceId}</wsa:Address>
-        </wsa:EndpointReference>
-        <wsd:Types>dn:NetworkVideoTransmitter tds:Device</wsd:Types>
-        <wsd:Scopes>
-          onvif://www.onvif.org/type/video_encoder 
-          onvif://www.onvif.org/Profile/Streaming 
-          onvif://www.onvif.org/name/${this.deviceInfo.model}
-          onvif://www.onvif.org/location/name/ONVIFCamera
-        </wsd:Scopes>
-        <wsd:XAddrs>http://${this.httpAddress}:${this.httpPort}/onvif/device_service</wsd:XAddrs>
-        <wsd:MetadataVersion>1</wsd:MetadataVersion>
-      </wsd:ResolveMatch>
-    </wsd:ResolveMatches>
-  </env:Body>
-</env:Envelope>`;
+<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://www.w3.org/2003/05/soap-envelope" xmlns:SOAP-ENC="http://www.w3.org/2003/05/soap-encoding" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:d="http://schemas.xmlsoap.org/ws/2005/04/discovery" xmlns:d3="http://www.onvif.org/ver10/network/wsdl/RemoteDiscoveryBinding" xmlns:d4="http://www.onvif.org/ver10/network/wsdl/DiscoveryLookupBinding" xmlns:dn="http://www.onvif.org/ver10/network/wsdl">
+<SOAP-ENV:Body>
+<d:ResolveMatches>
+<d:ResolveMatch>
+<wsa:EndpointReference>
+<wsa:Address>urn:uuid:${this.deviceInfo.deviceId}</wsa:Address>
+</wsa:EndpointReference>
+<d:Types>dn:NetworkVideoTransmitter</d:Types>
+<d:Scopes>
+onvif://www.onvif.org/type/video_encoder 
+onvif://www.onvif.org/Profile/Streaming 
+onvif://www.onvif.org/name/${this.deviceInfo.model}
+onvif://www.onvif.org/location/name/${this.deviceInfo.manufacturer}Camera
+</d:Scopes>
+<d:XAddrs>http://${this.httpAddress}:${this.httpPort}/onvif/device_service</d:XAddrs>
+<d:MetadataVersion>1</d:MetadataVersion>
+</d:ResolveMatch>
+</d:ResolveMatches>
+</SOAP-ENV:Body>
+</SOAP-ENV:Envelope>`;
   }
 
   stop() {

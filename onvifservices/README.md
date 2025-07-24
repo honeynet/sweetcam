@@ -4,7 +4,7 @@ This ONVIF implements the ONVIF standard to create a fake IP camera that appears
 It provides:
 
 - **WS-Discovery Service** (UDP 3702) - device discovery via multicast
-- **SOAP Services** (TCP 8080) - ONVIF device and media services
+- **SOAP Services** (TCP 8080, 8086-8090) - ONVIF device and media services
 - **Realistic Responses** - Mimics actual device behavior
 
 ## Architecture
@@ -14,8 +14,9 @@ onvifservices/
 ├── onvif-server.js          # Main server orchestrator
 ├── services/
 │   ├── udp-ws-discovery.js  # WS-Discovery service (UDP 3702)
-│   └── onvif-soap.js        # SOAP services (HTTP 8080)
+│   └── onvif-soap.js        # SOAP services (HTTP 8080, 8086-8090)
 ├── config/
+│   ├── brand-configs.js     # Device brand configurations
 │   └── db-config.js         # Database configuration
 ├── Dockerfile               # Container configuration
 ├── package.json             # Project dependencies
@@ -26,32 +27,34 @@ onvifservices/
 ## Testing
 
 ### Test WS-Discovery
-```shell
+```bash
 # Scan UDP port 3702
 sudo nmap -sU -p 3702 127.0.0.1
 
 # Expected result: PORT 3702/udp open|filtered ws-discovery
 ```
 
-### Test HTTP services
+### Test HTTP Services
 ```shell
-# Scan TCP port 8080
-sudo nmap -sV -p 8080 127.0.0.1
+# Scan TCP ports
+sudo nmap -sV -p 8080,8086-8090 127.0.0.1
 
-# Expected result: PORT 8080/tcp open http-proxy ONVIF/1.0
+# Expected result: Ports detected as ONVIF/1.0 services
+```
+
+### Test Health Check
+```shell
+curl http://127.0.0.1:8080/health
+# Expected: {"status":"ok","service":"onvif-device"}
 ```
 
 ### Test SOAP services
 ```shell
 # Test device information
-curl -X POST http://127.0.0.1:8080/onvif/device_service \
-  -H "Content-Type: text/xml; charset=utf-8" \
-  -H "SOAPAction: http://www.onvif.org/ver10/device/wsdl/GetDeviceInformation" \
-  -d '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tds="http://www.onvif.org/ver10/device/wsdl"><soap:Header/><soap:Body><tds:GetDeviceInformation/></soap:Body></soap:Envelope>'
+curl -s http://127.0.0.1:8080/onvif/device_service 
+
+# Test media services
+curl -s http://127.0.0.1:8080/onvif/media_service 
 ```
 
-### Test health check
-```shell
-curl http://127.0.0.1:8080/health
-# Expected: {"status":"ok","service":"onvif-device"}
-```
+

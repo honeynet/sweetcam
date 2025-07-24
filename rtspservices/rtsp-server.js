@@ -6,6 +6,11 @@ const { Buffer } = require('buffer');
 const mysql = require('mysql2');
 const bcrypt = require('bcrypt');
 const dbConfig = require('./config/db-config.js');
+const BrandDetector = require('./utils/brand-detector');
+
+//get configuration from environment variables
+const BRAND = process.env.BRAND || 'auto';
+const RTSP_PORT = parseInt(process.env.RTSP_PORT) || 554;
 
 //database configuration for mysql2 pool
 const poolConfig = {
@@ -19,7 +24,6 @@ const poolConfig = {
     queueLimit: 0
 };
 
-//create database connection pool
 const pool = mysql.createPool(poolConfig);
 
 //test database connection
@@ -44,22 +48,19 @@ function parseAuthorization(headerLine) {
         const [username, password] = credentials.split(':');
         return { username, password };
     } catch (error) {
-        console.error('Error parsing authorization header:', error);
+        console.error('Error parsing authorization header:', error.message);
         return null;
     }
 }
 
 function authenticateUser(username, password) {
     return new Promise((resolve) => {
-        //convert username to lowercase for case-insensitive comparison
         const lowerUsername = username.toLowerCase();
-        
-        //query the database for the user
         const query = 'SELECT name, passwordHash FROM users WHERE LOWER(name) = ?';
         
         pool.query(query, [lowerUsername], (error, results) => {
             if (error) {
-                console.error('Database query error:', error);
+                console.error('Database query error:', error.message);
                 console.log(`Database authentication failed for user: ${username} - database connection error`);
                 resolve(false);
                 return;
@@ -73,7 +74,6 @@ function authenticateUser(username, password) {
             
             const user = results[0];
             
-            //use bcrypt to compare the provided password with the stored hash
             try {
                 const isValid = bcrypt.compareSync(password, user.passwordHash);
                 if (isValid) {
@@ -84,31 +84,47 @@ function authenticateUser(username, password) {
                     resolve(false);
                 }
             } catch (bcryptError) {
-                console.error('Bcrypt comparison error:', bcryptError);
+                console.error('Bcrypt comparison error:', bcryptError.message);
                 resolve(false);
             }
         });
     });
 }
 
-
 class RTSPServer {
     constructor() {
         this.sessions = new Map(); 
         this.streams = new Map();
         this.sessionCounter = 0;
+        this.brandDetector = new BrandDetector();
+        this.forcedBrand = BRAND !== 'auto' ? BRAND : null;
         this.setupStreams();
     }
 
     setupStreams() {
+        //stup streams for each brand
+        const brands = ['hikvision', 'dahua', 'axis', 'reolink', 'mobotix', 'vstarcam'];
+        
+        brands.forEach(brand => {
+            this.streams.set(`/${brand}`, {
+                name: `${brand} Video stream`,
+                rtpPort: 8002,
+                rtcpPort: 8003,
+                brand: brand
+            });
+        });
+        
+        //default stream
         this.streams.set('/stream', {
             name: 'Video stream',
             rtpPort: 8002,
-            rtcpPort: 8003 
+            rtcpPort: 8003,
+            brand: this.forcedBrand || 'hikvision'
         });
     }
 
-    generateSDP(name = 'Video stream', serverAddress = '127.0.0.1') { 
+    generateSDP(name = 'Video stream', serverAddress = '127.0.0.1', brand = 'hikvision') { 
+        const brandConfig = this.brandDetector.getBrandConfig(brand);
         return `v=0\r
 o=- 0 0 IN IP4 ${serverAddress}\r
 s=${name}\r
@@ -166,38 +182,28 @@ a=control:trackID=1\r
     }
 
     parseTransport(transportHeader) {
-        console.log('Transport header received:', transportHeader);
-        
         if (!transportHeader) {
             return { rtpPort: 8000, rtcpPort: 8001 };
         }
         
         const parts = transportHeader.split(';');
-        console.log('Transport parts:', parts);
-        
         const clientPorts = parts.find(p => p.includes('client_port'));
         if (clientPorts) {
             const match = clientPorts.match(/client_port=(\d+)-(\d+)/);
             if (match) {
                 const rtpPort = parseInt(match[1]);
                 const rtcpPort = parseInt(match[2]);
-                console.log(`Parsed client ports: RTP=${rtpPort}, RTCP=${rtcpPort}`);
-                return {
-                    rtpPort: rtpPort,
-                    rtcpPort: rtcpPort
-                };
+                return { rtpPort, rtcpPort };
             }
         }
         
-        // Fallback to default ports
-        console.log('Using default ports: RTP=8000, RTCP=8001');
         return { rtpPort: 8000, rtcpPort: 8001 };
     }
 
     async handleRequest(socket, data) {
-        console.log('Received:', data.toString().split('\r\n')[0]); 
+        const dataStr = data.toString();
+        const firstLine = dataStr.split('\r\n')[0];
         
-        const dataStr = data.toString(); 
         if (!dataStr.includes('RTSP/1.0') && !dataStr.includes('RTSP/1.1')) {
             return;
         }
@@ -207,6 +213,16 @@ a=control:trackID=1\r
             const cseq = headers.CSeq || headers.Cseq || '1';
             const sessionId = headers.Session;
             
+            //detect brand based on connection and request
+            let brand;
+            if (this.forcedBrand) {
+                brand = this.forcedBrand;
+            } else {
+                brand = this.brandDetector.detectBrand(socket, dataStr, url);
+            }
+            
+            const brandConfig = this.brandDetector.getBrandConfig(brand);
+            
             //check if we have an authenticated session
             let authenticatedSession = null;
             if (sessionId && this.sessions.has(sessionId)) {
@@ -215,25 +231,22 @@ a=control:trackID=1\r
             
             //authentication check (only for DESCRIBE and later methods)
             if (method === 'DESCRIBE' || method === 'SETUP' || method === 'PLAY' || method === 'PAUSE' || method === 'TEARDOWN') {
-                //if we have an authenticated session, skip authentication
                 if (authenticatedSession && authenticatedSession.authenticated) {
-                    console.log(`Using authenticated session: ${sessionId}`);
+                    // Using authenticated session
                 } else {
                     let credentials = null;
                     
-                    //first try to get credentials from Authorization header
+                    //first try to get credentials from authorization header
                     const authLine = dataStr.split('\r\n').find(line => line.startsWith('Authorization:'));
                     if (authLine) {
                         credentials = parseAuthorization(authLine);
                     }
                     
-                    //if no Authorization header, try to extract from URL
+                    //if no athorization header, try to extract from URL
                     if (!credentials && url.includes('@')) {
                         try {
-                            //handle both cases: with path and without path
                             let urlMatch = url.match(/rtsp:\/\/([^:]+):([^@]+)@([^\/]+)(\/.*)/);
                             if (!urlMatch) {
-                                //try without path (just root)
                                 urlMatch = url.match(/rtsp:\/\/([^:]+):([^@]+)@([^\/]+)/);
                             }
                             if (urlMatch) {
@@ -241,37 +254,29 @@ a=control:trackID=1\r
                                     username: urlMatch[1],
                                     password: urlMatch[2]
                                 };
-                                console.log(`Extracted credentials from URL: ${credentials.username}`);
                             }
                         } catch (e) {
-                            console.error('Error parsing URL credentials:', e);
+                            console.error('Error parsing URL credentials:', e.message);
                         }
                     }
                     
                     if (!credentials) {
-                        console.log('No credentials provided');
-                        socket.write(
-                            `RTSP/1.0 401 Unauthorized\r\n` +
-                            `CSeq: ${cseq}\r\n` +
-                            `WWW-Authenticate: Basic realm="RTSP Server"\r\n\r\n`
-                        );
+                        const nonce = this.brandDetector.generateNonce();
+                        const response = brandConfig.patterns.unauthorized(nonce);
+                        socket.write(response);
                         return;
                     }
 
                     try {
                         const isValid = await authenticateUser(credentials.username, credentials.password);
                         if (!isValid) {
-                            console.log(`Invalid credentials for user: ${credentials.username}`);
-                            socket.write(
-                                `RTSP/1.0 401 Unauthorized\r\n` +
-                                `CSeq: ${cseq}\r\n` +
-                                `WWW-Authenticate: Basic realm="RTSP Server"\r\n\r\n`
-                            );
+                            const nonce = this.brandDetector.generateNonce();
+                            const response = brandConfig.patterns.unauthorized(nonce);
+                            socket.write(response);
                             return;
                         }
-                        console.log(`Authenticated user: ${credentials.username}`);
                         
-                        //mark session as authenticated if this is a SETUP request
+                        //mark session as authenticated if this is a setup request
                         if (method === 'SETUP' && sessionId) {
                             if (this.sessions.has(sessionId)) {
                                 this.sessions.get(sessionId).authenticated = true;
@@ -279,29 +284,33 @@ a=control:trackID=1\r
                             }
                         }
                     } catch (err) {
-                        console.error('Authentication error:', err);
-                        socket.write(
-                            `RTSP/1.0 500 Internal Server Error\r\n` +
-                            `CSeq: ${cseq}\r\n\r\n`
-                        );
+                        console.error('Authentication error:', err.message);
+                        socket.write(`RTSP/1.0 500 Internal Server Error\r\nCSeq: ${cseq}\r\n\r\n`);
                         return;
                     }
                 }
             }
             
             if (method === 'OPTIONS') {
-                const response = `RTSP/1.0 200 OK\r\nCSeq: ${cseq}\r\nPublic: OPTIONS, DESCRIBE, SETUP, PLAY, PAUSE, TEARDOWN\r\n\r\n`;
+                //send brand-specific OPTIONS response
+                let response;
+                if (brand === 'dahua') {
+                    //dahua returns 405 Method Not Allowed for OPTIONS
+                    response = brandConfig.patterns.options.pattern1;
+                } else if (cseq === '42') {
+                    //special case for pattern 3 (Hikvision specific)
+                    response = brandConfig.patterns.options.pattern2(cseq);
+                } else {
+                    response = brandConfig.patterns.options.pattern1;
+                }
+                
                 socket.write(response);
                 return;
             }
             
             let path = this.extractPath(url);
-            console.log(`Extracted path: "${path}" from URL: "${url}"`);
-            
-            //if they hit the root, and you only have one stream, map it
             if (path === '/' && this.streams.size === 1) {
                 const streamPath = Array.from(this.streams.keys())[0];
-                console.log(`Redirecting root request to ${streamPath}`);
                 path = streamPath;
             }
             
@@ -327,10 +336,9 @@ a=control:trackID=1\r
                         socket.write(`RTSP/1.0 404 Not Found\r\nCSeq: ${cseq}\r\n\r\n`);
                         return;
                     }
-                    //generate SDP with proper server address
                     const serverAddress = socket.localAddress || '127.0.0.1';
-                    const sdp = this.generateSDP(stream.name, serverAddress);
-                    const baseURL = `rtsp://${serverAddress}:554${path}/`;
+                    const sdp = this.generateSDP(stream.name, serverAddress, stream.brand);
+                    const baseURL = `rtsp://${serverAddress}:${RTSP_PORT}${path}/`;
                     const sdpResponse = `RTSP/1.0 200 OK\r\nCSeq: ${cseq}\r\nContent-Type: application/sdp\r\nContent-Base: ${baseURL}\r\nContent-Length: ${Buffer.byteLength(sdp)}\r\n\r\n${sdp}`;
                     socket.write(sdpResponse);
                     break;
@@ -340,23 +348,22 @@ a=control:trackID=1\r
                     const sessionId2 = this.sessionCounter.toString();
                     const transport = this.parseTransport(headers.Transport || '');
                     
-                    //use server's RTP/RTCP ports (8002/8003) for server_port
                     const serverRtpPort = 8002;
                     const serverRtcpPort = 8003;
                     
                     this.sessions.set(sessionId2, {
-                        path: '/stream',
+                        path: stream ? stream.name : '/stream',
                         state: 'setup',
                         rtpPort: serverRtpPort,
                         clientRtpPort: transport.rtpPort,
                         clientRtcpPort: transport.rtcpPort,
                         clientAddress: socket.remoteAddress,
                         socket: socket,
-                        authenticated: true //mark session as authenticated
+                        authenticated: true,
+                        brand: stream ? stream.brand : brand
                     });
 
                     const setupResponse = `RTSP/1.0 200 OK\r\nCSeq: ${cseq}\r\nTransport: RTP/AVP;unicast;client_port=${transport.rtpPort}-${transport.rtcpPort};server_port=${serverRtpPort}-${serverRtcpPort}\r\nSession: ${sessionId2}\r\n\r\n`;
-                    console.log('SETUP response:', setupResponse);
                     socket.write(setupResponse);
                     break;
                     
@@ -368,27 +375,23 @@ a=control:trackID=1\r
                         return;
                     }
                     
-                    //check if resuming from pause
                     const isResuming = session.state === 'paused';
                     session.state = 'playing';
 
                     if (!isResuming) {
-                        //new play,initialize timestamps
                         const nowMs = Date.now();
                         session.startTimeMs = nowMs;
                         session.frameNumber = 0;
-                        session.lastSeq = 1; //start from 1, not random
-                        session.rtpStartTimestamp = Math.floor(nowMs / 1000) % 1000000; //keep it reasonable
+                        session.lastSeq = 1;
+                        session.rtpStartTimestamp = Math.floor(nowMs / 1000) % 1000000;
                         session.lastTimestamp = session.rtpStartTimestamp;
                     } else {
-                        //resuming from pause, update start time but keep existing sequence and timestamp
                         session.startTimeMs = Date.now();
-                        console.log(`Resuming stream for session ${sessionId3} from sequence ${session.lastSeq}`);
                     }
 
                     const rtpStart = session.lastTimestamp;
                     const nptStart = 0.0;
-                    const playResponse = `RTSP/1.0 200 OK\r\nCSeq: ${cseq}\r\nSession: ${sessionId3}\r\nRange: npt=${nptStart.toFixed(3)}-\r\nRTP-Info: url=rtsp://127.0.0.1:554${session.path}/trackID=1;seq=${session.lastSeq};rtptime=${rtpStart}\r\n\r\n`;
+                    const playResponse = `RTSP/1.0 200 OK\r\nCSeq: ${cseq}\r\nSession: ${sessionId3}\r\nRange: npt=${nptStart.toFixed(3)}-\r\nRTP-Info: url=rtsp://127.0.0.1:${RTSP_PORT}${session.path}/trackID=1;seq=${session.lastSeq};rtptime=${rtpStart}\r\n\r\n`;
                     socket.write(playResponse);
 
                     this.startRTPStream(session);
@@ -402,11 +405,9 @@ a=control:trackID=1\r
                         return;
                     }
                     
-                    //pause the stream by stopping RTP transmission
                     if (sessionPause.state === 'playing') {
                         sessionPause.state = 'paused';
                         
-                        //stop RTP and RTCP intervals
                         if (sessionPause.rtpInterval) {
                             clearInterval(sessionPause.rtpInterval);
                             sessionPause.rtpInterval = null;
@@ -416,7 +417,6 @@ a=control:trackID=1\r
                             sessionPause.rtcpInterval = null;
                         }
                         
-                        console.log(`Stream paused for session ${sessionIdPause}`);
                     }
                     
                     const pauseResponse = `RTSP/1.0 200 OK\r\nCSeq: ${cseq}\r\nSession: ${sessionIdPause}\r\n\r\n`;
@@ -435,14 +435,14 @@ a=control:trackID=1\r
                         }
                         this.sessions.delete(sessionId4);
                     }
-                    socket.write(`RTSP/1.0 200 OK\r\nCSeq: ${cseq}\r\nSession: ${sessionId4}\r\n\r\n`);
+                    socket.write(`RTSP/1.0 200 OK\r\nCSeq: ${sessionId4}\r\n\r\n`);
                     break;
                     
                 default:
                     socket.write(`RTSP/1.0 501 not implemented\r\nCSeq: ${cseq}\r\n\r\n`);
             }
         } catch (error) {
-            console.error('Error handling request:', error);
+            console.error('Error handling request:', error.message);
             socket.write(`RTSP/1.0 500 internal server error\r\nCSeq: 1\r\n\r\n`);
         }
     }
@@ -452,18 +452,17 @@ a=control:trackID=1\r
         const rtcp = dgram.createSocket('udp4');
         
         const ssrc = 0x12345678;
-        const clockRate = 90000; //90khz for video
-        const frameRate = 30; //30 fps
-        const timestampIncrement = clockRate / frameRate; //3000
-        const frameInterval = 1000 / frameRate; //~33.33ms between frames
+        const clockRate = 90000;
+        const frameRate = 30;
+        const timestampIncrement = clockRate / frameRate;
+        const frameInterval = 1000 / frameRate;
         
-        //load test image (img.jpg)
         let jpeg;
         try {
             const imagePath = path.join(__dirname, 'img.jpg');
             jpeg = fs.readFileSync(imagePath);
         } catch (e) {
-            console.log(`Could not load the image: ${e.message}`);
+            console.error(`Could not load the image: ${e.message}`);
             console.log('Please ensure the image is present. Exiting...');
             rtp.close();
             rtcp.close();
@@ -471,25 +470,19 @@ a=control:trackID=1\r
         }
 
         console.log(`Starting RTP stream to ${session.clientAddress}:${session.clientRtpPort}`);
-        console.log(`RTCP stream to ${session.clientAddress}:${session.clientRtcpPort}`);
-        console.log(`Frame rate: ${frameRate} fps, Frame interval: ${frameInterval.toFixed(2)}ms, Timestamp increment: ${timestampIncrement}`);
 
-        //store sockets in session for cleanup
         session.rtpSocket = rtp;
         session.rtcpSocket = rtcp;
         
-        //initialize counters using session values (lastSeq, packetsSent, octetsSent)
         let seq = session.lastSeq || 0;
         let packetsSent = session.packetsSent || 0;
         let octetsSent = session.octetsSent || 0;
         
-        //track real-time starting point, preserve existing if resuming
         const streamStartTime = session.streamStartTime || Date.now();
-        let rtpTimestamp = session.lastTimestamp || 0; //start from session's initialized timestamp
+        let rtpTimestamp = session.lastTimestamp || 0;
         
-        //calculate initial ntp timestamp for rtcp sync
-        const ntpStartSec = Math.floor(streamStartTime / 1000) + 2208988800; //ntp seconds since 1900
-        const ntpStartFrac = Math.floor((streamStartTime % 1000) * 4294967.296); //ntp fractional seconds
+        const ntpStartSec = Math.floor(streamStartTime / 1000) + 2208988800;
+        const ntpStartFrac = Math.floor((streamStartTime % 1000) * 4294967.296);
 
         const sendFrame = () => {
             if (session.state !== 'playing') {
@@ -501,46 +494,34 @@ a=control:trackID=1\r
                 return;
             }
 
-            //calculate current time for logging
             const now = Date.now();
             const elapsedMs = now - streamStartTime;
             
-            //create rtp header (12 bytes)
             const rtpHeader = Buffer.alloc(12);
-            rtpHeader[0] = 0x80; //version=2, padding=0, extension=0, cc=0
-            rtpHeader[1] = 0x9A; //m=1 (mark bit for jpeg), pt=26 (jpeg)
-            rtpHeader.writeUInt16BE(seq & 0xFFFF, 2); //sequence number
-            rtpHeader.writeUInt32BE(rtpTimestamp & 0xFFFFFFFF, 4); //timestamp
-            rtpHeader.writeUInt32BE(ssrc, 8); //ssrc
+            rtpHeader[0] = 0x80;
+            rtpHeader[1] = 0x9A;
+            rtpHeader.writeUInt16BE(seq & 0xFFFF, 2);
+            rtpHeader.writeUInt32BE(rtpTimestamp & 0xFFFFFFFF, 4);
+            rtpHeader.writeUInt32BE(ssrc, 8);
 
-            //jpeg rtp payload header (8 bytes) - minimal header
             const jpegHeader = Buffer.alloc(8);
-            jpegHeader[0] = 0; //type-specific
-            jpegHeader[1] = 0; //fragment offset (24-bit) - high
-            jpegHeader[2] = 0; //fragment offset - middle
-            jpegHeader[3] = 0; //fragment offset - low
-            jpegHeader[4] = 0; //type (0 = 4:2:2)
-            jpegHeader[5] = 80; //q factor
-            jpegHeader[6] = 160 / 8; //width in 8-pixel blocks
-            jpegHeader[7] = 160 / 8; //height in 8-pixel blocks
+            jpegHeader[0] = 0;
+            jpegHeader[1] = 0;
+            jpegHeader[2] = 0;
+            jpegHeader[3] = 0;
+            jpegHeader[4] = 0;
+            jpegHeader[5] = 80;
+            jpegHeader[6] = 160 / 8;
+            jpegHeader[7] = 160 / 8;
 
-            //build complete rtp packet
             const rtpPacket = Buffer.concat([rtpHeader, jpegHeader, jpeg]);
 
-            //send rtp packet
             rtp.send(rtpPacket, 0, rtpPacket.length, session.clientRtpPort, session.clientAddress || '127.0.0.1', (err) => {
                 if (err) {
-                    console.error('RTP send error:', err);
+                    console.error('RTP send error:', err.message);
                 } else {
                     packetsSent++;
                     octetsSent += rtpPacket.length;
-                    
-                    //log every second (30 frames)
-                    if (seq % 30 === 0) {
-                        const streamSeconds = Math.floor(elapsedMs / 1000);
-                        const expectedTimestamp = streamSeconds * clockRate;
-                        console.log(`Real time: ${streamSeconds}s, Frame: ${seq}, RTP timestamp: ${rtpTimestamp}, Expected: ${expectedTimestamp}`);
-                    }
                 }
             });
 
@@ -552,77 +533,60 @@ a=control:trackID=1\r
             session.octetsSent = octetsSent;
             session.streamStartTime = streamStartTime;
             
-            //increment timestamp for next frame
             rtpTimestamp += timestampIncrement;
         };
 
-        //send rtcp sender reports
         const sendRTCP = () => {
             if (session.state !== 'playing') {
                 return;
             }
 
             const now = Date.now();
-            const ntpSec = Math.floor(now / 1000) + 2208988800; //ntp seconds since 1900
-            const ntpFrac = Math.floor((now % 1000) * 4294967.296); //ntp fractional seconds
+            const ntpSec = Math.floor(now / 1000) + 2208988800;
+            const ntpFrac = Math.floor((now % 1000) * 4294967.296);
             
-            //use the current rtp timestamp (which should match the last sent frame)
             const currentRtpTimestamp = session.lastTimestamp || 0;
 
-            //rtcp sender report (sr)
             const rtcpSR = Buffer.alloc(28);
             
-            //header
-            rtcpSR[0] = 0x80; //v=2, p=0, rc=0
-            rtcpSR[1] = 200; //pt=200 (sr)
-            rtcpSR.writeUInt16BE(6, 2); //length = 6 (28 bytes / 4 - 1)
-            rtcpSR.writeUInt32BE(ssrc, 4); //ssrc
+            rtcpSR[0] = 0x80;
+            rtcpSR[1] = 200;
+            rtcpSR.writeUInt16BE(6, 2);
+            rtcpSR.writeUInt32BE(ssrc, 4);
             
-            //sender info
-            rtcpSR.writeUInt32BE(ntpSec, 8); //ntp timestamp (seconds)
-            rtcpSR.writeUInt32BE(ntpFrac, 12); //ntp timestamp (fraction)
-            rtcpSR.writeUInt32BE(currentRtpTimestamp & 0xFFFFFFFF, 16); //rtp timestamp
-            rtcpSR.writeUInt32BE(session.packetsSent || 0, 20); //packet count
-            rtcpSR.writeUInt32BE(session.octetsSent || 0, 24); //octet count
+            rtcpSR.writeUInt32BE(ntpSec, 8);
+            rtcpSR.writeUInt32BE(ntpFrac, 12);
+            rtcpSR.writeUInt32BE(currentRtpTimestamp & 0xFFFFFFFF, 16);
+            rtcpSR.writeUInt32BE(session.packetsSent || 0, 20);
+            rtcpSR.writeUInt32BE(session.octetsSent || 0, 24);
 
             rtcp.send(rtcpSR, 0, rtcpSR.length, session.clientRtcpPort, session.clientAddress || '127.0.0.1', (err) => {
                 if (err) {
-                    console.error('RTCP send error:', err);
-                } else {
-                    const elapsedMs = now - streamStartTime;
-                    console.log(`RTCP SR sent - RTP timestamp: ${currentRtpTimestamp}, elapsed: ${elapsedMs}ms`);
+                    console.error('RTCP send error:', err.message);
                 }
             });
         };
 
-        //send first rtcp immediately to establish sync
         sendRTCP();
-        
-        //send first frame immediately
         sendFrame();
         
-        //schedule frames at exact intervals (30 fps)
         session.rtpInterval = setInterval(sendFrame, frameInterval);
-        
-        //send rtcp every second
         session.rtcpInterval = setInterval(sendRTCP, 1000);
     }
 }
 
 const rtsp = new RTSPServer();
 const server = net.createServer(socket => {
-    console.log('RTSP client connected from', socket.remoteAddress);
     
     socket.on('data', async data => {
         await rtsp.handleRequest(socket, data);
     });
     
     socket.on('error', err => {
-        console.error('Socket error:', err);
+        console.error('Socket error:', err.message);
     });
     
     socket.on('close', () => {
-        console.log('RTSP client disconnected');
         for (const [sessionId, session] of rtsp.sessions) {
             if (session.socket === socket) {
                 if (session.rtpSocket) session.rtpSocket.close();
@@ -635,13 +599,11 @@ const server = net.createServer(socket => {
     });
 });
 
-server.listen(554, '0.0.0.0', () => {
-    console.log('RTSP server listening on rtsp://0.0.0.0:554/stream');
-    console.log('Test with: rtsp://localhost:554/stream');
-    console.log('Authentication required - use database users for access');
+server.listen(RTSP_PORT, '0.0.0.0', () => {
+    console.log(`RTSP server started on port ${RTSP_PORT}`);
 });
 
 process.on('SIGINT', () => {
-    console.log('\nShutting down...');
+    console.log('Shutting down RTSP server...');
     server.close(() => process.exit(0));
 });

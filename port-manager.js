@@ -16,13 +16,24 @@ class PortManager {
             'mobotix_service': { currentPort: 443, internalPort: 443 },
             'reolink_service': { currentPort: 8081, internalPort: 8081 },
             'vstarcam_service': { currentPort: 81, internalPort: 81 },
-            'rtsp_streaming_service': { currentPort: 554, internalPort: 554 },
+            'rtsp_main': { currentPort: 554, internalPort: 554 },
+            'rtsp_hikvision': { currentPort: 8554, internalPort: 8554 },
+            'rtsp_dahua': { currentPort: 8555, internalPort: 8555 },
+            'rtsp_axis': { currentPort: 8556, internalPort: 8556 },
+            'rtsp_reolink': { currentPort: 8557, internalPort: 8557 },
+            'rtsp_mobotix': { currentPort: 8558, internalPort: 8558 },
+            'rtsp_vstarcam': { currentPort: 8559, internalPort: 8559 },
+            'onvif_service': { currentPort: 3702, internalPort: 3702 },
+            'onvif_dahua_service': { currentPort: 3703, internalPort: 3702 },
+            'onvif_axis_service': { currentPort: 3704, internalPort: 3702 },
+            'onvif_reolink_service': { currentPort: 3705, internalPort: 3702 },
+            'onvif_mobotix_service': { currentPort: 3706, internalPort: 3702 },
+            'onvif_vstarcam_service': { currentPort: 3707, internalPort: 3702 },
             'mysql_service': { currentPort: 3306, internalPort: 3306 },
             'cowrie_service': { currentPort: null, internalPort: null } // Uses env vars
         };
     }
 
-    //check if a port is available
     isPortAvailable(port) {
         try {
             const result = execSync(`netstat -tuln | grep ":${port} "`, { encoding: 'utf8' });
@@ -33,7 +44,6 @@ class PortManager {
         }
     }
 
-    //get current port for a service
     getCurrentPort(serviceName) {
         try {
             const composeContent = fs.readFileSync(this.composeFile, 'utf8');
@@ -82,7 +92,6 @@ class PortManager {
         }
     }
 
-    //update port in docker-compose.yml
     updatePort(serviceName, newPort) {
         try {
             let composeContent = fs.readFileSync(this.composeFile, 'utf8');
@@ -146,20 +155,16 @@ class PortManager {
         }
     }
 
-    //rebuild and recreate a specific container with new port
     rebuildContainer(serviceName) {
         try {
             console.log(`\nRebuilding and recreating ${serviceName} with new port...`);
             
-            //stop the container first
-            console.log(`⏹Stopping ${serviceName}...`);
+            console.log(`Stopping ${serviceName}...`);
             execSync(`sudo docker compose stop ${serviceName}`, { stdio: 'inherit' });
             
-            //remove the container to ensure clean recreation
             console.log(`Removing ${serviceName} container...`);
             execSync(`sudo docker compose rm -f ${serviceName}`, { stdio: 'inherit' });
             
-            //rebuild and start with new configuration
             console.log(`Rebuilding and starting ${serviceName}...`);
             execSync(`sudo docker compose up -d --build ${serviceName}`, { stdio: 'inherit' });
             
@@ -171,7 +176,6 @@ class PortManager {
         }
     }
 
-    //show current ports
     showCurrentPorts() {
         console.log('\nCurrent Port Configuration:');
         console.log('=' .repeat(50));
@@ -188,7 +192,6 @@ class PortManager {
         console.log('=' .repeat(50));
     }
 
-    //ask for confirmation
     async askConfirmation(serviceName, oldPort, newPort) {
         const rl = readline.createInterface({
             input: process.stdin,
@@ -216,13 +219,11 @@ class PortManager {
             return false;
         }
 
-        //check if port is available
         if (!this.isPortAvailable(newPort)) {
             console.error(`Port ${newPort} is already in use. Please choose a different port.`);
             return false;
         }
 
-        //get current port
         const currentPort = this.getCurrentPort(serviceName);
         if (currentPort === null) {
             console.error(`Could not determine current port for ${serviceName}`);
@@ -234,14 +235,12 @@ class PortManager {
             return true;
         }
 
-        //ask for confirmation
         const confirmed = await this.askConfirmation(serviceName, currentPort, newPort);
         if (!confirmed) {
             console.log('Port change cancelled by user.');
             return false;
         }
 
-        //update the port
         console.log(`Updating docker-compose.yml...`);
         if (!this.updatePort(serviceName, newPort)) {
             console.error('Failed to update docker-compose.yml');
@@ -250,7 +249,6 @@ class PortManager {
 
         console.log('Port updated in docker-compose.yml');
 
-        //restart the container
         if (!this.rebuildContainer(serviceName)) {
             console.error('Failed to rebuild container');
             return false;
@@ -260,7 +258,6 @@ class PortManager {
         return true;
     }
 
-    //show help
     showHelp() {
         console.log(`
 SweetCam Port Manager
@@ -286,7 +283,19 @@ Available Services:
   - mobotix_service
   - reolink_service
   - vstarcam_service
-  - rtsp_streaming_service
+  - rtsp_main (main RTSP service)
+  - rtsp_hikvision (Hikvision RTSP)
+  - rtsp_dahua (Dahua RTSP)
+  - rtsp_axis (Axis RTSP)
+  - rtsp_reolink (Reolink RTSP)
+  - rtsp_mobotix (Mobotix RTSP)
+  - rtsp_vstarcam (Vstarcam RTSP)
+  - onvif_service (Hikvision ONVIF)
+  - onvif_dahua_service (Dahua ONVIF)
+  - onvif_axis_service (Axis ONVIF)
+  - onvif_reolink_service (Reolink ONVIF)
+  - onvif_mobotix_service (Mobotix ONVIF)
+  - onvif_vstarcam_service (Vstarcam ONVIF)
   - mysql_service
   - cowrie_service (uses environment variables)
         `);
@@ -334,7 +343,6 @@ async function main() {
     }
 }
 
-//run the main function
 if (require.main === module) {
     main().catch(error => {
         console.error(' An error occurred:', error.message);

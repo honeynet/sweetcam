@@ -1,15 +1,20 @@
 const soap = require('soap');
 const { pool } = require('../config/db-config');
 const xml2js = require('xml2js');
+const brandConfigs = require('../config/brand-configs');
 
 class ONVIFSoapService {
   constructor() {
+    //get brand from environment variable, default to hikvision
+    this.brand = process.env.ONVIF_BRAND || 'hikvision';
+    this.brandConfig = brandConfigs[this.brand] || brandConfigs.hikvision;
+    
     this.deviceInfo = {
-      manufacturer: 'Original Equipment Manufacturer',
-      model: 'DK-49382947',
-      firmwareVersion: 'V1.0.0',
-      serialNumber: '4495375829',
-      hardwareId: '4495375829'
+      manufacturer: this.brandConfig.manufacturer,
+      model: this.brandConfig.model,
+      firmwareVersion: this.brandConfig.firmwareVersion,
+      serialNumber: this.brandConfig.serialNumber,
+      hardwareId: this.brandConfig.hardwareId
     };
   }
 
@@ -18,11 +23,11 @@ class ONVIFSoapService {
       GetDeviceInformation: (args, callback) => {
         try {
           const result = {
-            Manufacturer: 'Original Equipment Manufacturer',
-            Model: 'DK-49382947',
-            FirmwareVersion: 'V1.0.0',
-            SerialNumber: '4495375829',
-            HardwareId: '4495375829'
+            Manufacturer: this.deviceInfo.manufacturer,
+            Model: this.deviceInfo.model,
+            FirmwareVersion: this.deviceInfo.firmwareVersion,
+            SerialNumber: this.deviceInfo.serialNumber,
+            HardwareId: this.deviceInfo.hardwareId
           };
           callback(null, result);
         } catch (error) {
@@ -226,7 +231,7 @@ class ONVIFSoapService {
                     Component: 'System',
                     Level: 'Information',
                     DateTime: now.toISOString(),
-                    Description: 'System startup completed'
+                    Description: `${this.deviceInfo.manufacturer} ${this.deviceInfo.model} system startup completed`
                   }
                 },
                 {
@@ -310,7 +315,7 @@ class ONVIFSoapService {
       SystemReboot: (args, callback) => {
         try {
           const result = {
-            Message: 'System reboot initiated'
+            Message: `${this.deviceInfo.manufacturer} ${this.deviceInfo.model} system reboot initiated`
           };
           callback(null, result);
         } catch (error) {
@@ -328,7 +333,7 @@ class ONVIFSoapService {
             Profiles: [
               {
                 token: 'Profile_1',
-                Name: 'Main Profile',
+                Name: `${this.deviceInfo.manufacturer} Main Profile`,
                 VideoSourceConfiguration: {
                   token: 'VideoSource_1',
                   Name: 'Video Source 1',
@@ -345,7 +350,7 @@ class ONVIFSoapService {
                   token: 'VideoEncoder_1',
                   Name: 'Video Encoder 1',
                   UseCount: 1,
-                  Encoding: 'H.264',
+                  Encoding: this.brandConfig.specifications.compression,
                   Resolution: {
                     Width: 1920,
                     Height: 1080
@@ -422,7 +427,7 @@ class ONVIFSoapService {
         try {
           const result = {
             MediaUri: {
-              URI: 'rtsp://127.0.0.1:554/stream',
+              URI: `rtsp://127.0.0.1:554/${this.brand}`,
               InvalidAfterConnect: false,
               InvalidAfterReboot: false,
               Timeout: 30
@@ -482,9 +487,9 @@ class ONVIFSoapService {
             Configurations: [
               {
                 token: 'VideoEncoder_1',
-                Name: 'Video Encoder 1',
+                Name: `${this.deviceInfo.manufacturer} Video Encoder`,
                 UseCount: 1,
-                Encoding: 'H.264',
+                Encoding: this.brandConfig.specifications.compression,
                 Resolution: {
                   Width: 1920,
                   Height: 1080
@@ -514,7 +519,7 @@ class ONVIFSoapService {
             Configurations: [
               {
                 token: 'AudioEncoder_1',
-                Name: 'Audio Encoder 1',
+                Name: `${this.deviceInfo.manufacturer} Audio Encoder`,
                 UseCount: 1,
                 Encoding: 'G711',
                 Bitrate: 64,

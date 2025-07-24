@@ -12,6 +12,12 @@ const ONVIFSoapService = require('./services/onvif-soap');
 class ONVIFHoneypot {
   constructor() {
     this.app = express();
+    
+    // Disable Express.js signatures
+    this.app.disable('x-powered-by');
+    this.app.disable('etag');
+    this.app.disable('view cache');
+    
     this.server = http.createServer(this.app);
     this.wsDiscovery = new UDPWSDiscoveryService();
     this.soapService = new ONVIFSoapService();
@@ -23,70 +29,242 @@ class ONVIFHoneypot {
   }
 
   setupMiddleware() {    
-    //basic security headers
     this.app.use((req, res, next) => {
+      res.removeHeader('X-Powered-By');
+      res.removeHeader('X-Content-Type-Options');
+      res.removeHeader('X-Frame-Options');
+      res.removeHeader('X-XSS-Protection');
+      
       res.setHeader('Server', 'ONVIF/1.0');
-      res.setHeader('X-Powered-By', 'ONVIF');
+      res.setHeader('Connection', 'close');
+      res.setHeader('Content-Type', 'application/soap+xml; charset=utf-8');
       next();
     });
   }
 
   setupRoutes() {
-    //health check endpoint
     this.app.get('/health', (req, res) => {
+      res.setHeader('Server', 'ONVIF/1.0');
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.json({ status: 'ok', service: 'onvif-device' });
     });
 
-    //root endpoint, redirect to device service
     this.app.get('/', (req, res) => {
-      res.redirect('/onvif/device_service');
+      res.setHeader('Server', 'ONVIF/1.0');
+      res.setHeader('Location', '/onvif/device_service');
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.status(302).send('Found. Redirecting to /onvif/device_service');
     });
 
-    //onvif service endpoints - handle both HTTP GET and SOAP requests
+    //onvif service endpoints, handle both http get and soap requests
     this.app.all('/onvif/device_service', (req, res, next) => {
-      // If it's a GET request, serve HTML page
+      res.setHeader('Server', 'ONVIF/1.0');
       if (req.method === 'GET') {
-        res.setHeader('Content-Type', 'text/html');
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        
+        const deviceInfo = this.soapService.deviceInfo;
+        const brandConfig = this.soapService.brandConfig;
+        
         res.send(`
           <html>
-            <head><title>ONVIF Device Service</title></head>
+            <head>
+              <title>${deviceInfo.manufacturer} ${deviceInfo.model} - ONVIF Device Service</title>
+              <style>
+                body { font-family: Arial, sans-serif; margin: 40px; background-color: #f5f5f5; }
+                .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                h1 { color: #333; border-bottom: 2px solid #007acc; padding-bottom: 10px; }
+                .device-info { background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0; }
+                .info-row { display: flex; justify-content: space-between; margin: 8px 0; }
+                .label { font-weight: bold; color: #555; }
+                .value { color: #333; }
+                .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }
+                .feature-card { background: #e3f2fd; padding: 15px; border-radius: 5px; border-left: 4px solid #2196f3; }
+                .soap-info { background: #fff3e0; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ff9800; }
+                .endpoint { font-family: monospace; background: #f0f0f0; padding: 5px; border-radius: 3px; }
+              </style>
+            </head>
             <body>
-              <h1>ONVIF Device Service</h1>
-              <p>This is an ONVIF-compliant device service endpoint.</p>
-              <p>Use SOAP requests to interact with the device.</p>
+              <div class="container">
+                <h1>${deviceInfo.manufacturer} ${deviceInfo.model}</h1>
+                <p><strong>ONVIF Device Service</strong> - This is an ONVIF-compliant device service endpoint.</p>
+                
+                <div class="device-info">
+                  <h3>Device Information</h3>
+                  <div class="info-row">
+                    <span class="label">Manufacturer:</span>
+                    <span class="value">${deviceInfo.manufacturer}</span>
+                  </div>
+                  <div class="info-row">
+                    <span class="label">Model:</span>
+                    <span class="value">${deviceInfo.model}</span>
+                  </div>
+                  <div class="info-row">
+                    <span class="label">Firmware Version:</span>
+                    <span class="value">${deviceInfo.firmwareVersion}</span>
+                  </div>
+                  <div class="info-row">
+                    <span class="label">Serial Number:</span>
+                    <span class="value">${deviceInfo.serialNumber}</span>
+                  </div>
+                  <div class="info-row">
+                    <span class="label">Hardware ID:</span>
+                    <span class="value">${deviceInfo.hardwareId}</span>
+                  </div>
+                  <div class="info-row">
+                    <span class="label">Device Type:</span>
+                    <span class="value">${brandConfig.deviceType || 'IP Camera'}</span>
+                  </div>
+                  <div class="info-row">
+                    <span class="label">Resolution:</span>
+                    <span class="value">${brandConfig.resolution || '1920x1080'}</span>
+                  </div>
+                  <div class="info-row">
+                    <span class="label">ONVIF Version:</span>
+                    <span class="value">${brandConfig.onvifVersion || '2.4'}</span>
+                  </div>
+                </div>
+
+                <div class="features">
+                  <div class="feature-card">
+                    <h4>Video Specifications</h4>
+                    <p><strong>Sensor:</strong> ${brandConfig.specifications?.sensor || '1/3" CMOS'}</p>
+                    <p><strong>Lens:</strong> ${brandConfig.specifications?.lens || '2.8mm'}</p>
+                    <p><strong>Frame Rate:</strong> ${brandConfig.specifications?.fps || '30fps@1080p'}</p>
+                    <p><strong>Compression:</strong> ${brandConfig.specifications?.compression || 'H.264'}</p>
+                  </div>
+                  
+                  <div class="feature-card">
+                    <h4>Features</h4>
+                    <p><strong>Night Vision:</strong> ${brandConfig.features?.nightVision ? 'Yes' : 'No'}</p>
+                    <p><strong>Motion Detection:</strong> ${brandConfig.features?.motionDetection ? 'Yes' : 'No'}</p>
+                    <p><strong>Audio:</strong> ${brandConfig.features?.audio ? 'Yes' : 'No'}</p>
+                    <p><strong>PTZ:</strong> ${brandConfig.features?.ptz ? 'Yes' : 'No'}</p>
+                    ${brandConfig.features?.waterproof ? `<p><strong>Waterproof:</strong> ${brandConfig.features.waterproof}</p>` : ''}
+                  </div>
+                </div>
+
+                <div class="soap-info">
+                  <h3>SOAP Service Endpoints</h3>
+                  <p>Use SOAP requests to interact with the device:</p>
+                  <p><strong>Device Service:</strong> <span class="endpoint">/onvif/device_service</span></p>
+                  <p><strong>Media Service:</strong> <span class="endpoint">/onvif/media_service</span></p>
+                  <p><strong>Available Methods:</strong> GetDeviceInformation, GetServices, GetCapabilities, GetNetworkInterfaces, GetSystemDateAndTime, GetSystemLog, GetUsers, CreateUsers, DeleteUsers, SetSystemDateAndTime, SystemReboot</p>
+                </div>
+              </div>
             </body>
           </html>
         `);
       } else {
-        // For other methods (POST, etc.), let SOAP handle it
+        res.setHeader('Content-Type', 'application/soap+xml; charset=utf-8');
         next();
       }
     });
 
     this.app.all('/onvif/media_service', (req, res, next) => {
-      // If it's a GET request, serve HTML page
+      res.setHeader('Server', 'ONVIF/1.0');
+      
+      //if a header is a get request, serve html page with media information
       if (req.method === 'GET') {
-        res.setHeader('Content-Type', 'text/html');
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        
+        const deviceInfo = this.soapService.deviceInfo;
+        const brandConfig = this.soapService.brandConfig;
+        
         res.send(`
           <html>
-            <head><title>ONVIF Media Service</title></head>
+            <head>
+              <title>${deviceInfo.manufacturer} ${deviceInfo.model} - ONVIF Media Service</title>
+              <style>
+                body { font-family: Arial, sans-serif; margin: 40px; background-color: #f5f5f5; }
+                .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                h1 { color: #333; border-bottom: 2px solid #007acc; padding-bottom: 10px; }
+                .media-info { background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0; }
+                .info-row { display: flex; justify-content: space-between; margin: 8px 0; }
+                .label { font-weight: bold; color: #555; }
+                .value { color: #333; }
+                .capabilities { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin: 20px 0; }
+                .capability-card { background: #e8f5e8; padding: 15px; border-radius: 5px; border-left: 4px solid #4caf50; }
+                .streaming-card { background: #fff3e0; padding: 15px; border-radius: 5px; border-left: 4px solid #ff9800; }
+                .soap-info { background: #e3f2fd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #2196f3; }
+                .endpoint { font-family: monospace; background: #f0f0f0; padding: 5px; border-radius: 3px; }
+              </style>
+            </head>
             <body>
-              <h1>ONVIF Media Service</h1>
-              <p>This is an ONVIF-compliant media service endpoint.</p>
-              <p>Use SOAP requests to interact with the media service.</p>
+              <div class="container">
+                <h1>${deviceInfo.manufacturer} ${deviceInfo.model} - Media Service</h1>
+                <p><strong>ONVIF Media Service</strong> - This is an ONVIF-compliant media service endpoint for video and audio streaming.</p>
+                
+                <div class="media-info">
+                  <h3>Device Information</h3>
+                  <div class="info-row">
+                    <span class="label">Manufacturer:</span>
+                    <span class="value">${deviceInfo.manufacturer}</span>
+                  </div>
+                  <div class="info-row">
+                    <span class="label">Model:</span>
+                    <span class="value">${deviceInfo.model}</span>
+                  </div>
+                  <div class="info-row">
+                    <span class="label">Firmware Version:</span>
+                    <span class="value">${deviceInfo.firmwareVersion}</span>
+                  </div>
+                  <div class="info-row">
+                    <span class="label">Serial Number:</span>
+                    <span class="value">${deviceInfo.serialNumber}</span>
+                  </div>
+                </div>
+
+                <div class="capabilities">
+                  <div class="capability-card">
+                    <h4>Video Capabilities</h4>
+                    <p><strong>Resolution:</strong> ${brandConfig.resolution || '1920x1080'}</p>
+                    <p><strong>Sensor:</strong> ${brandConfig.specifications?.sensor || '1/3" CMOS'}</p>
+                    <p><strong>Lens:</strong> ${brandConfig.specifications?.lens || '2.8mm'}</p>
+                    <p><strong>Frame Rate:</strong> ${brandConfig.specifications?.fps || '30fps@1080p'}</p>
+                    <p><strong>Compression:</strong> ${brandConfig.specifications?.compression || 'H.264'}</p>
+                  </div>
+                  
+                  <div class="streaming-card">
+                    <h4>Streaming Features</h4>
+                    <p><strong>RTSP Support:</strong> Yes</p>
+                    <p><strong>Multicast:</strong> No</p>
+                    <p><strong>TCP Streaming:</strong> Yes</p>
+                    <p><strong>Audio Support:</strong> ${brandConfig.features?.audio ? 'Yes' : 'No'}</p>
+                    <p><strong>PTZ Support:</strong> ${brandConfig.features?.ptz ? 'Yes' : 'No'}</p>
+                  </div>
+                </div>
+
+                <div class="soap-info">
+                  <h3>Media Service Endpoints</h3>
+                  <p>Use SOAP requests to interact with the media service:</p>
+                  <p><strong>Media Service:</strong> <span class="endpoint">/onvif/media_service</span></p>
+                  <p><strong>Device Service:</strong> <span class="endpoint">/onvif/device_service</span></p>
+                  <p><strong>Available Methods:</strong> GetProfiles, GetStreamUri, GetVideoSources, GetAudioSources, GetVideoEncoderConfigurations, GetAudioEncoderConfigurations</p>
+                  <p><strong>Stream URI Format:</strong> <span class="endpoint">rtsp://127.0.0.1:554/}</span></p>
+                </div>
+              </div>
             </body>
           </html>
         `);
       } else {
-        // For other methods (POST, etc.), let SOAP handle it
+        res.setHeader('Content-Type', 'application/soap+xml; charset=utf-8');
         next();
       }
     });
 
     //catch all for unknown endpoints
     this.app.use('*', (req, res) => {
-      const sourceIp = req.ip || req.connection.remoteAddress;      
-      res.status(404).send('Not Found');
+      res.setHeader('Server', 'ONVIF/1.0');
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.status(404).send(`
+        <html>
+          <head><title>404 Not Found</title></head>
+          <body>
+            <h1>404 Not Found</h1>
+            <p>ONVIF/1.0 device service</p>
+          </body>
+        </html>
+      `);
     });
   }
 
@@ -98,9 +276,18 @@ class ONVIFHoneypot {
     const mediaWsdl = this.createMediaWSDL();
 
     //setup SOAP services with custom handling
-    soap.listen(this.server, '/onvif/device_service/soap', this.soapService.createDeviceService(), deviceWsdl);
+    const deviceSoapServer = soap.listen(this.server, '/onvif/device_service/soap', this.soapService.createDeviceService(), deviceWsdl);
+    const mediaSoapServer = soap.listen(this.server, '/onvif/media_service/soap', this.soapService.createMediaService(), mediaWsdl);
 
-    soap.listen(this.server, '/onvif/media_service/soap', this.soapService.createMediaService(), mediaWsdl);
+    deviceSoapServer.on('request', (request, response) => {
+      response.setHeader('Server', 'ONVIF/1.0');
+      response.setHeader('Content-Type', 'application/soap+xml; charset=utf-8');
+    });
+
+    mediaSoapServer.on('request', (request, response) => {
+      response.setHeader('Server', 'ONVIF/1.0');
+      response.setHeader('Content-Type', 'application/soap+xml; charset=utf-8');
+    });
   }
 
   createDeviceWSDL() { //types, messages, portType, binding, service

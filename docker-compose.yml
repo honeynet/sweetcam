@@ -5,6 +5,8 @@ volumes:
     driver: local
   rtsp-resource:
     driver: local
+  rtsp-logs:
+    driver: local
 
 services:
   cowrie_service:
@@ -59,14 +61,16 @@ services:
       mysql_service:
         condition: service_healthy
 
-  rtsp_streaming_service:
+  #RTSP
+  rtsp_main:
     build:
       context: ./rtspservices
       dockerfile: Dockerfile
-    container_name: rtsp_streaming_service
+    container_name: rtsp_main_service
     restart: unless-stopped
     env_file: ./.env
     environment:
+      - BRAND=auto
       - DB_HOST=${DB_HOST}
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
@@ -80,9 +84,177 @@ services:
       - "8003:8003"
       - "8004:8004"
       - "8005:8005"
+    volumes:
+      - rtsp-logs:/app/logs
     depends_on:
       mysql_service:
         condition: service_healthy
+
+  
+  rtsp_hikvision:
+    build:
+      context: ./rtspservices
+      dockerfile: Dockerfile
+    container_name: rtsp_hikvision_service
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - BRAND=hikvision
+      - RTSP_PORT=8554
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+    cap_add:
+      - NET_BIND_SERVICE
+    ports:
+      - "8554:8554"
+      - "8006:8002"
+      - "8007:8003"
+    volumes:
+      - rtsp-logs:/app/logs
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+
+  rtsp_dahua:
+    build:
+      context: ./rtspservices
+      dockerfile: Dockerfile
+    container_name: rtsp_dahua_service
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - BRAND=dahua
+      - RTSP_PORT=8555
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+    cap_add:
+      - NET_BIND_SERVICE
+    ports:
+      - "8555:8555"
+      - "8008:8002"
+      - "8009:8003"
+    volumes:
+      - rtsp-logs:/app/logs
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+
+  rtsp_axis:
+    build:
+      context: ./rtspservices
+      dockerfile: Dockerfile
+    container_name: rtsp_axis_service
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - BRAND=axis
+      - RTSP_PORT=8556
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+    cap_add:
+      - NET_BIND_SERVICE
+    ports:  
+      - "8556:8556"
+      - "8010:8002"
+      - "8011:8003"
+    volumes:
+      - rtsp-logs:/app/logs
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+
+  rtsp_reolink:
+    build:
+      context: ./rtspservices
+      dockerfile: Dockerfile
+    container_name: rtsp_reolink_service
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - BRAND=reolink
+      - RTSP_PORT=8557
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+    cap_add:
+      - NET_BIND_SERVICE
+    ports:
+      - "8557:8557"
+      - "8012:8002"
+      - "8013:8003"
+    volumes:
+      - rtsp-logs:/app/logs
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+
+  
+  rtsp_mobotix:
+    build:
+      context: ./rtspservices
+      dockerfile: Dockerfile
+    container_name: rtsp_mobotix_service
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - BRAND=mobotix
+      - RTSP_PORT=8558
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+    cap_add:
+      - NET_BIND_SERVICE
+    ports:
+      - "8558:8558"
+      - "8014:8002"
+      - "8015:8003"
+    volumes:
+      - rtsp-logs:/app/logs
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+
+
+  rtsp_vstarcam:
+    build:
+      context: ./rtspservices
+      dockerfile: Dockerfile
+    container_name: rtsp_vstarcam_service
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - BRAND=vstarcam
+      - RTSP_PORT=8559
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+    cap_add:
+      - NET_BIND_SERVICE
+    ports:
+      - "8559:8559"
+      - "8016:8002"
+      - "8017:8003"
+    volumes:
+      - rtsp-logs:/app/logs
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+
   axis_service:
     build:
       context: ./webservices
@@ -209,6 +381,7 @@ services:
       mysql_service:
         condition: service_healthy
 
+  #ONVIF
   onvif_service:
     build:
       context: ./onvifservices
@@ -217,6 +390,7 @@ services:
     restart: unless-stopped
     env_file: ./.env
     environment:
+      - ONVIF_BRAND=hikvision
       - DB_HOST=${DB_HOST}
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
@@ -227,6 +401,131 @@ services:
     ports:
       - "3702:3702/udp"
       - "8080:8080"
+    cap_add:
+      - NET_BIND_SERVICE
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+
+  onvif_dahua_service:
+    build:
+      context: ./onvifservices
+      dockerfile: Dockerfile
+    container_name: onvif_dahua_service
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - ONVIF_BRAND=dahua
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+      - ONVIF_HTTP_PORT=8086
+      - ONVIF_HTTP_ADDRESS=192.168.1.100
+    ports:
+      - "3703:3702/udp"
+      - "8086:8086"
+    cap_add:
+      - NET_BIND_SERVICE
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+
+  onvif_axis_service:
+    build:
+      context: ./onvifservices
+      dockerfile: Dockerfile
+    container_name: onvif_axis_service
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - ONVIF_BRAND=axis
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+      - ONVIF_HTTP_PORT=8087
+      - ONVIF_HTTP_ADDRESS=192.168.1.100
+    ports:
+      - "3704:3702/udp"
+      - "8087:8087"
+    cap_add:
+      - NET_BIND_SERVICE
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+
+  onvif_reolink_service:
+    build:
+      context: ./onvifservices
+      dockerfile: Dockerfile
+    container_name: onvif_reolink_service
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - ONVIF_BRAND=reolink
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+      - ONVIF_HTTP_PORT=8088
+      - ONVIF_HTTP_ADDRESS=192.168.1.100
+    ports:
+      - "3705:3702/udp"
+      - "8088:8088"
+    cap_add:
+      - NET_BIND_SERVICE
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+
+  onvif_mobotix_service:
+    build:
+      context: ./onvifservices
+      dockerfile: Dockerfile
+    container_name: onvif_mobotix_service
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - ONVIF_BRAND=mobotix
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+      - ONVIF_HTTP_PORT=8089
+      - ONVIF_HTTP_ADDRESS=192.168.1.100
+    ports:
+      - "3706:3702/udp"
+      - "8089:8089"
+    cap_add:
+      - NET_BIND_SERVICE
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+
+  onvif_vstarcam_service:
+    build:
+      context: ./onvifservices
+      dockerfile: Dockerfile
+    container_name: onvif_vstarcam_service
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - ONVIF_BRAND=vstarcam
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+      - ONVIF_HTTP_PORT=8090
+      - ONVIF_HTTP_ADDRESS=192.168.1.100
+    ports:
+      - "3707:3702/udp"
+      - "8090:8090"
     cap_add:
       - NET_BIND_SERVICE
     depends_on:

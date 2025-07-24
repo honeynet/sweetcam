@@ -11,7 +11,7 @@
     "brandImageWidth": "30%",
     "rtspAddress": "rtsp://localhost:554/vstarcam",
     "brand": "VStarcam",
-    "model": "c7824wip",
+    "model": "C7824WIP",
     "type": "Network Camera",
     "resolution": "640x480",
     "features": {
