@@ -58,6 +58,10 @@ services:
       - "3000:3000"
     stdin_open: true
     tty: true
+    user: root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+      - ./docker-compose.yml:/app/docker-compose.yml
     depends_on:
       mysql_service:
         condition: service_healthy
@@ -274,6 +278,9 @@ services:
       - DB_PORT=${DB_PORT}
     ports:
       - "10000:10000"
+    user: root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:rw
     depends_on:
       mysql_service:
         condition: service_healthy
@@ -296,6 +303,9 @@ services:
       - DB_PORT=${DB_PORT}
     ports:
       - "37777:37777"
+    user: root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:rw
     depends_on:
       mysql_service:
         condition: service_healthy
@@ -318,6 +328,9 @@ services:
       - DB_PORT=${DB_PORT}
     ports:
       - "80:80"
+    user: root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:rw
     depends_on:
       mysql_service:
         condition: service_healthy
@@ -340,6 +353,9 @@ services:
       - DB_PORT=${DB_PORT}
     ports:
       - "443:443"
+    user: root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:rw
     depends_on:
       mysql_service:
         condition: service_healthy
@@ -362,6 +378,9 @@ services:
       - DB_PORT=${DB_PORT}
     ports:
       - "8081:8081"
+    user: root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:rw
     depends_on:
       mysql_service:
         condition: service_healthy
@@ -384,6 +403,9 @@ services:
       - DB_PORT=${DB_PORT}
     ports:
       - "81:81"
+    user: root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:rw
     depends_on:
       mysql_service:
         condition: service_healthy

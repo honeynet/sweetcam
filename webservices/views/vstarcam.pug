@@ -223,8 +223,11 @@ html(lang="en")
         padding: 32px 28px 24px 28px;
         min-width: 320px;
         max-width: 90vw;
+        max-height: 80vh;
         box-shadow: 0 4px 32px rgba(0,0,0,0.18);
         position: relative;
+        display: flex;
+        flex-direction: column;
       }
 
       .settings-modal-close {
@@ -253,6 +256,31 @@ html(lang="en")
         list-style: none;
         padding: 0;
         margin: 0;
+      }
+      
+      .settings-modal-scrollable {
+        flex: 1;
+        overflow-y: auto;
+        padding-right: 8px;
+        margin-right: -8px;
+      }
+      
+      .settings-modal-scrollable::-webkit-scrollbar {
+        width: 8px;
+      }
+      
+      .settings-modal-scrollable::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+      }
+      
+      .settings-modal-scrollable::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+      }
+      
+      .settings-modal-scrollable::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
       }
 
       .settings-modal-list li {
@@ -286,6 +314,71 @@ html(lang="en")
 
       .logout-btn-rect:hover {
         background: #002244;
+      }
+      .rtsp-control-item {
+        margin-top: 20px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border-left: 4px solid #1e90ff;
+      }
+      .rtsp-toggle-container {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+      }
+      .rtsp-toggle {
+        position: relative;
+        display: inline-block;
+        width: 60px;
+        height: 34px;
+      }
+      .rtsp-toggle-input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      .rtsp-toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        transition: .4s;
+        border-radius: 34px;
+      }
+      .rtsp-toggle-slider:before {
+        position: absolute;
+        content: "";
+        height: 26px;
+        width: 26px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: .4s;
+        border-radius: 50%;
+      }
+      .rtsp-toggle-input:checked + .rtsp-toggle-slider {
+        background-color: #1e90ff;
+      }
+      .rtsp-toggle-input:checked + .rtsp-toggle-slider:before {
+        transform: translateX(26px);
+      }
+      .rtsp-toggle-input:disabled + .rtsp-toggle-slider {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      .rtsp-status-text {
+        font-weight: 600;
+        font-size: 14px;
+      }
+      .rtsp-status-text.enabled {
+        color: #4caf50;
+      }
+      .rtsp-status-text.disabled {
+        color: #f44336;
       }
   body
     .main-layout
@@ -349,8 +442,16 @@ html(lang="en")
           .settings-modal-content
             button.settings-modal-close(type="button" id="settingsModalClose" aria-label="Close") &times;
             div.settings-modal-title#settingsModalTitle #{__('main.settings')}
-            ul.settings-modal-list#settingsModalList
-            div#errorSettingsInfo(style="color:#ff4d4d; margin-top:12px; display:none;")
+            .settings-modal-scrollable
+              ul.settings-modal-list#settingsModalList
+              div#errorSettingsInfo(style="color:#ff4d4d; margin-top:12px; display:none;")
+              .rtsp-control-item#rtsp-control-item(style="display: none;")
+                h3(style='color:#1e90ff; margin-top:0; margin-bottom:15px;') RTSP Service
+                .rtsp-toggle-container
+                  label.rtsp-toggle
+                    input.rtsp-toggle-input(type="checkbox" id="rtsp-toggle")
+                    span.rtsp-toggle-slider
+                  span.rtsp-status-text#rtsp-status-text RTSP Disabled
     script(src='https://unpkg.com/axios/dist/axios.min.js')
     script(src='https://code.jquery.com/jquery-3.6.3.min.js')
     script.
@@ -363,7 +464,6 @@ html(lang="en")
       let containerHeight = 0;
       const moveStep = 30;
 
-      // Pass translated labels to JS
       const labels = {
         model: '!{__('main.model')}',
         type: '!{__('main.type')}',
@@ -559,4 +659,156 @@ html(lang="en")
         settingsModal.addEventListener('click', function(e) {
           if (e.target === settingsModal) closeModal();
         });
+      });
+
+      //rtsp service management
+      async function loadRTSPStatus() {
+        try {
+          const response = await fetch('/admin/rtsp/service/8559');
+          if (response.ok) {
+            const data = await response.json();
+            updateRTSPToggle(data.running);
+          } else {
+            console.error('Failed to load RTSP status');
+            updateRTSPToggle(false);
+          }
+        } catch (error) {
+          console.error('Error loading RTSP status:', error);
+          updateRTSPToggle(false);
+        }
+      }
+
+      function updateRTSPToggle(isEnabled) {
+        const toggle = document.getElementById('rtsp-toggle');
+        const statusText = document.getElementById('rtsp-status-text');
+        
+        if (toggle && statusText) {
+          toggle.checked = isEnabled;
+          statusText.textContent = isEnabled ? 'RTSP Enabled' : 'RTSP Disabled';
+          statusText.className = `rtsp-status-text ${isEnabled ? 'enabled' : 'disabled'}`;
+        }
+      }
+
+      async function toggleRTSPService() {
+        const toggle = document.getElementById('rtsp-toggle');
+        const statusText = document.getElementById('rtsp-status-text');
+        
+        if (!toggle || !statusText) return;
+        
+        //disable toggle during operation
+        toggle.disabled = true;
+        
+        try {
+          const response = await fetch('/admin/rtsp/toggle/rtsp_vstarcam', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (response.ok) {
+            const result = await response.json();
+            if (result.success) {
+              showNotification('RTSP service toggled successfully', 'success');
+              
+              localStorage.setItem('lastModalState', 'open');
+              
+              setTimeout(() => {
+                window.location.reload();
+              }, 1500);
+            } else {
+              showNotification(result.message || 'Failed to toggle RTSP service', 'error');
+              
+              localStorage.setItem('lastModalState', 'open');
+              
+              setTimeout(() => {
+                window.location.reload();
+              }, 1500);
+            }
+          } else {
+            showNotification('Failed to toggle RTSP service', 'error');
+            
+            localStorage.setItem('lastModalState', 'open');
+            
+            setTimeout(() => {
+              window.location.reload();
+            }, 1500);
+          }
+        } catch (error) {
+          console.error('Error toggling RTSP service:', error);
+          showNotification('Failed to toggle RTSP service', 'error');
+          
+          localStorage.setItem('lastModalState', 'open');
+          
+          setTimeout(() => {
+            window.location.reload();
+          }, 1500);
+        } finally {
+          toggle.disabled = false;
+        }
+      }
+
+      function showNotification(message, type) {
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          padding: 15px 20px;
+          border-radius: 5px;
+          color: white;
+          font-weight: bold;
+          z-index: 1000;
+          background-color: ${type === 'success' ? '#4caf50' : '#f44336'};
+        `;
+        notification.textContent = message;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+          if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+          }
+        }, 3000);
+      }
+
+      async function checkAdminStatus() {
+        try {
+          const response = await fetch('/admin/rtsp/status');
+          if (response.ok) {
+            const rtspControlItem = document.getElementById('rtsp-control-item');
+            if (rtspControlItem) {
+              rtspControlItem.style.display = 'block';
+            }
+            loadRTSPStatus();
+          } else {
+            const rtspControlItem = document.getElementById('rtsp-control-item');
+            if (rtspControlItem) {
+              rtspControlItem.style.display = 'none';
+            }
+          }
+        } catch (error) {
+          console.error('Error checking admin status:', error);
+          const rtspControlItem = document.getElementById('rtsp-control-item');
+          if (rtspControlItem) {
+            rtspControlItem.style.display = 'none';
+          }
+        }
+      }
+
+      document.addEventListener('DOMContentLoaded', function() {
+        checkAdminStatus();
+        
+        const rtspToggle = document.getElementById('rtsp-toggle');
+        if (rtspToggle) {
+          rtspToggle.addEventListener('change', toggleRTSPService);
+        }
+        
+        const lastModalState = localStorage.getItem('lastModalState');
+        if (lastModalState === 'open') {
+          localStorage.removeItem('lastModalState');
+          setTimeout(() => {
+            document.getElementById('settingsBtn').click();
+          }, 500);
+        }
       });

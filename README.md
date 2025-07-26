@@ -25,6 +25,25 @@ The SweetCam honeypot consists of **12 containers**:
 10. **Axis Service**: port 10000
 11. **Reolink Service**: port 8081
 
+## Service Configuration
+
+Below is the comprehensive list of all services with their ports, protocols and access URLs:
+
+| Service | Internal Port | External Port | Protocol | Purpose | Access URL | Service Name |
+|---------|---------------|---------------|----------|---------|------------|--------------|
+| Dahua Camera | 37777 | 37777 | HTTP | Dahua camera interface | http://localhost:37777 | `dahua_service` |
+| Hikvision Camera | 80 | 80 | HTTP | Hikvision camera interface | http://localhost:80 | `hikvision_service` |
+| VStarcam Camera | 81 | 81 | HTTP | VStarcam camera interface | http://localhost:81 | `vstarcam_service` |
+| Mobotix Camera | 443 | 443 | HTTPS | Mobotix camera interface | http://localhost:443 | `mobotix_service` |
+| Axis Camera | 10000 | 10000 | HTTP | Axis camera interface | http://localhost:10000 | `axis_service` |
+| Reolink Camera | 8081 | 8081 | HTTP | Reolink camera interface | http://localhost:8081 | `reolink_service` |
+| RTSP Streaming | 554 | 554 | RTSP | Video streaming | rtsp://localhost:554/stream | `rtsp_streaming_service` |
+| RTP Data | 8002-8005 | 8002-8005 | UDP | RTP/RTCP data | - | - |
+| SSH Honeypot | 2222 | 2222 | SSH | Cowrie SSH service | ssh://localhost:2222 | `cowrie_service` |
+| ONVIF SOAP | 3702 | 3702 | HTTP | ONVIF SOAP services | http://localhost:3702 | `onvif_service` |
+| ONVIF Discovery | 3702 | 3702 | UDP | WS-Discovery multicast | - | - |
+| MySQL Database | 3306 | 3306 | TCP | Database | - | `mysql_service` |
+| Web Service | 3000 | 3000 | HTTP | Main web interface | http://localhost:3000 | `web_service` |
 
 ## Quick Start
 
@@ -62,26 +81,9 @@ The SweetCam honeypot consists of **12 containers**:
 All cameras can be accessed with default login credentials available in initialize.sql.
 To access cameras' web pages you can use your default browser. 
 
-#### 1. **Dahua Camera (Port 37777)**
-http://localhost:37777
+Refer to the [Service Configuration](#service-configuration) table above for all camera access URLs.
 
-#### 2. **Hikvision Camera (Port 80)**
-http://localhost:80
-
-#### 3. **VStarcam Camera (Port 81)**
-http://localhost:81
-
-#### 4. **Mobotix Camera (Port 443)**
-http://localhost:443
-
-#### 5. **Axis Camera (Port 10000)**
-http://localhost:10000
-
-#### 6. **Reolink Camera (Port 8081)**
-http://localhost:8081
-
-#### 7. **ONVIF Camera (Port 3702)**
-http://localhost:3702
+### ONVIF Camera (Port 3702)
 - Device Service: http://localhost:3702/onvif/device_service
 - Media Service: http://localhost:3702/onvif/media_service
 - Health Check: http://localhost:3702/health
@@ -92,8 +94,8 @@ http://localhost:3702
 rtsp://localhost:554/stream
 # Test with VLC
 vlc rtsp://localhost:554/stream
-# Test with FFplay
-ffplay rtsp://localhost:554/stream
+
+```
 
 ## ONVIF testing
 
@@ -125,7 +127,6 @@ cd onvifservices
 
 # Run comprehensive tests
 npm test
-```
 ```
 
 ## Accessing logs and monitoring
@@ -165,20 +166,7 @@ docker compose down -v
 
 ### Port Mapping
 
-| Service      | Internal Port | External Port | Protocol | Purpose                    |
-|--------------|---------------|---------------|----------|----------------------------|
-| Dahua        | 37777         | 37777         | HTTP     | Dahua camera interface     |
-| Hikvision    | 80            | 80            | HTTP     | Hikvision camera interface |
-| VStarcam     | 81            | 81            | HTTP     | VStarcam camera interface  |
-| Mobotix      | 443           | 443           | HTTPS    | Mobotix camera interface   |
-| Axis         | 10000         | 10000         | HTTP     | Axis camera interface      |
-| Reolink      | 8081          | 8081          | HTTP     | Reolink camera interface   |
-| RTSP         | 554           | 554           | RTSP     | Video streaming            |
-| RTP          | 8002-8005     | 8002-8005     | UDP      | RTP/RTCP data              |
-| SSH Honeypot | 2222          | 2222          | SSH      | Cowrie SSH service         |
-| ONVIF        | 3702          | 3702          | HTTP     | ONVIF SOAP services        |
-| ONVIF Discovery | 3702        | 3702          | UDP      | WS-Discovery multicast      |
-| MySQL        | 3306          | 3306          | TCP      | Database                   |
+Refer to the [Service Configuration](#service-configuration) table above for complete port mapping information.
 
 ## Port management
 
@@ -223,19 +211,7 @@ node port-manager.js help
 
 ### Available services for port management
 
-| Service | Default Port | Description |
-|---------|-------------|-------------|
-| `web_service` | 3000 | Main web service |
-| `axis_service` | 10000 | Axis camera service |
-| `dahua_service` | 37777 | Dahua camera service |
-| `hikvision_service` | 80 | Hikvision camera service |
-| `mobotix_service` | 443 | Mobotix camera service |
-| `reolink_service` | 8081 | Reolink camera service |
-| `vstarcam_service` | 81 | Vstarcam camera service |
-| `onvif_service` | 3702 | ONVIF honeypot service |
-| `rtsp_streaming_service` | 554 | RTSP streaming service |
-| `mysql_service` | 3306 | MySQL database service |
-| `cowrie_service` | ENV_VAR | Cowrie honeypot service (uses environment variables) |
+Refer to the [Service Configuration](#service-configuration) table above for all available services and their default ports. The "Service Name" column shows the exact service identifier to use with the port manager.
 
 ### Port management examples
 

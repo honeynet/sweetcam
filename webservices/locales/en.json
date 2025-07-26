@@ -43,7 +43,15 @@
     "settings": "Settings",
     "stream": "Stream",
     "streamSettingsComingSoon": "Stream settings coming soon.",
-    "errorLoadingSystemInfo": "Error loading system information"
+    "errorLoadingSystemInfo": "Error loading system information",
+    "rtspService": "RTSP Service",
+    "rtspStatus": "RTSP Status",
+    "enableRtsp": "Enable RTSP",
+    "disableRtsp": "Disable RTSP",
+    "rtspEnabled": "RTSP Enabled",
+    "rtspDisabled": "RTSP Disabled",
+    "rtspToggleSuccess": "RTSP service toggled successfully",
+    "rtspToggleError": "Failed to toggle RTSP service"
   },
   "language": {
     "english": "English",

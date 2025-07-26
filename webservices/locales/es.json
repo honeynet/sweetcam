@@ -43,7 +43,15 @@
     "settings": "Configuración",
     "stream": "Transmisión",
     "streamSettingsComingSoon": "Configuración de transmisión próximamente.",
-    "errorLoadingSystemInfo": "Error al cargar la información del sistema"
+    "errorLoadingSystemInfo": "Error al cargar la información del sistema",
+    "rtspService": "Servicio RTSP",
+    "rtspStatus": "Estado RTSP",
+    "enableRtsp": "Habilitar RTSP",
+    "disableRtsp": "Deshabilitar RTSP",
+    "rtspEnabled": "RTSP Habilitado",
+    "rtspDisabled": "RTSP Deshabilitado",
+    "rtspToggleSuccess": "Servicio RTSP cambiado exitosamente",
+    "rtspToggleError": "Error al cambiar el servicio RTSP"
   },
   "language": {
     "english": "English",

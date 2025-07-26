@@ -2,6 +2,8 @@ const adminRouter = require('express').Router()
 const adminServices = require('../services/admin-services')
 const userServices = require('../services/user-services');
 const sweetcamServices = require('../services/sweetcam-services')
+const rtspManagement = require('../services/rtsp-management')
+const { requireAdminAuth } = require('../utils/admin-auth')
 const bcrypt = require("bcrypt")
 const jwt = require('jsonwebtoken')
 const jwtServices = require("../utils/jwt-services")
@@ -131,5 +133,59 @@ adminRouter.post(`/${prefix}/images`, adminServices.uploadImages, (req, res) => 
 adminRouter.post(`/${prefix}/videos`, adminServices.uploadVideos, (req, res) => {
     res.status(200).send({ message: "Video uploaded successfully" })
 })
+
+// RTSP Management endpoints
+adminRouter.get(`/${prefix}/rtsp/status`, requireAdminAuth, async (req, res) => {
+    try {
+        const statuses = await rtspManagement.getAllServicesStatus();
+        res.json(statuses);
+    } catch (error) {
+        console.error('Error getting RTSP status:', error);
+        res.status(500).json({ error: 'Failed to get RTSP status' });
+    }
+});
+
+adminRouter.get(`/${prefix}/rtsp/ports`, requireAdminAuth, async (req, res) => {
+    try {
+        const ports = rtspManagement.getCurrentPortsForFrontend();
+        res.json(ports);
+    } catch (error) {
+        console.error('Error getting RTSP ports:', error);
+        res.status(500).json({ error: 'Failed to get RTSP ports' });
+    }
+});
+
+adminRouter.post(`/${prefix}/rtsp/toggle/:serviceName`, requireAdminAuth, async (req, res) => {
+    try {
+        const { serviceName } = req.params;
+        const result = await rtspManagement.toggleService(serviceName);
+        
+        if (result.success) {
+            res.json({ success: true, message: result.message });
+        } else {
+            res.status(500).json({ success: false, message: result.message });
+        }
+    } catch (error) {
+        console.error('Error toggling RTSP service:', error);
+        res.status(500).json({ error: 'Failed to toggle RTSP service' });
+    }
+});
+
+adminRouter.get(`/${prefix}/rtsp/service/:port`, requireAdminAuth, async (req, res) => {
+    try {
+        const { port } = req.params;
+        const serviceName = rtspManagement.getServiceByPort(port);
+        
+        if (!serviceName) {
+            return res.status(404).json({ error: 'Service not found for port' });
+        }
+        
+        const status = await rtspManagement.getServiceStatus(serviceName);
+        res.json({ serviceName, port: parseInt(port), ...status });
+    } catch (error) {
+        console.error('Error getting service status:', error);
+        res.status(500).json({ error: 'Failed to get service status' });
+    }
+});
 
 module.exports = adminRouter
