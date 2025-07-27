@@ -76,58 +76,6 @@ Below is the comprehensive list of all services with their ports, protocols and 
    docker ps
    ```
 
-## Accessing camera interfaces
-
-All cameras can be accessed with default login credentials available in initialize.sql.
-To access cameras' web pages you can use your default browser. 
-
-Refer to the [Service Configuration](#service-configuration) table above for all camera access URLs.
-
-### ONVIF Camera (Port 3702)
-- Device Service: http://localhost:3702/onvif/device_service
-- Media Service: http://localhost:3702/onvif/media_service
-- Health Check: http://localhost:3702/health
-
-## RTSP streaming access
-```shell
-# Stream URL
-rtsp://localhost:554/stream
-# Test with VLC
-vlc rtsp://localhost:554/stream
-
-```
-
-## ONVIF testing
-
-The ONVIF honeypot responds to WS-Discovery probes and provides SOAP services for device interaction.
-
-### Test WS-Discovery
-```shell
-# Using netcat to send a probe
-echo '<wsd:Probe xmlns:wsd="http://schemas.xmlsoap.org/ws/2005/04/discovery"/>' | nc -u 239.255.255.250 3702
-```
-
-### Test SOAP Services
-```shell
-# Test device information
-curl -X POST http://localhost:3702/onvif/device_service \
-  -H "Content-Type: text/xml" \
-  -H "SOAPAction: http://www.onvif.org/ver10/device/wsdl/GetDeviceInformation" \
-  -d '<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
-        <soap:Body>
-          <GetDeviceInformation xmlns="http://www.onvif.org/ver10/device/wsdl"/>
-        </soap:Body>
-      </soap:Envelope>'
-```
-
-### Run ONVIF Tests
-```shell
-# Navigate to ONVIF service directory
-cd onvifservices
-
-# Run comprehensive tests
-npm test
-```
 
 ## Accessing logs and monitoring
 ### 1. **Container logs**
