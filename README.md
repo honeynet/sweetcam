@@ -40,7 +40,7 @@ Below is the comprehensive list of all services with their ports, protocols and 
 | RTSP Streaming | 554 | 554 | RTSP | Video streaming | rtsp://localhost:554/stream | `rtsp_streaming_service` |
 | RTP Data | 8002-8005 | 8002-8005 | UDP | RTP/RTCP data | - | - |
 | SSH Honeypot | 2222 | 2222 | SSH | Cowrie SSH service | ssh://localhost:2222 | `cowrie_service` |
-| ONVIF SOAP | 3702 | 3702 | HTTP | ONVIF SOAP services | http://localhost:3702 | `onvif_service` |
+| ONVIF SOAP | 8080, 8086-8090 | 8080, 8086-8090 | HTTP | ONVIF SOAP services | http://localhost:8080 | `onvif_service` |
 | ONVIF Discovery | 3702 | 3702 | UDP | WS-Discovery multicast | - | - |
 | MySQL Database | 3306 | 3306 | TCP | Database | - | `mysql_service` |
 | Web Service | 3000 | 3000 | HTTP | Main web interface | http://localhost:3000 | `web_service` |
