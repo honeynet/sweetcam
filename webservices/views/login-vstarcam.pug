@@ -90,6 +90,7 @@ html(lang="en")
         display: block;
       }
 
+
   body
     select.lang-select(name='language' onchange='changeLanguage(this.value)')
       option(value='en' selected=locale === 'en')= __('language.english')
@@ -126,12 +127,16 @@ html(lang="en")
           //clear previous error message
           $errorMessage.text('');
 
-          axios.post('/login', {
+          // Determine if this is admin mode based on URL or page context
+          const isAdminMode = window.location.pathname === '/admin/login' || #{isAdminMode || false};
+          const loginUrl = isAdminMode ? '/admin/login' : '/login';
+          
+          axios.post(loginUrl, {
             username: username,
             password: password
           })
           .then(response => {
-            if (response.data.message === "Login successful") {
+            if (response.data.message === "Login successful" || response.data.message === "Admin login successful") {
               window.location.href = '/';
             } else {
               $errorMessage.text('Login failed - please try again.');
@@ -140,7 +145,7 @@ html(lang="en")
           .catch(error => {
             if (error.response) {
               let message = 'An unknown error occurred.';
-              if (error.response.status === 404) message = 'Username not found.';
+              if (error.response.status === 404) message = 'User not found.';
               if (error.response.status === 401) message = 'Wrong password.';
               if (error.response.status === 403) message = 'Too many attempts. Try again later.';
               $errorMessage.text(message);

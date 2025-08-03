@@ -19,7 +19,7 @@ The SweetCam honeypot consists of **12 containers**:
 
 ### Camera Brand Services (6 containers)
 6. **Dahua Service**: port 37777
-7. **Hikvision Service**: port 80  
+7. **Hikvision Service**: port 80
 8. **VStarcam Service**: port 81
 9. **Mobotix Service**: port 443
 10. **Axis Service**: port 10000
@@ -44,6 +44,22 @@ Below is the comprehensive list of all services with their ports, protocols and 
 | ONVIF Discovery | 3702 | 3702 | UDP | WS-Discovery multicast | - | - |
 | MySQL Database | 3306 | 3306 | TCP | Database | - | `mysql_service` |
 | Web Service | 3000 | 3000 | HTTP | Main web interface | http://localhost:3000 | `web_service` |
+
+## Credentials to use 
+
+### Admin
+- Jonny:1234567
+
+### Users
+- Jimmy:1234567
+- Admin:admin
+- Admin:Admin
+- admin:12345
+- root:12345
+- root:123456
+- root:admin
+- root:root
+- Nancy:1234567
 
 ## Quick Start
 
@@ -75,30 +91,6 @@ Below is the comprehensive list of all services with their ports, protocols and 
    ```shell
    docker ps
    ```
-
-
-## Accessing logs and monitoring
-### 1. **Container logs**
-#### View all container logs:
-```shell
-# All containers
-docker compose logs
-# Specific service
-docker compose logs [service_name]
-```
-#### Real-time log monitoring:
-```shell
-# Follow logs in real-time
-docker compose logs -f
-```
-### Container operations
-#### Restart services:
-```shell
-# Restart all services
-docker compose restart
-# Restart specific service
-docker compose restart [service_name]
-```
 
 #### Stop/start services:
 ```shell
@@ -236,3 +228,12 @@ docker ps -a
 # Restart specific service
 docker compose restart [service_name]
 ```
+<<<<<<< HEAD
+=======
+
+## Log Manager
+
+The SweetCam honeypot includes a log manager tool to help you manage and analyze logs from all honeypot services (Web, RTSP, ONVIF).
+
+Refer to the [Log Manager README](./LOG_MANAGER_README.md) for more details.
+>>>>>>> a123767 (Event logging is implemented. Logger manager is created. Admin authentication web pages are fixed.)

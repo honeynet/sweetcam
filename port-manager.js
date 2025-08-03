@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { execSync, spawn } = require('child_process');
 const readline = require('readline');
+const { portManagerLogger } = require('./utils/logger');
 
 class PortManager {
     constructor() {
@@ -37,9 +38,12 @@ class PortManager {
     isPortAvailable(port) {
         try {
             const result = execSync(`netstat -tuln | grep ":${port} "`, { encoding: 'utf8' });
-            return result.trim() === '';
+            const available = result.trim() === '';
+            portManagerLogger.logPortCheck(port, available, 'port_manager');
+            return available;
         } catch (error) {
             //if grep doesnt find anything, the port is available
+            portManagerLogger.logPortCheck(port, true, 'port_manager');
             return true;
         }
     }
@@ -148,9 +152,11 @@ class PortManager {
             }
             
             fs.writeFileSync(this.composeFile, newLines.join('\n'));
+            portManagerLogger.logConfigChange(serviceName, 'port_update', `Updated to port ${newPort}`, true);
             return true;
         } catch (error) {
             console.error(`Error updating port for ${serviceName}:`, error.message);
+            portManagerLogger.logConfigChange(serviceName, 'port_update', error.message, false);
             return false;
         }
     }
@@ -160,18 +166,23 @@ class PortManager {
             console.log(`\nRebuilding and recreating ${serviceName} with new port...`);
             
             console.log(`Stopping ${serviceName}...`);
+            portManagerLogger.logContainerOperation('stop', serviceName, 'Stopping container', true);
             execSync(`sudo docker compose stop ${serviceName}`, { stdio: 'inherit' });
             
             console.log(`Removing ${serviceName} container...`);
+            portManagerLogger.logContainerOperation('remove', serviceName, 'Removing container', true);
             execSync(`sudo docker compose rm -f ${serviceName}`, { stdio: 'inherit' });
             
             console.log(`Rebuilding and starting ${serviceName}...`);
+            portManagerLogger.logContainerOperation('rebuild', serviceName, 'Rebuilding and starting container', true);
             execSync(`sudo docker compose up -d --build ${serviceName}`, { stdio: 'inherit' });
             
             console.log(`${serviceName} rebuilt and started successfully with new port!`);
+            portManagerLogger.logServiceOperation('rebuild', serviceName, 'Container rebuilt successfully', true);
             return true;
         } catch (error) {
             console.error(`Failed to rebuild ${serviceName}:`, error.message);
+            portManagerLogger.logServiceOperation('rebuild', serviceName, error.message, false);
             return false;
         }
     }
@@ -216,34 +227,40 @@ class PortManager {
         if (!this.services[serviceName]) {
             console.error(`Service '${serviceName}' not found. Available services:`);
             Object.keys(this.services).forEach(service => console.log(`  - ${service}`));
+            portManagerLogger.logPortChangeAttempt(serviceName, null, newPort, false, 'Service not found');
             return false;
         }
 
         if (!this.isPortAvailable(newPort)) {
             console.error(`Port ${newPort} is already in use. Please choose a different port.`);
+            portManagerLogger.logPortChangeAttempt(serviceName, null, newPort, false, 'Port already in use');
             return false;
         }
 
         const currentPort = this.getCurrentPort(serviceName);
         if (currentPort === null) {
             console.error(`Could not determine current port for ${serviceName}`);
+            portManagerLogger.logPortChangeAttempt(serviceName, null, newPort, false, 'Could not determine current port');
             return false;
         }
 
         if (currentPort === newPort) {
             console.log(`${serviceName} is already running on port ${newPort}`);
+            portManagerLogger.logPortChangeAttempt(serviceName, currentPort, newPort, true, 'Port already set');
             return true;
         }
 
         const confirmed = await this.askConfirmation(serviceName, currentPort, newPort);
         if (!confirmed) {
             console.log('Port change cancelled by user.');
+            portManagerLogger.logPortChangeAttempt(serviceName, currentPort, newPort, false, 'Cancelled by user');
             return false;
         }
 
         console.log(`Updating docker-compose.yml...`);
         if (!this.updatePort(serviceName, newPort)) {
             console.error('Failed to update docker-compose.yml');
+            portManagerLogger.logPortChangeAttempt(serviceName, currentPort, newPort, false, 'Failed to update docker-compose.yml');
             return false;
         }
 
@@ -251,10 +268,12 @@ class PortManager {
 
         if (!this.rebuildContainer(serviceName)) {
             console.error('Failed to rebuild container');
+            portManagerLogger.logPortChangeAttempt(serviceName, currentPort, newPort, false, 'Failed to rebuild container');
             return false;
         }
 
         console.log(`\n Successfully changed ${serviceName} from port ${currentPort} to port ${newPort}!`);
+        portManagerLogger.logPortChangeAttempt(serviceName, currentPort, newPort, true, 'Successfully changed port');
         return true;
     }
 
@@ -307,6 +326,8 @@ async function main() {
     const portManager = new PortManager();
     const args = process.argv.slice(2);
 
+    portManagerLogger.logStartupShutdown('started', 'Port manager started');
+
     if (args.length === 0 || args[0] === 'help') {
         portManager.showHelp();
         return;
@@ -322,6 +343,7 @@ async function main() {
         case 'change':
             if (args.length < 3) {
                 console.error(' Usage: node port-manager.js change <service> <port>');
+                portManagerLogger.logError(new Error('Invalid arguments'), 'main');
                 process.exit(1);
             }
             
@@ -330,6 +352,7 @@ async function main() {
             
             if (isNaN(newPort) || newPort < 1 || newPort > 65535) {
                 console.error(' Invalid port number. Port must be between 1 and 65535.');
+                portManagerLogger.logError(new Error('Invalid port number'), 'main');
                 process.exit(1);
             }
             
@@ -338,6 +361,7 @@ async function main() {
             
         default:
             console.error(`Unknown command: ${command}`);
+            portManagerLogger.logError(new Error(`Unknown command: ${command}`), 'main');
             portManager.showHelp();
             process.exit(1);
     }
@@ -346,6 +370,7 @@ async function main() {
 if (require.main === module) {
     main().catch(error => {
         console.error(' An error occurred:', error.message);
+        portManagerLogger.logError(error, 'main');
         process.exit(1);
     });
 }

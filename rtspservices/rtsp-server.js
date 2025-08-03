@@ -7,6 +7,7 @@ const mysql = require('mysql2');
 const bcrypt = require('bcrypt');
 const dbConfig = require('./config/db-config.js');
 const BrandDetector = require('./utils/brand-detector');
+const { rtspLogger } = require('./utils/logger');
 
 //get configuration from environment variables
 const BRAND = process.env.BRAND || 'auto';
@@ -31,8 +32,10 @@ pool.getConnection((err, connection) => {
     if (err) {
         console.error('Failed to connect to database:', err.message);
         console.log('RTSP server will start but authentication will fail until database is available');
+        rtspLogger.logRTSPError(err, 'database_connection', null, 'auto', RTSP_PORT);
     } else {
         console.log('Database connection successful');
+        rtspLogger.logRTSPDatabaseAuth(null, null, true, null, 'auto', RTSP_PORT);
         connection.release();
     }
 });
@@ -62,12 +65,14 @@ function authenticateUser(username, password) {
             if (error) {
                 console.error('Database query error:', error.message);
                 console.log(`Database authentication failed for user: ${username} - database connection error`);
+                rtspLogger.logRTSPDatabaseAuth(null, username, false, error.message, 'auto', RTSP_PORT);
                 resolve(false);
                 return;
             }
             
             if (results.length === 0) {
                 console.log(`User not found: ${username}`);
+                rtspLogger.logRTSPDatabaseAuth(null, username, false, 'user_not_found', 'auto', RTSP_PORT);
                 resolve(false);
                 return;
             }
@@ -78,6 +83,7 @@ function authenticateUser(username, password) {
                     const isValid = bcrypt.compareSync(password, user.passwordHash);
                     if (isValid) {
                         console.log(`Database authentication successful for user: ${username}`);
+                        rtspLogger.logRTSPDatabaseAuth(null, username, true, null, 'auto', RTSP_PORT);
                         resolve(true);
                         return;
                     }
@@ -88,6 +94,7 @@ function authenticateUser(username, password) {
             }
             
             console.log(`Invalid password for user: ${username}`);
+            rtspLogger.logRTSPDatabaseAuth(null, username, false, 'wrong_password', 'auto', RTSP_PORT);
             resolve(false);
         });
     });
@@ -224,6 +231,9 @@ a=control:trackID=1\r
             
             const brandConfig = this.brandDetector.getBrandConfig(brand);
             
+            //log RTSP method request
+            rtspLogger.logRTSPMethod(socket.remoteAddress, method, url, sessionId, brand, RTSP_PORT);
+            
             //check if we have an authenticated session
             let authenticatedSession = null;
             if (sessionId && this.sessions.has(sessionId)) {
@@ -233,7 +243,7 @@ a=control:trackID=1\r
             //authentication check (only for DESCRIBE and later methods)
             if (method === 'DESCRIBE' || method === 'SETUP' || method === 'PLAY' || method === 'PAUSE' || method === 'TEARDOWN') {
                 if (authenticatedSession && authenticatedSession.authenticated) {
-                    // Using authenticated session
+                //using authenticated session
                 } else {
                     let credentials = null;
                     
@@ -305,6 +315,8 @@ a=control:trackID=1\r
                     response = brandConfig.patterns.options.pattern1;
                 }
                 
+                rtspLogger.logRTSPSOptions(socket.remoteAddress, headers['User-Agent'], brand, RTSP_PORT);
+                rtspLogger.logRTSPResponse(socket.remoteAddress, method, 200, sessionId, brand, RTSP_PORT);
                 socket.write(response);
                 return;
             }
@@ -334,6 +346,7 @@ a=control:trackID=1\r
             switch (method) {
                 case 'DESCRIBE':
                     if (!stream) {
+                        rtspLogger.logRTSPResponse(socket.remoteAddress, method, 404, sessionId, brand, RTSP_PORT);
                         socket.write(`RTSP/1.0 404 Not Found\r\nCSeq: ${cseq}\r\n\r\n`);
                         return;
                     }
@@ -341,6 +354,9 @@ a=control:trackID=1\r
                     const sdp = this.generateSDP(stream.name, serverAddress, stream.brand);
                     const baseURL = `rtsp://${serverAddress}:${RTSP_PORT}${path}/`;
                     const sdpResponse = `RTSP/1.0 200 OK\r\nCSeq: ${cseq}\r\nContent-Type: application/sdp\r\nContent-Base: ${baseURL}\r\nContent-Length: ${Buffer.byteLength(sdp)}\r\n\r\n${sdp}`;
+                    
+                    rtspLogger.logRTSPDescribe(socket.remoteAddress, url, headers['User-Agent'], brand, RTSP_PORT);
+                    rtspLogger.logRTSPResponse(socket.remoteAddress, method, 200, sessionId, brand, RTSP_PORT);
                     socket.write(sdpResponse);
                     break;
                     
@@ -365,6 +381,10 @@ a=control:trackID=1\r
                     });
 
                     const setupResponse = `RTSP/1.0 200 OK\r\nCSeq: ${cseq}\r\nTransport: RTP/AVP;unicast;client_port=${transport.rtpPort}-${transport.rtcpPort};server_port=${serverRtpPort}-${serverRtcpPort}\r\nSession: ${sessionId2}\r\n\r\n`;
+                    
+                    rtspLogger.logRTSPStreamSetup(socket.remoteAddress, sessionId2, stream ? stream.name : '/stream', transport, brand, RTSP_PORT);
+                    rtspLogger.logRTSPSession(socket.remoteAddress, sessionId2, 'created', stream ? stream.name : '/stream', brand, RTSP_PORT);
+                    rtspLogger.logRTSPResponse(socket.remoteAddress, method, 200, sessionId2, brand, RTSP_PORT);
                     socket.write(setupResponse);
                     break;
                     
@@ -372,6 +392,7 @@ a=control:trackID=1\r
                     const sessionId3 = headers.Session;
                     const session = this.sessions.get(sessionId3);
                     if (!session) {
+                        rtspLogger.logRTSPResponse(socket.remoteAddress, method, 454, sessionId3, brand, RTSP_PORT);
                         socket.write(`RTSP/1.0 454 session not found\r\nCSeq: ${cseq}\r\n\r\n`);
                         return;
                     }
@@ -393,6 +414,10 @@ a=control:trackID=1\r
                     const rtpStart = session.lastTimestamp;
                     const nptStart = 0.0;
                     const playResponse = `RTSP/1.0 200 OK\r\nCSeq: ${cseq}\r\nSession: ${sessionId3}\r\nRange: npt=${nptStart.toFixed(3)}-\r\nRTP-Info: url=rtsp://127.0.0.1:${RTSP_PORT}${session.path}/trackID=1;seq=${session.lastSeq};rtptime=${rtpStart}\r\n\r\n`;
+                    
+                    rtspLogger.logRTSPStreamPlay(socket.remoteAddress, sessionId3, session.path, brand, RTSP_PORT);
+                    rtspLogger.logRTSPSession(socket.remoteAddress, sessionId3, 'playing', session.path, brand, RTSP_PORT);
+                    rtspLogger.logRTSPResponse(socket.remoteAddress, method, 200, sessionId3, brand, RTSP_PORT);
                     socket.write(playResponse);
 
                     this.startRTPStream(session);
@@ -428,15 +453,17 @@ a=control:trackID=1\r
                     const sessionId4 = headers.Session;
                     if (sessionId4 && this.sessions.has(sessionId4)) {
                         const sess = this.sessions.get(sessionId4);
-                        if (sess.rtpInterval) {
-                            clearInterval(sess.rtpInterval);
-                        }
-                        if (sess.rtcpInterval) {
-                            clearInterval(sess.rtcpInterval);
-                        }
+                        if (sess.rtpSocket) sess.rtpSocket.close();
+                        if (sess.rtcpSocket) sess.rtcpSocket.close();
+                        if (sess.rtpInterval) clearInterval(sess.rtpInterval);
+                        if (sess.rtcpInterval) clearInterval(sess.rtcpInterval);
+                        
+                        rtspLogger.logRTSPStreamTeardown(socket.remoteAddress, sessionId4, sess.path, brand, RTSP_PORT);
+                        rtspLogger.logRTSPSession(socket.remoteAddress, sessionId4, 'destroyed', sess.path, brand, RTSP_PORT);
                         this.sessions.delete(sessionId4);
                     }
-                    socket.write(`RTSP/1.0 200 OK\r\nCSeq: ${sessionId4}\r\n\r\n`);
+                    rtspLogger.logRTSPResponse(socket.remoteAddress, method, 200, sessionId4, brand, RTSP_PORT);
+                    socket.write(`RTSP/1.0 200 OK\r\nCSeq: ${cseq}\r\n\r\n`);
                     break;
                     
                 default:
@@ -602,9 +629,14 @@ const server = net.createServer(socket => {
 
 server.listen(RTSP_PORT, '0.0.0.0', () => {
     console.log(`RTSP server started on port ${RTSP_PORT}`);
+    rtspLogger.logRTSPServiceEvent('started', `RTSP server started on port ${RTSP_PORT}`, 'auto', RTSP_PORT);
 });
 
 process.on('SIGINT', () => {
     console.log('Shutting down RTSP server...');
-    server.close(() => process.exit(0));
+    rtspLogger.logRTSPServiceEvent('stopping', 'RTSP server shutting down', 'auto', RTSP_PORT);
+    server.close(() => {
+        rtspLogger.logRTSPServiceEvent('stopped', 'RTSP server stopped', 'auto', RTSP_PORT);
+        process.exit(0);
+    });
 });

@@ -27,7 +27,8 @@ onvifservices/
 ## Testing
 
 ### Test WS-Discovery
-```bash
+```shell
+
 # Scan UDP port 3702
 sudo nmap -sU -p 3702 127.0.0.1
 

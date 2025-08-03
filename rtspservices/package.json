@@ -9,7 +9,9 @@
   },
   "dependencies": {
     "mysql2": "^3.6.0",
-    "bcrypt": "^5.1.0"
+    "bcrypt": "^5.1.0",
+    "winston": "^3.11.0",
+    "winston-daily-rotate-file": "^4.7.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.0"

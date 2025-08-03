@@ -13,51 +13,20 @@ const prefix = process.env.ADMIN_PATH || 'admin'
 
 console.log('Admin router initialized with prefix:', prefix);
 
-//admin login page
-adminRouter.get(`/${prefix}/login`, (req, res) => {
-    res.render('admin-login', {
-        title: 'Admin Login',
-        error: null
-    });
-});
-
-adminRouter.post(`/${prefix}/login`, async (req, res) => {
-    const {username, password} = req.body
-
-    if (!username || !password) {
-        return res.status(400).send({error: 'username or password is null'}).end()
+//helper function to get camera type based on port
+function getCameraTypeByPort(port) {
+    switch(port) {
+        case 80: return 'hikvision';
+        case 81: return 'vstarcam';
+        case 37777: return 'dahua';
+        case 443: return 'mobotix';
+        case 10000: return 'axis';
+        case 8081: return 'reolink';
+        default: return 'hikvision';
     }
+}
 
-    try {
-        //check if admin exists and password is valid
-        const isValidPassword = await adminServices.validateAdminPassword(username, password);
-        
-        if (isValidPassword) {
-            //set up session for admin user
-            req.session.username = username;
-            
-            //get admin credentials for token generation
-            const {passwordHash, name, id} = await adminServices.findAdminCredentialsByName(username)
-            const userForToken = {
-                id: id,
-                username: username
-            }
-            const token = jwt.sign(userForToken, process.env.JWT_SECRET || 'default-secret-key', { expiresIn: 60 * 60 })
-            res.status(200).send({ token, username })
-        } else {
-           
-            adminServices.sendEmail("Attempt to login as admin failed");
-            res.status(401).send({ error: 'failed' })
-        }
-    } catch (error) {
-        console.error('Admin login error:', error);
-        if (error.message === 'Admin not found') {
-            res.status(404).send({ error: 'Admin not found' })
-        } else {
-            res.status(500).send({ error: 'Internal server error' })
-        }
-    }
-})
+
 
 adminRouter.patch(`/${prefix}/password`, async (req, res) => {
     const newPassword = req.body.newPassword
@@ -96,6 +65,8 @@ adminRouter.post(`/${prefix}/user`, async (req, res) => {
     const savedUser = await userServices.addUser(userInfo.name, userInfo.password)
     res.status(201).json(savedUser)
 })
+
+
 
 adminRouter.patch(`/${prefix}/config/cam-picture`, (req, res) => {
     const {name, value} = req.body
@@ -158,7 +129,28 @@ adminRouter.get(`/${prefix}/rtsp/ports`, requireAdminAuth, async (req, res) => {
 adminRouter.post(`/${prefix}/rtsp/toggle/:serviceName`, requireAdminAuth, async (req, res) => {
     try {
         const { serviceName } = req.params;
+        const { honeypotLogger } = require('../utils/logger');
+        
+        // Get current status before toggle
+        const currentStatus = await rtspManagement.getServiceStatus(serviceName);
+        const previousStatus = currentStatus.running ? 'Running' : 'Stopped';
+        
         const result = await rtspManagement.toggleService(serviceName);
+        
+        // Get new status after toggle
+        const newStatus = result.success ? (previousStatus === 'Running' ? 'Stopped' : 'Running') : previousStatus;
+        
+        // Log the RTSP toggle action
+        honeypotLogger.logRTSPServiceToggle(
+            req.ip,
+            serviceName,
+            'toggle',
+            previousStatus,
+            newStatus,
+            req.get('User-Agent'),
+            'admin',
+            process.env.PORT || req.connection.server.address().port
+        );
         
         if (result.success) {
             res.json({ success: true, message: result.message });

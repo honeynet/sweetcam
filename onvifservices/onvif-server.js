@@ -7,13 +7,13 @@ require('dotenv').config();
 
 const UDPWSDiscoveryService = require('./services/udp-ws-discovery');
 const ONVIFSoapService = require('./services/onvif-soap');
+const { onvifLogger } = require('./utils/logger');
 
 
 class ONVIFHoneypot {
   constructor() {
     this.app = express();
     
-    // Disable Express.js signatures
     this.app.disable('x-powered-by');
     this.app.disable('etag');
     this.app.disable('view cache');
@@ -38,6 +38,15 @@ class ONVIFHoneypot {
       res.setHeader('Server', 'ONVIF/1.0');
       res.setHeader('Connection', 'close');
       res.setHeader('Content-Type', 'application/soap+xml; charset=utf-8');
+      
+      try {
+        const brand = this.soapService.brand || 'hikvision';
+        onvifLogger.logONVIFConnection(req.ip, 'connected', brand, this.port);
+      } catch (error) {
+        console.error('Error in ONVIF middleware:', error);
+        onvifLogger.logONVIFConnection(req.ip, 'connected', 'hikvision', this.port);
+      }
+      
       next();
     });
   }
@@ -46,6 +55,8 @@ class ONVIFHoneypot {
     this.app.get('/health', (req, res) => {
       res.setHeader('Server', 'ONVIF/1.0');
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      
+      onvifLogger.logServiceEvent('health_check', 'Health check requested');
       res.json({ status: 'ok', service: 'onvif-device' });
     });
 
@@ -53,6 +64,15 @@ class ONVIFHoneypot {
       res.setHeader('Server', 'ONVIF/1.0');
       res.setHeader('Location', '/onvif/device_service');
       res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      
+      try {
+        const brand = this.soapService.brand || 'hikvision';
+        onvifLogger.logSOAPRequest(req.ip, 'GET', req.method, '/', brand, this.port);
+      } catch (error) {
+        console.error('Error in ONVIF root route:', error);
+        onvifLogger.logSOAPRequest(req.ip, 'GET', req.method, '/', 'hikvision', this.port);
+      }
+      
       res.status(302).send('Found. Redirecting to /onvif/device_service');
     });
 
@@ -62,10 +82,26 @@ class ONVIFHoneypot {
       if (req.method === 'GET') {
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         
-        const deviceInfo = this.soapService.deviceInfo;
-        const brandConfig = this.soapService.brandConfig;
+        try {
+          const brand = this.soapService.brand || 'hikvision';
+          onvifLogger.logSOAPRequest(req.ip, 'GET', req.method, '/onvif/device_service', brand, this.port);
+          
+          const deviceInfo = this.soapService.deviceInfo || {
+            manufacturer: 'Unknown',
+            model: 'Unknown',
+            firmwareVersion: 'Unknown',
+            serialNumber: 'Unknown',
+            hardwareId: 'Unknown'
+          };
+          const brandConfig = this.soapService.brandConfig || {
+            deviceType: 'IP Camera',
+            resolution: '1920x1080',
+            onvifVersion: '2.4',
+            features: {},
+            specifications: {}
+          };
         
-        res.send(`
+          res.send(`
           <html>
             <head>
               <title>${deviceInfo.manufacturer} ${deviceInfo.model} - ONVIF Device Service</title>
@@ -154,6 +190,19 @@ class ONVIFHoneypot {
             </body>
           </html>
         `);
+        } catch (error) {
+          console.error('Error in ONVIF device service route:', error);
+          onvifLogger.logONVIFError(error, 'device_service_error', req.ip, this.soapService?.brandConfig?.brand || 'hikvision', this.port);
+          res.status(500).send(`
+            <html>
+              <head><title>500 Internal Server Error</title></head>
+              <body>
+                <h1>500 Internal Server Error</h1>
+                <p>ONVIF/1.0 device service</p>
+              </body>
+            </html>
+          `);
+        }
       } else {
         res.setHeader('Content-Type', 'application/soap+xml; charset=utf-8');
         next();
@@ -167,8 +216,24 @@ class ONVIFHoneypot {
       if (req.method === 'GET') {
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         
-        const deviceInfo = this.soapService.deviceInfo;
-        const brandConfig = this.soapService.brandConfig;
+        try {
+          const brand = this.soapService.brand || 'hikvision';
+          onvifLogger.logSOAPRequest(req.ip, 'GET', req.method, '/onvif/media_service', brand, this.port);
+          
+          const deviceInfo = this.soapService.deviceInfo || {
+            manufacturer: 'Unknown',
+            model: 'Unknown',
+            firmwareVersion: 'Unknown',
+            serialNumber: 'Unknown',
+            hardwareId: 'Unknown'
+          };
+          const brandConfig = this.soapService.brandConfig || {
+            deviceType: 'IP Camera',
+            resolution: '1920x1080',
+            onvifVersion: '2.4',
+            features: {},
+            specifications: {}
+          };
         
         res.send(`
           <html>
@@ -246,6 +311,19 @@ class ONVIFHoneypot {
             </body>
           </html>
         `);
+        } catch (error) {
+          console.error('Error in ONVIF media service route:', error);
+          onvifLogger.logONVIFError(error, 'media_service_error', req.ip, this.soapService?.brandConfig?.brand || 'hikvision', this.port);
+          res.status(500).send(`
+            <html>
+              <head><title>500 Internal Server Error</title></head>
+              <body>
+                <h1>500 Internal Server Error</h1>
+                <p>ONVIF/1.0 media service</p>
+              </body>
+            </html>
+          `);
+        }
       } else {
         res.setHeader('Content-Type', 'application/soap+xml; charset=utf-8');
         next();
@@ -256,16 +334,34 @@ class ONVIFHoneypot {
     this.app.use('*', (req, res) => {
       res.setHeader('Server', 'ONVIF/1.0');
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      res.status(404).send(`
-        <html>
-          <head><title>404 Not Found</title></head>
-          <body>
-            <h1>404 Not Found</h1>
-            <p>ONVIF/1.0 device service</p>
-          </body>
-        </html>
-      `);
-    });
+      
+      try {
+        const brand = this.soapService.brand || 'hikvision';
+        onvifLogger.logSOAPRequest(req.ip, req.method, req.url, brand, this.port);
+        
+        res.status(404).send(`
+          <html>
+            <head><title>404 Not Found</title></head>
+            <body>
+              <h1>404 Not Found</h1>
+              <p>ONVIF/1.0 device service</p>
+            </body>
+          </html>
+        `);
+        } catch (error) {
+          console.error('Error in ONVIF catch-all route:', error);
+          onvifLogger.logONVIFError(error, 'catch_all_error', req.ip, this.soapService?.brandConfig?.brand || 'hikvision', this.port);
+          res.status(500).send(`
+            <html>
+              <head><title>500 Internal Server Error</title></head>
+              <body>
+                <h1>500 Internal Server Error</h1>
+                <p>ONVIF/1.0 device service</p>
+              </body>
+            </html>
+          `);
+        }
+      });
   }
 
   setupSOAPServices() {
@@ -595,10 +691,13 @@ class ONVIFHoneypot {
         console.log(`- Device Service: http://localhost:${this.port}/onvif/device_service`);
         console.log(`- Media Service: http://localhost:${this.port}/onvif/media_service`);
         console.log(`- Health Check: http://localhost:${this.port}/health`);
+        
+        onvifLogger.logONVIFServiceEvent('started', `ONVIF service started on port ${this.port}`, this.soapService.brandConfig.brand, this.port);
       });
 
     } catch (error) {
       console.error('Failed to start ONVIF:', error.message);
+      onvifLogger.logONVIFError(error, 'startup', null, this.soapService.brandConfig.brand, this.port);
       process.exit(1);
     }
   }
@@ -607,6 +706,7 @@ class ONVIFHoneypot {
     this.wsDiscovery.stop();
     this.server.close();
     console.log('ONVIF stopped');
+    onvifLogger.logONVIFServiceEvent('stopped', 'ONVIF service stopped', this.soapService.brandConfig.brand, this.port);
   }
 }
 

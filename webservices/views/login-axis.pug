@@ -202,6 +202,7 @@ html(lang="en")
       .lang-select:hover {
         border-color: var(--axis-yellow);
       }
+
   body
     .axis-login-topbar
       img.brand-logo(src="/brands/Axis.png" alt="Axis Logo")
@@ -235,8 +236,12 @@ html(lang="en")
           //clear previous error message
           $errorMessage.text('');
           
+          // Determine if this is admin mode based on URL or page context
+          const isAdminMode = window.location.pathname === '/admin/login' || #{isAdminMode || false};
+          const loginUrl = isAdminMode ? '/admin/login' : '/login';
+          
           $.ajax({
-            url: '/login',
+            url: loginUrl,
             method: 'POST',
             data: {
               username: username,
@@ -244,7 +249,7 @@ html(lang="en")
             },
             success: function(response) {
               console.log('Login success:', response);
-              if (response.message === "Login successful") {
+              if (response.message === "Login successful" || response.message === "Admin login successful") {
                 window.location.href = '/';
               } else {
                 $errorMessage.text('Login failed - please try again.');
@@ -253,7 +258,7 @@ html(lang="en")
             error: function(xhr, status, error) {
               console.log('Login error:', xhr.status, xhr.responseText);
               let message = 'An unknown error occurred.';
-              if (xhr.status === 404) message = 'Username not found.';
+              if (xhr.status === 404) message = 'User not found.';
               if (xhr.status === 401) message = 'Wrong password.';
               if (xhr.status === 403) message = 'Too many attempts. Try again later.';
               $errorMessage.text(message);
