@@ -228,12 +228,8 @@ docker ps -a
 # Restart specific service
 docker compose restart [service_name]
 ```
-<<<<<<< HEAD
-=======
-
 ## Log Manager
 
 The SweetCam honeypot includes a log manager tool to help you manage and analyze logs from all honeypot services (Web, RTSP, ONVIF).
 
 Refer to the [Log Manager README](./LOG_MANAGER_README.md) for more details.
->>>>>>> a123767 (Event logging is implemented. Logger manager is created. Admin authentication web pages are fixed.)
