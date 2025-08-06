@@ -4,44 +4,45 @@
 
 # Introduction 
 
-The application SweetCam is a honeypot for IP camera. It can simulate a real IP camera vividly, including the interaction with user for rotating and zooming.
+The application SweetCam is a honeypot for IP camera. It can simulate a real IP camera vividly, it can simulate the web interface of the IP camera, ONVIF and RTSP protocol. 
 
 # Components
 
-The SweetCam honeypot consists of **12 containers**:
+The SweetCam honeypot consists of **22 containers**:
 
 ### Core Services
 1. **MySQL service** is service for data storage.
-2. **RTSP streaming service** used to provide the RTSP service for attackers.
-3. **Web service** is main web interface.
-4. **Cowrie service** SSH honeypot service.
-5. **ONVIF service** ONVIF-compliant camera honeypot service.
+2. **Web service** is main web interface.
+3. **Cowrie service** SSH honeypot service.
 
-### Camera Brand Services (6 containers)
-6. **Dahua Service**: port 37777
-7. **Hikvision Service**: port 80
-8. **VStarcam Service**: port 81
-9. **Mobotix Service**: port 443
-10. **Axis Service**: port 10000
-11. **Reolink Service**: port 8081
 
 ## Service Configuration
 
-Below is the comprehensive list of all services with their ports, protocols and access URLs:
+Below is the list of all services with their ports, protocols and access URLs:
 
 | Service | Internal Port | External Port | Protocol | Purpose | Access URL | Service Name |
 |---------|---------------|---------------|----------|---------|------------|--------------|
 | Dahua Camera | 37777 | 37777 | HTTP | Dahua camera interface | http://localhost:37777 | `dahua_service` |
 | Hikvision Camera | 80 | 80 | HTTP | Hikvision camera interface | http://localhost:80 | `hikvision_service` |
 | VStarcam Camera | 81 | 81 | HTTP | VStarcam camera interface | http://localhost:81 | `vstarcam_service` |
-| Mobotix Camera | 443 | 443 | HTTPS | Mobotix camera interface | http://localhost:443 | `mobotix_service` |
+| Mobotix Camera | 443 | 443 | HTTP | Mobotix camera interface | http://localhost:443 | `mobotix_service` |
 | Axis Camera | 10000 | 10000 | HTTP | Axis camera interface | http://localhost:10000 | `axis_service` |
 | Reolink Camera | 8081 | 8081 | HTTP | Reolink camera interface | http://localhost:8081 | `reolink_service` |
-| RTSP Streaming | 554 | 554 | RTSP | Video streaming | rtsp://localhost:554/stream | `rtsp_streaming_service` |
-| RTP Data | 8002-8005 | 8002-8005 | UDP | RTP/RTCP data | - | - |
+| RTSP Main Streaming | 554 | 554 | RTSP | Main video streaming | rtsp://localhost:554/stream | `rtsp_main` |
+| RTSP Hikvision | 8554 | 8554 | RTSP | Hikvision video streaming | rtsp://localhost:8554/stream | `rtsp_hikvision` |
+| RTSP Dahua | 8555 | 8555 | RTSP | Dahua video streaming | rtsp://localhost:8555/stream | `rtsp_dahua` |
+| RTSP Axis | 8556 | 8556 | RTSP | Axis video streaming | rtsp://localhost:8556/stream | `rtsp_axis` |
+| RTSP Reolink | 8557 | 8557 | RTSP | Reolink video streaming | rtsp://localhost:8557/stream | `rtsp_reolink` |
+| RTSP Mobotix | 8558 | 8558 | RTSP | Mobotix video streaming | rtsp://localhost:8558/stream | `rtsp_mobotix` |
+| RTSP VStarcam | 8559 | 8559 | RTSP | VStarcam video streaming | rtsp://localhost:8559/stream | `rtsp_vstarcam` |
+| RTP Data | 8002-8017 | 8002-8017 | TCP | RTP/RTCP data for all RTSP services | - | - |
 | SSH Honeypot | 2222 | 2222 | SSH | Cowrie SSH service | ssh://localhost:2222 | `cowrie_service` |
-| ONVIF SOAP | 8080, 8086-8090 | 8080, 8086-8090 | HTTP | ONVIF SOAP services | http://localhost:8080 | `onvif_service` |
-| ONVIF Discovery | 3702 | 3702 | UDP | WS-Discovery multicast | - | - |
+| ONVIF Hikvision | 8080, 3702 | 8080, 3702 | HTTP/UDP | Hikvision ONVIF SOAP & Discovery | http://localhost:8080 | `onvif_service` |
+| ONVIF Dahua | 8086, 3703 | 8086, 3703 | HTTP/UDP | Dahua ONVIF SOAP & Discovery | http://localhost:8086 | `onvif_dahua_service` |
+| ONVIF Axis | 8087, 3704 | 8087, 3704 | HTTP/UDP | Axis ONVIF SOAP & Discovery | http://localhost:8087 | `onvif_axis_service` |
+| ONVIF Reolink | 8088, 3705 | 8088, 3705 | HTTP/UDP | Reolink ONVIF SOAP & Discovery | http://localhost:8088 | `onvif_reolink_service` |
+| ONVIF Mobotix | 8089, 3706 | 8089, 3706 | HTTP/UDP | Mobotix ONVIF SOAP & Discovery | http://localhost:8089 | `onvif_mobotix_service` |
+| ONVIF VStarcam | 8090, 3707 | 8090, 3707 | HTTP/UDP | VStarcam ONVIF SOAP & Discovery | http://localhost:8090 | `onvif_vstarcam_service` |
 | MySQL Database | 3306 | 3306 | TCP | Database | - | `mysql_service` |
 | Web Service | 3000 | 3000 | HTTP | Main web interface | http://localhost:3000 | `web_service` |
 
@@ -65,7 +66,7 @@ Below is the comprehensive list of all services with their ports, protocols and 
 
 ### Prerequisites
 - Docker and Docker Compose installed
-- Ports 22, 80, 81, 443, 554, 2222, 3306, 37777, 8081, 10000 available
+- Ports 22, 80, 81, 443, 554, 8554-8559, 2222, 3306, 37777, 8081, 10000, 3702-3707, 8080, 8086-8090, 8002-8017 available
 
 ### Installation
 
