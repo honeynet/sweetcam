@@ -3,8 +3,8 @@ html(lang="en")
   head
     meta(charset='UTF-8')
     title= 'Admin Login'
-    link(rel="stylesheet", href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css")
-    script(src='https://code.jquery.com/jquery-3.6.3.min.js')
+            link(rel="stylesheet", href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css")
+            script(src='https://code.jquery.com/jquery-3.6.0.min.js')
     style.
       :root {
         --axis-yellow: #ffcc00;
@@ -198,7 +198,7 @@ html(lang="en")
         cursor: pointer;
         width: 100%;
         min-width: 100px;
-        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23444' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http:
         background-repeat: no-repeat;
         background-position: right 8px center;
         background-size: 16px;
@@ -253,7 +253,7 @@ html(lang="en")
           const $errorMessage = $('#errorMessage');
           const $successMessage = $('#successMessage');
           
-          //clear previous messages
+          
           $errorMessage.text('');
           $successMessage.text('');
           
@@ -283,7 +283,7 @@ html(lang="en")
           });
         });
         
-        //clear messages when user starts typing
+        
         $('input[name="username"], input[name="password"]').on('input', function() {
           $('#errorMessage').text('');
           $('#successMessage').text('');

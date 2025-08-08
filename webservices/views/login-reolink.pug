@@ -3,7 +3,7 @@ html(lang="en")
   head
     meta(charset="UTF-8")
     title Login
-    link(rel="stylesheet", href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css")
+            link(rel="stylesheet", href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css")
     style.
       body {
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -150,7 +150,7 @@ html(lang="en")
             input(type="password", name="password", id="password", placeholder="Password", required)
           button(type="submit") Login
 
-    script(src="https://code.jquery.com/jquery-3.6.3.min.js")
+    script(src="https://code.jquery.com/jquery-3.6.0.min.js")
     script.
       $(document).ready(function() {
         $('#loginForm').submit(function(e) {
@@ -159,10 +159,10 @@ html(lang="en")
           const password = $('input[name="password"]').val();
           const $errorMessage = $('#errorMessage');
 
-          //clear previous error message
+          
           $errorMessage.text('');
 
-          // Determine if this is admin mode based on URL or page context
+          
           const isAdminMode = window.location.pathname === '/admin/login' || #{isAdminMode || false};
           const loginUrl = isAdminMode ? '/admin/login' : '/login';
           
@@ -193,7 +193,7 @@ html(lang="en")
           });
         });
         
-        //clear error message when user starts typing
+        
         $('input[name="username"], input[name="password"]').on('input', function() {
           $('#errorMessage').text('');
         });

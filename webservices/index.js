@@ -76,12 +76,13 @@ app.get('/health', async (req, res) => {
         
         honeypotLogger.logServiceAccess(
             req.ip,
-            'GET',
-            '/health',
-            200,
+            req.method,
+            req.url,
+            res.statusCode,
             req.get('User-Agent'),
             cameraType,
-            port
+            port,
+            req.sessionID
         );
         
         res.status(200).json({ 
@@ -95,15 +96,16 @@ app.get('/health', async (req, res) => {
         const cameraType = getCameraType(req);
         const port = process.env.PORT || req.connection.server.address().port;
         
-        honeypotLogger.logError(error, 'health_check');
+        honeypotLogger.logError(error, 'health_check', req.sessionID);
         honeypotLogger.logServiceAccess(
             req.ip,
-            'GET',
-            '/health',
-            503,
+            req.method,
+            req.url,
+            res.statusCode,
             req.get('User-Agent'),
             cameraType,
-            port
+            port,
+            req.sessionID
         );
         
         res.status(503).json({ 
@@ -166,8 +168,10 @@ function getCameraType(req) {
 //authentication middleware
 function requireAuth(req, res, next) {
     if (!req.session || !req.session.username) {
+        console.log('Auth failed: No session or username, redirecting to login');
         return res.redirect('/login');
     }
+    console.log('Auth successful for user:', req.session.username);
     next();
 }
 
@@ -177,15 +181,16 @@ app.get('/api/images', requireAuth, (req, res) => {
     const cameraType = getCameraType(req);
     const port = process.env.PORT || req.connection.server.address().port;
     
-    honeypotLogger.logServiceAccess(
-        req.ip,
-        'GET',
-        '/api/images',
-        200,
-        req.get('User-Agent'),
-        cameraType,
-        port
-    );
+            honeypotLogger.logServiceAccess(
+            req.ip,
+            req.method,
+            req.url,
+            res.statusCode,
+            req.get('User-Agent'),
+            cameraType,
+            port,
+            req.sessionID
+        );
 
     const imagesDir = path.join(__dirname, 'public', 'images');
     try {
@@ -198,7 +203,7 @@ app.get('/api/images', requireAuth, (req, res) => {
         res.json(imageUrls);
     } catch (error) {
         console.error('Error reading images directory:', error);
-        honeypotLogger.logError(error, 'api_images');
+        honeypotLogger.logError(error, 'api_images', req.sessionID);
         res.json([]);
     }
 });
@@ -211,12 +216,13 @@ app.get('/api/camera-info', requireAuth, (req, res) => {
     
     honeypotLogger.logServiceAccess(
         req.ip,
-        'GET',
-        '/api/camera-info',
-        200,
+        req.method,
+        req.url,
+        res.statusCode,
         req.get('User-Agent'),
         cameraType,
-        port
+        port,
+        req.sessionID
     );
     
     //add live status
@@ -241,12 +247,13 @@ app.get('/', requireAuth, (req, res) => {
     
     honeypotLogger.logServiceAccess(
         req.ip,
-        'GET',
-        '/',
-        200,
+        req.method,
+        req.url,
+        res.statusCode,
         req.get('User-Agent'),
         cameraType,
-        port
+        port,
+        req.sessionID
     );
     
     res.render(cameraType, { 
@@ -271,12 +278,13 @@ app.get('/login', (req, res) => {
     
     honeypotLogger.logServiceAccess(
         req.ip,
-        'GET',
-        '/login',
-        200,
+        req.method,
+        req.url,
+        res.statusCode,
         req.get('User-Agent'),
         cameraType,
-        port
+        port,
+        req.sessionID
     );
     
     res.render(`login-${cameraType}`, { 
@@ -373,15 +381,16 @@ app.post('/login', async (req, res) => { //login endpoint
         } else {
             const passwordHashes = await userServices.findUserPasswordHashesByName(username);
             if (!passwordHashes || passwordHashes.length === 0) {
-                honeypotLogger.logAuthFailure(
-                    req.ip,
-                    username,
-                    'user_not_found',
-                    req.get('User-Agent'),
-                    cameraType,
-                    port,
-                    password
-                );
+                            honeypotLogger.logAuthFailure(
+                req.ip,
+                username,
+                'user_not_found',
+                req.get('User-Agent'),
+                cameraType,
+                port,
+                password,
+                req.sessionID
+            );
                 return res.status(404).send({ error: "User not found" });
             } else {
                 honeypotLogger.logAuthFailure(
@@ -391,7 +400,8 @@ app.post('/login', async (req, res) => { //login endpoint
                     req.get('User-Agent'),
                     cameraType,
                     port,
-                    password
+                    password,
+                    req.sessionID
                 );
                 return res.status(401).send({ error: "Wrong password" });
             }
@@ -401,7 +411,7 @@ app.post('/login', async (req, res) => { //login endpoint
         const cameraType = getCameraType(req);
         const port = process.env.PORT || req.connection.server.address().port;
         
-        honeypotLogger.logError(error, 'login_endpoint');
+        honeypotLogger.logError(error, 'login_endpoint', req.sessionID);
         
         //check if it's a database connection error
         if (error.name === 'SequelizeConnectionError' || error.name === 'SequelizeHostNotFoundError') {
@@ -432,7 +442,8 @@ app.post('/admin/login', async (req, res) => { //admin login endpoint
                     `Admin login attempts: ${sess.loginTimes}`,
                     req.get('User-Agent'),
                     cameraType,
-                    port
+                    port,
+                    req.sessionID
                 );
                 return res.status(403).send({ error: "Login request reached limit" });
             }
@@ -449,7 +460,9 @@ app.post('/admin/login', async (req, res) => { //admin login endpoint
                 'admin_missing_credentials',
                 req.get('User-Agent'),
                 cameraType,
-                port
+                port,
+                null,
+                req.sessionID
             );
             return res.status(400).send({ error: "Username and password are required" });
         }
@@ -486,7 +499,8 @@ app.post('/admin/login', async (req, res) => { //admin login endpoint
                         req.get('User-Agent'),
                         cameraType,
                         port,
-                        password
+                        password,
+                        req.sessionID
                     );
                     return res.status(401).send({ error: "Wrong password" });
                 } catch (error) {
@@ -498,7 +512,8 @@ app.post('/admin/login', async (req, res) => { //admin login endpoint
                         req.get('User-Agent'),
                         cameraType,
                         port,
-                        password
+                        password,
+                        req.sessionID
                     );
                     return res.status(404).send({ error: "User not found" });
                 }
@@ -512,7 +527,9 @@ app.post('/admin/login', async (req, res) => { //admin login endpoint
                 'admin_authentication_error',
                 req.get('User-Agent'),
                 cameraType,
-                port
+                port,
+                null,
+                req.sessionID
             );
             return res.status(500).send({ error: "Authentication error. Please try again." });
         }
@@ -521,7 +538,7 @@ app.post('/admin/login', async (req, res) => { //admin login endpoint
         const cameraType = getCameraType(req);
         const port = process.env.PORT || req.connection.server.address().port;
         
-        honeypotLogger.logError(error, 'admin_login_endpoint');
+        honeypotLogger.logError(error, 'admin_login_endpoint', req.sessionID);
         
         //check if it's a database connection error
         if (error.name === 'SequelizeConnectionError' || error.name === 'SequelizeHostNotFoundError') {
@@ -556,5 +573,5 @@ app.use('/', adminRouter);
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Web service listening on port ${PORT}`);
-  honeypotLogger.logServiceEvent('started', `Web service started on port ${PORT}`);
+  honeypotLogger.logServiceEvent('started', `Web service started on port ${PORT}`, null);
 });

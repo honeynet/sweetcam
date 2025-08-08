@@ -3,6 +3,7 @@ const adminServices = require('../services/admin-services')
 const userServices = require('../services/user-services');
 const sweetcamServices = require('../services/sweetcam-services')
 const rtspManagement = require('../services/rtsp-management')
+const onvifManagement = require('../services/onvif-management')
 const { requireAdminAuth } = require('../utils/admin-auth')
 const bcrypt = require("bcrypt")
 const jwt = require('jsonwebtoken')
@@ -173,6 +174,83 @@ adminRouter.get(`/${prefix}/rtsp/service/:port`, requireAdminAuth, async (req, r
         }
         
         const status = await rtspManagement.getServiceStatus(serviceName);
+        res.json({ serviceName, port: parseInt(port), ...status });
+    } catch (error) {
+        console.error('Error getting service status:', error);
+        res.status(500).json({ error: 'Failed to get service status' });
+    }
+});
+
+// ONVIF Management endpoints
+adminRouter.get(`/${prefix}/onvif/status`, requireAdminAuth, async (req, res) => {
+    try {
+        console.log('ONVIF status request from user:', req.session.username);
+        const statuses = await onvifManagement.getAllServicesStatus();
+        res.json(statuses);
+    } catch (error) {
+        console.error('Error getting ONVIF status:', error);
+        res.status(500).json({ error: 'Failed to get ONVIF status' });
+    }
+});
+
+adminRouter.get(`/${prefix}/onvif/ports`, requireAdminAuth, async (req, res) => {
+    try {
+        const ports = onvifManagement.getCurrentPortsForFrontend();
+        res.json(ports);
+    } catch (error) {
+        console.error('Error getting ONVIF ports:', error);
+        res.status(500).json({ error: 'Failed to get ONVIF ports' });
+    }
+});
+
+adminRouter.post(`/${prefix}/onvif/toggle/:serviceName`, requireAdminAuth, async (req, res) => {
+    try {
+        const { serviceName } = req.params;
+        console.log('ONVIF toggle request for service:', serviceName, 'from user:', req.session.username);
+        const { honeypotLogger } = require('../utils/logger');
+        
+        // Get current status before toggle
+        const currentStatus = await onvifManagement.getServiceStatus(serviceName);
+        const previousStatus = currentStatus.running ? 'Running' : 'Stopped';
+        
+        const result = await onvifManagement.toggleService(serviceName);
+        
+        // Get new status after toggle
+        const newStatus = result.success ? (previousStatus === 'Running' ? 'Stopped' : 'Running') : previousStatus;
+        
+        // Log the ONVIF toggle action
+        honeypotLogger.logONVIFServiceToggle(
+            req.ip,
+            serviceName,
+            'toggle',
+            previousStatus,
+            newStatus,
+            req.get('User-Agent'),
+            'admin',
+            process.env.PORT || req.connection.server.address().port
+        );
+        
+        if (result.success) {
+            res.json({ success: true, message: result.message });
+        } else {
+            res.status(500).json({ success: false, message: result.message });
+        }
+    } catch (error) {
+        console.error('Error toggling ONVIF service:', error);
+        res.status(500).json({ error: 'Failed to toggle ONVIF service' });
+    }
+});
+
+adminRouter.get(`/${prefix}/onvif/service/:port`, requireAdminAuth, async (req, res) => {
+    try {
+        const { port } = req.params;
+        const serviceName = onvifManagement.getServiceByPort(port);
+        
+        if (!serviceName) {
+            return res.status(404).json({ error: 'Service not found for port' });
+        }
+        
+        const status = await onvifManagement.getServiceStatus(serviceName);
         res.json({ serviceName, port: parseInt(port), ...status });
     } catch (error) {
         console.error('Error getting service status:', error);

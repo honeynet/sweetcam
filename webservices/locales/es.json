@@ -51,7 +51,15 @@
     "rtspEnabled": "RTSP Habilitado",
     "rtspDisabled": "RTSP Deshabilitado",
     "rtspToggleSuccess": "Servicio RTSP cambiado exitosamente",
-    "rtspToggleError": "Error al cambiar el servicio RTSP"
+    "rtspToggleError": "Error al cambiar el servicio RTSP",
+    "onvifService": "Servicio ONVIF",
+    "onvifStatus": "Estado ONVIF",
+    "enableOnvif": "Habilitar ONVIF",
+    "disableOnvif": "Deshabilitar ONVIF",
+    "onvifEnabled": "ONVIF Habilitado",
+    "onvifDisabled": "ONVIF Deshabilitado",
+    "onvifToggleSuccess": "Servicio ONVIF cambiado exitosamente",
+    "onvifToggleError": "Error al cambiar el servicio ONVIF"
   },
   "language": {
     "english": "English",

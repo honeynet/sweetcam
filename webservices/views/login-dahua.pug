@@ -4,7 +4,7 @@ html(lang="en")
         meta(charset='UTF-8')
         title= 'Login'
         link(rel="stylesheet", href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css")
-        script(src='https://code.jquery.com/jquery-3.6.3.min.js')
+        script(src='https://code.jquery.com/jquery-3.6.0.min.js')
         style.
             :root {
                 --dahua-blue: #0072ff;
@@ -32,7 +32,7 @@ html(lang="en")
                 left: -50%;
                 width: 200%;
                 height: 200%;
-                background-image: url('https://www.transparenttextures.com/patterns/wavy-lines.png');
+                background-image: url('https:
                 opacity: 0.05;
                 animation: wave 20s linear infinite;
             }
@@ -151,10 +151,10 @@ html(lang="en")
                     const password = $('input[name="password"]').val();
                     const $errorMessage = $('#errorMessage');
 
-                    //clear previous error message
+                    
                     $errorMessage.text('');
 
-                    // Determine if this is admin mode based on URL or page context
+                    
                     const isAdminMode = window.location.pathname === '/admin/login' || #{isAdminMode || false};
                     const loginUrl = isAdminMode ? '/admin/login' : '/login';
                     
@@ -186,7 +186,7 @@ html(lang="en")
                     });
                 });
                 
-                //clear error message when user starts typing
+                
                 $('input[name="username"], input[name="password"]').on('input', function() {
                     $('#errorMessage').text('');
                 });

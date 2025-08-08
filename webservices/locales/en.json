@@ -51,7 +51,15 @@
     "rtspEnabled": "RTSP Enabled",
     "rtspDisabled": "RTSP Disabled",
     "rtspToggleSuccess": "RTSP service toggled successfully",
-    "rtspToggleError": "Failed to toggle RTSP service"
+    "rtspToggleError": "Failed to toggle RTSP service",
+    "onvifService": "ONVIF Service",
+    "onvifStatus": "ONVIF Status",
+    "enableOnvif": "Enable ONVIF",
+    "disableOnvif": "Disable ONVIF",
+    "onvifEnabled": "ONVIF Enabled",
+    "onvifDisabled": "ONVIF Disabled",
+    "onvifToggleSuccess": "ONVIF service toggled successfully",
+    "onvifToggleError": "Failed to toggle ONVIF service"
   },
   "language": {
     "english": "English",

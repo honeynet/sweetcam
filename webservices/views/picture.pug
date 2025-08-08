@@ -143,7 +143,7 @@ html
             let currentImageIndex = 0;
             let images = [];
             
-            // Function to load images from the server
+            
             async function loadImages() {
                 try {
                     const response = await fetch('/api/images');
@@ -161,7 +161,7 @@ html
                 }
             }
             
-            // Function to display image at given index
+            
             function displayImage(index) {
                 if (images.length === 0) return;
                 
@@ -172,25 +172,25 @@ html
                 const prevBtn = document.getElementById('prevBtn');
                 const nextBtn = document.getElementById('nextBtn');
                 
-                // Clear previous content
+                
                 imageDisplay.innerHTML = '';
                 
-                // Create and display image
+                
                 const img = document.createElement('img');
                 img.src = images[index];
                 img.alt = `Image ${index + 1}`;
                 imageDisplay.appendChild(img);
                 
-                // Update counter and name
+                
                 imageCounter.textContent = `${index + 1} of ${images.length}`;
                 imageName.textContent = images[index].split('/').pop();
                 
-                // Update button states
+                
                 prevBtn.disabled = index === 0;
                 nextBtn.disabled = index === images.length - 1;
             }
             
-            // Event listeners for navigation
+            
             document.getElementById('prevBtn').addEventListener('click', () => {
                 if (currentImageIndex > 0) {
                     displayImage(currentImageIndex - 1);
@@ -203,7 +203,7 @@ html
                 }
             });
             
-            // Keyboard navigation
+            
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'ArrowLeft' && currentImageIndex > 0) {
                     displayImage(currentImageIndex - 1);
@@ -212,5 +212,5 @@ html
                 }
             });
             
-            // Load images when page loads
+            
             document.addEventListener('DOMContentLoaded', loadImages);

@@ -3,7 +3,7 @@ html(lang="en")
     head
         meta(charset='UTF-8')
         title= 'Login'
-        script(src='https://code.jquery.com/jquery-3.6.3.min.js')
+        script(src='https://code.jquery.com/jquery-3.6.0.min.js')
         style.
             body {
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -98,10 +98,10 @@ html(lang="en")
                     const password = $('input[name="password"]').val();
                     const $errorMessage = $('#errorMessage');
 
-                    //clear previous error message
+                    
                     $errorMessage.text('');
 
-                    // Determine if this is admin mode based on URL or page context
+                    
                     const isAdminMode = window.location.pathname === '/admin/login' || #{isAdminMode || false};
                     const loginUrl = isAdminMode ? '/admin/login' : '/login';
                     
@@ -133,7 +133,7 @@ html(lang="en")
                     });
                 });
                 
-                //clear error message when user starts typing
+                
                 $('input[name="username"], input[name="password"]').on('input', function() {
                     $('#errorMessage').text('');
                 });

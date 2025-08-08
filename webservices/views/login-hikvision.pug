@@ -3,8 +3,8 @@ html
     head
         meta(charset='UTF-8')
         title= __('login.title')
-        script(src='https://unpkg.com/axios/dist/axios.min.js')
-        script(src='https://code.jquery.com/jquery-3.6.3.min.js')
+        script(src='https://code.jquery.com/jquery-3.6.0.min.js')
+        script(src='https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js')
         style.
             body {
                 margin: 0;
@@ -159,7 +159,7 @@ html
                             span#rateErrorMessage.error-message= __('login.rateError')
                         button.login-btn(type='submit')= __('login.loginButton')
         script.
-            // Language switching function
+            
             function changeLanguage(lang) {
                 window.location.href = '/set-language/' + lang;
             }
@@ -171,22 +171,22 @@ html
                     const username = $('input[name="username"]').val();
                     const password = $('input[name="password"]').val();
                     
-                    // Disable the login button to prevent multiple submissions
+                    
                     const loginBtn = $('.login-btn');
                     loginBtn.prop('disabled', true).text('Logging in...');
                     
-                    // Hide any previous error messages
+                    
                     $('.error-message').hide();
                     
-                    // Determine if this is admin mode based on URL or page context
-                    const isAdminMode = window.location.pathname === '/admin/login' || #{isAdminMode || false};
+                    
+                    const isAdminMode = window.location.pathname === '/admin/login' || !{isAdminMode || false};
                     const loginUrl = isAdminMode ? '/admin/login' : '/login';
                     
                     axios.post(loginUrl, {
                         username: username,
                         password: password
                     }, {
-                        timeout: 10000 // 10 second timeout
+                        timeout: 10000 
                     })
                     .then(response => {
                         if (response.data.message === "Login successful" || response.data.message === "Admin login successful") {
@@ -224,7 +224,7 @@ html
                         }
                     })
                     .finally(() => {
-                        // Re-enable the login button
+                        
                         loginBtn.prop('disabled', false).text('Login');
                     });
                 });

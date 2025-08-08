@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "/app/logs/.69aa5f04b942530e11c651e072f6588962b5eedd-audit.json",
+    "files": [
+        {
+            "date": 1754691568052,
+            "name": "/app/logs/onvif-app-2025-08-08.log",
+            "hash": "de6406b0f731b26c89a973d5fdf046efd2b2742766002dfccda378a81ea646d6"
+        }
+    ],
+    "hashType": "sha256"
+}

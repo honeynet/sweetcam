@@ -296,7 +296,85 @@ html(lang="en")
             .rtsp-status-text.disabled {
                 color: #f44336;
             }
+            /* ONVIF Toggle Styles - Matching RTSP Design */ 
+            .onvif-control-item { 
+                border-top: 2px solid #e0e0e0;
+                padding-top: 15px;
+                margin-top: 10px;
+            } 
             
+            .onvif-toggle-container { 
+                display: flex; 
+                align-items: center; 
+                gap: 15px; 
+            } 
+            
+            .onvif-toggle { 
+                position: relative; 
+                display: inline-block; 
+                width: 60px; 
+                height: 34px; 
+            } 
+            
+            .onvif-toggle-input { 
+                opacity: 0; 
+                width: 0; 
+                height: 0; 
+            } 
+            
+            .onvif-toggle-slider { 
+                position: absolute; 
+                cursor: pointer; 
+                top: 0; 
+                left: 0; 
+                right: 0; 
+                bottom: 0; 
+                background-color: #ccc;
+                transition: .4s;
+                border-radius: 34px;
+                box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+            } 
+            
+            .onvif-toggle-slider:before { 
+                position: absolute; 
+                content: ""; 
+                height: 26px; 
+                width: 26px; 
+                left: 4px; 
+                bottom: 4px; 
+                background-color: white;
+                transition: .4s;
+                border-radius: 50%;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            } 
+            
+            .onvif-toggle-input:checked + .onvif-toggle-slider { 
+                background-color: #4caf50;
+            } 
+            
+            .onvif-toggle-input:checked + .onvif-toggle-slider:before { 
+                transform: translateX(26px); 
+            } 
+            
+            .onvif-toggle-input:disabled + .onvif-toggle-slider { 
+                opacity: 0.6; 
+                cursor: not-allowed; 
+            }
+            
+            .onvif-status-text { 
+                font-weight: 500;
+                color: #666;
+                transition: color 0.3s ease;
+            } 
+            
+            .onvif-status-text.enabled { 
+                color: #4caf50; 
+            } 
+            
+            .onvif-status-text.disabled { 
+                color: #f44336; 
+            }
+               
             /* System Tab Styles */
             .system-section {
                 background: var(--card-bg);
@@ -397,7 +475,7 @@ html(lang="en")
                     span Logout
 
         main.main-content
-            // Home Dashboard
+            
             .dashboard-layout#home-dashboard
                 .dashboard-cards
                     .dashboard-card#camera-tab-btn
@@ -411,7 +489,7 @@ html(lang="en")
                         h3.card-title System
                         p.card-description Camera information and system details
 
-            // Camera Tab Content
+            
             .tab-content#camera-tab
                 button.back-btn#back-to-home
                     i.fas.fa-arrow-left
@@ -428,7 +506,7 @@ html(lang="en")
                             button#left(type='button') &#x25C0;
                             button#right(type='button') &#x25B6;
 
-            // System Tab Content
+            
             .tab-content#system-tab
                 button.back-btn#back-to-home-system
                     i.fas.fa-arrow-left
@@ -475,9 +553,17 @@ html(lang="en")
                                         input.rtsp-toggle-input(type="checkbox" id="rtsp-toggle")
                                         span.rtsp-toggle-slider
                                     span.rtsp-status-text#rtsp-status-text= __('main.rtspDisabled')
+                        .info-item.onvif-control-item#onvif-control-item(style="display: none;")
+                            .info-label #{__("main.onvifService")}
+                            .info-value
+                                .onvif-toggle-container
+                                    label.onvif-toggle
+                                        input.onvif-toggle-input(type="checkbox" id="onvif-toggle")
+                                        span.onvif-toggle-slider
+                                    span.onvif-status-text#onvif-status-text= __('main.onvifDisabled')
 
         script.
-            // Tab Navigation
+            
             const homeDashboard = document.getElementById('home-dashboard');
             const cameraTab = document.getElementById('camera-tab');
             const systemTab = document.getElementById('system-tab');
@@ -486,14 +572,14 @@ html(lang="en")
             const backToHomeBtn = document.getElementById('back-to-home');
             const backToHomeSystemBtn = document.getElementById('back-to-home-system');
 
-            //show camera tab
+            
             cameraTabBtn.addEventListener('click', () => {
                 homeDashboard.style.display = 'none';
                 cameraTab.classList.add('active');
                 loadImage(); 
             });
 
-            //show system tab
+            
             systemTabBtn.addEventListener('click', () => {
                 homeDashboard.style.display = 'none';
                 systemTab.classList.add('active');
@@ -547,7 +633,7 @@ html(lang="en")
                     'last-restart': data.lastRestart || 'N/A'
                 };
 
-                //update each field
+                
                 Object.keys(fieldMappings).forEach(fieldId => {
                     const element = document.getElementById(fieldId);
                     if (element) {
@@ -564,8 +650,6 @@ html(lang="en")
                         }
                     }
                 });
-                
-                loadRTSPStatus();
             }
 
         script.
@@ -576,9 +660,9 @@ html(lang="en")
             let imageHeight = 0;
             let containerWidth = 0;
             let containerHeight = 0;
-            const moveStep = 50; // pixels to move per arrow press
+            const moveStep = 50; 
             
-            //function to load the first image from the server
+            
             function loadImage() {
                 console.log('Attempting to load images...');
                 const xhr = new XMLHttpRequest();
@@ -617,25 +701,25 @@ html(lang="en")
                 xhr.send();
             }
             
-            //function to display image
+            
             function displayImage(imageSrc) {
                 const imageViewer = document.getElementById('imageViewer');
                 const imageInfo = document.getElementById('imageInfo');
                                 
-                //clear previous content
+                
                 imageViewer.innerHTML = '';
                 
-                //create and display image
+                
                 const img = document.createElement('img');
                 img.src = imageSrc;
                 img.alt = '360 VIEW';
             
                 img.onload = function() {
-                    //get image dimensions
+                    
                     imageWidth = this.naturalWidth;
                     imageHeight = this.naturalHeight;
                     
-                    //get container dimensions
+                    
                     containerWidth = imageViewer.clientWidth;
                     containerHeight = imageViewer.clientHeight;
                     
@@ -644,7 +728,7 @@ html(lang="en")
                  
                     updateImagePosition();
                     
-                    //show image info
+                    
                     imageInfo.textContent = `Image: ${imageSrc.split('/').pop()}`;
                     imageInfo.style.display = 'block';
                 };
@@ -659,22 +743,22 @@ html(lang="en")
                 console.log('Image appended to viewer');
             }
             
-            //function to update image position
+            
             function updateImagePosition() {
                 if (!currentImage) return;
                 
-                //constrain position within image bounds
+                
                 const maxX = Math.max(0, imageWidth - containerWidth);
                 const maxY = Math.max(0, imageHeight - containerHeight);
                 
                 currentX = Math.max(0, Math.min(currentX, maxX));
                 currentY = Math.max(0, Math.min(currentY, maxY));
                 
-                //apply transform
+                
                 currentImage.style.transform = `translate(-${currentX}px, -${currentY}px)`;
             }
             
-            //event listeners for navigation
+            
             document.getElementById('up').addEventListener('click', () => {
                 currentY -= moveStep;
                 updateImagePosition();
@@ -741,72 +825,184 @@ html(lang="en")
                     if (response.ok) {
                         const result = await response.json();
                         if (result.success) {
-                            //show success message
+                            
                             showNotification('!{__("main.rtspToggleSuccess")}', 'success');
                             
-                            //save current tab state before reload
+                            
                             const activeTab = document.querySelector('.tab-btn.active');
                             if (activeTab) {
                                 localStorage.setItem('lastActiveTab', activeTab.getAttribute('data-tab'));
                             }
                             
-                            //reload the page after a short delay to refresh the status
+                            
                             setTimeout(() => {
                                 window.location.reload();
                             }, 1500);
                         } else {
-                            //show error message
+                            
                             showNotification(result.message || '!{__("main.rtspToggleError")}', 'error');
                             
-                            //save current tab state before reload
+                            
                             const activeTab = document.querySelector('.tab-btn.active');
                             if (activeTab) {
                                 localStorage.setItem('lastActiveTab', activeTab.getAttribute('data-tab'));
                             }
                             
-                            //reload the page after a short delay even on failure
+                            
                             setTimeout(() => {
                                 window.location.reload();
                             }, 1500);
                         }
                     } else {
-                        //show error message
+                        
                         showNotification('!{__("main.rtspToggleError")}', 'error');
                         
-                        //save current tab state before reload
+                        
                         const activeTab = document.querySelector('.tab-btn.active');
                         if (activeTab) {
                             localStorage.setItem('lastActiveTab', activeTab.getAttribute('data-tab'));
                         }
                         
-                        //reload the page after a short delay even on error
+                        
                         setTimeout(() => {
                             window.location.reload();
                         }, 1500);
                     }
                 } catch (error) {
                     console.error('Error toggling RTSP service:', error);
-                    //show error message
+                    
                     showNotification('!{__("main.rtspToggleError")}', 'error');
                     
-                    //save current tab state before reload
+                    
                     const activeTab = document.querySelector('.tab-btn.active');
                     if (activeTab) {
                         localStorage.setItem('lastActiveTab', activeTab.getAttribute('data-tab'));
                     }
                     
-                    //reload the page after a short delay even on exception
+                    
                     setTimeout(() => {
                         window.location.reload();
                     }, 1500);
                 } finally {
-                    //reenable toggle
+                    
                     toggle.disabled = false;
                 }
             }
+
+            
+            async function loadONVIFStatus() { 
+                try { 
+                    const response = await fetch("/admin/onvif/service/8086"); 
+                    if (response.ok) { 
+                        const data = await response.json(); 
+                        updateONVIFToggle(data.running); 
+                    } else { 
+                        console.error("Failed to load ONVIF status"); 
+                        updateONVIFToggle(false); 
+                    } 
+                } catch (error) { 
+                    console.error("Error loading ONVIF status:", error); 
+                    updateONVIFToggle(false); 
+                } 
+            } 
+            
+            function updateONVIFToggle(isEnabled) { 
+                const toggle = document.getElementById("onvif-toggle"); 
+                const statusText = document.getElementById("onvif-status-text"); 
+                
+                if (toggle && statusText) { 
+                    toggle.checked = isEnabled; 
+                    statusText.textContent = isEnabled ? "!{__("main.onvifEnabled")}" : "!{__("main.onvifDisabled")}"; 
+                    statusText.className = `onvif-status-text ${isEnabled ? "enabled" : "disabled"}`; 
+                } 
+            } 
+            
+            async function toggleONVIFService() { 
+                const toggle = document.getElementById("onvif-toggle"); 
+                const statusText = document.getElementById("onvif-status-text"); 
+                
+                if (!toggle || !statusText) return; 
+                
+                
+                toggle.disabled = true; 
+                
+                try { 
+                    const response = await fetch("/admin/onvif/toggle/onvif_dahua_service", { 
+                        method: "POST", 
+                        headers: { 
+                            "Content-Type": "application/json" 
+                        } 
+                    }); 
+                    
+                    if (response.ok) { 
+                        const result = await response.json(); 
+                        if (result.success) { 
+                            showNotification("!{__("main.onvifToggleSuccess")}", "success"); 
+                            setTimeout(() => { 
+                                window.location.reload(); 
+                            }, 1500); 
+                        } else { 
+                            showNotification(result.message || "!{__("main.onvifToggleError")}", "error"); 
+                            setTimeout(() => { 
+                                window.location.reload(); 
+                            }, 1500); 
+                        } 
+                    } else if (response.status === 401) {
+                        
+                        showNotification('Authentication required. Please log in again.', 'error');
+                        setTimeout(() => {
+                            window.location.href = '/login';
+                        }, 1500);
+                    } else if (response.status === 403) {
+                        
+                        showNotification('Admin access required. Please log in as admin.', 'error');
+                        setTimeout(() => {
+                            window.location.href = '/login';
+                        }, 1500);
+                    } else { 
+                        showNotification("!{__("main.onvifToggleError")}", "error"); 
+                        setTimeout(() => { 
+                            window.location.reload(); 
+                        }, 1500); 
+                    } 
+                } catch (error) { 
+                    console.error("Error toggling ONVIF service:", error); 
+                    showNotification("!{__("main.onvifToggleError")}", "error"); 
+                    setTimeout(() => { 
+                        window.location.reload(); 
+                    }, 1500); 
+                } finally { 
+                    toggle.disabled = false; 
+                } 
+            } 
+            
+            
+            async function checkONVIFAdminStatus() { 
+                try { 
+                    const response = await fetch("/admin/onvif/status"); 
+                    if (response.ok) { 
+                        const onvifControlItem = document.getElementById("onvif-control-item"); 
+                        if (onvifControlItem) { 
+                            onvifControlItem.style.display = "block"; 
+                        } 
+                        loadONVIFStatus(); 
+                    } else if (response.status === 403) { 
+                        const onvifControlItem = document.getElementById("onvif-control-item"); 
+                        if (onvifControlItem) { 
+                            onvifControlItem.style.display = "none"; 
+                        } 
+                    } 
+                } catch (error) { 
+                    console.error("Error checking ONVIF admin status:", error); 
+                    const onvifControlItem = document.getElementById("onvif-control-item"); 
+                    if (onvifControlItem) { 
+                        onvifControlItem.style.display = "none"; 
+                    } 
+                } 
+            }
             
             function showNotification(message, type) {
-                //create notification element
+                
                 const notification = document.createElement('div');
                 notification.className = `notification ${type}`;
                 notification.textContent = message;
@@ -825,7 +1021,7 @@ html(lang="en")
                 
                 document.body.appendChild(notification);
                 
-                    //remove notification after 3 seconds
+                    
                 setTimeout(() => {
                     notification.style.animation = 'slideOut 0.3s ease';
                     setTimeout(() => {
@@ -836,7 +1032,7 @@ html(lang="en")
                 }, 3000);
             }
             
-            //add css animations for notifications
+            
             const style = document.createElement('style');
             style.textContent = `
                 @keyframes slideIn {
@@ -850,7 +1046,7 @@ html(lang="en")
             `;
             document.head.appendChild(style);
             
-            //check if user is admin and show RTSP controls
+            
             async function checkAdminStatus() {
                 try {
                     const response = await fetch('/admin/rtsp/status');
@@ -879,9 +1075,14 @@ html(lang="en")
                 const rtspToggle = document.getElementById('rtsp-toggle');
                 if (rtspToggle) {
                     rtspToggle.addEventListener('change', toggleRTSPService);
+                const onvifToggle = document.getElementById("onvif-toggle"); 
+                if (onvifToggle) { 
+                    onvifToggle.addEventListener("change", toggleONVIFService); 
+                }
                 }
                 
                 checkAdminStatus();
+                checkONVIFAdminStatus();
                 
                 const lastActiveTab = localStorage.getItem('lastActiveTab');
                 if (lastActiveTab) {

@@ -2,6 +2,7 @@ const { format, createLogger, transports } = require("winston");
 require("winston-daily-rotate-file");
 const fs = require('fs');
 const path = require('path');
+const { writeServiceLog, writeRTSPLog } = require('./db-logger');
 
 const logsDir = path.join(__dirname, '..', 'logs');
 if (!fs.existsSync(logsDir)) {
@@ -28,8 +29,6 @@ const securityFormat = format.combine(
             session_id: info.session_id || null,
             username: info.username || null,
             response_status: info.response_status || null,
-            attack_type: info.attack_type || null,
-            payload: info.payload || null,
             brand: info.brand || null,
             port: info.port || null,
             stream_path: info.stream_path || null,
@@ -66,7 +65,6 @@ const consoleTransport = new transports.Console({
         format.simple(),
         format.printf(info => {
             const safeInfo = { ...info };
-            delete safeInfo.payload;
             delete safeInfo.username;
             delete safeInfo.session_id;
             return `${info.timestamp} [${info.level}]: ${info.message}`;
@@ -88,7 +86,7 @@ const logConfiguration = {
 const logger = createLogger(logConfiguration);
 
 const rtspLogger = {
-    logRTSPConnection: (ip, event, brand, port) => {
+    logRTSPConnection: (ip, event, brand, port, sessionId = null) => {
         logger.info('RTSP connection event', {
             service: 'rtsp',
             event_type: 'connection_event',
@@ -96,11 +94,14 @@ const rtspLogger = {
             event: event,
             brand: brand,
             port: port,
+            session_id: sessionId,
             message: `RTSP connection ${event}: ${ip}`
         });
+        writeServiceLog({ service: 'rtsp', event_type: 'connection_event', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP connection ${event}: ${ip}`, raw_data: { event } });
+        writeRTSPLog({ event_type: 'connection_event', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP connection ${event}: ${ip}`, raw_data: { event } });
     },
 
-    logRTSPAuthAttempt: (ip, username, success, reason, brand, port) => {
+    logRTSPAuthAttempt: (ip, username, success, reason, brand, port, sessionId = null) => {
         logger.info('RTSP authentication attempt', {
             service: 'rtsp',
             event_type: 'auth_attempt',
@@ -110,8 +111,11 @@ const rtspLogger = {
             reason: reason,
             brand: brand,
             port: port,
+            session_id: sessionId,
             message: `RTSP auth ${success ? 'successful' : 'failed'} for user: ${username}`
         });
+        writeServiceLog({ service: 'rtsp', event_type: 'auth_attempt', log_level: 'info', ip_address: ip, brand, port, username, session_id: sessionId, message: `RTSP auth ${success ? 'successful' : 'failed'} for user: ${username}`, raw_data: { success, reason } });
+        writeRTSPLog({ event_type: 'auth_attempt', log_level: 'info', ip_address: ip, brand, port, username, session_id: sessionId, message: `RTSP auth ${success ? 'successful' : 'failed'} for user: ${username}`, raw_data: { success, reason } });
     },
 
     logRTSPMethod: (ip, method, url, sessionId, brand, port) => {
@@ -126,6 +130,8 @@ const rtspLogger = {
             port: port,
             message: `RTSP ${method} request from ${ip}: ${url}`
         });
+        writeServiceLog({ service: 'rtsp', event_type: 'rtsp_method', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP ${method} request from ${ip}: ${url}`, raw_data: { method, url } });
+        writeRTSPLog({ event_type: 'rtsp_method', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, rtsp_method: method, stream_path: url, message: `RTSP ${method} request from ${ip}: ${url}` });
     },
 
     logRTSPResponse: (ip, method, statusCode, sessionId, brand, port) => {
@@ -140,6 +146,8 @@ const rtspLogger = {
             port: port,
             message: `RTSP ${method} response: ${statusCode}`
         });
+        writeServiceLog({ service: 'rtsp', event_type: 'rtsp_response', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP ${method} response: ${statusCode}`, raw_data: { method, statusCode } });
+        writeRTSPLog({ event_type: 'rtsp_response', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, rtsp_method: method, message: `RTSP ${method} response: ${statusCode}` });
     },
 
     logRTSPSession: (ip, sessionId, event, streamPath, brand, port) => {
@@ -154,6 +162,8 @@ const rtspLogger = {
             port: port,
             message: `RTSP session ${event}: ${sessionId}`
         });
+        writeServiceLog({ service: 'rtsp', event_type: 'session_event', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP session ${event}: ${sessionId}`, raw_data: { streamPath } });
+        writeRTSPLog({ event_type: 'session_event', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, stream_path: streamPath, message: `RTSP session ${event}: ${sessionId}` });
     },
 
     logRTSPStreamSetup: (ip, sessionId, streamPath, transportInfo, brand, port) => {
@@ -168,6 +178,8 @@ const rtspLogger = {
             port: port,
             message: `RTSP stream setup: ${streamPath}`
         });
+        writeServiceLog({ service: 'rtsp', event_type: 'stream_setup', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP stream setup: ${streamPath}`, raw_data: { transportInfo } });
+        writeRTSPLog({ event_type: 'stream_setup', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, stream_path: streamPath, message: `RTSP stream setup: ${streamPath}` });
     },
 
     logRTSPStreamPlay: (ip, sessionId, streamPath, brand, port) => {
@@ -181,6 +193,8 @@ const rtspLogger = {
             port: port,
             message: `RTSP stream play: ${streamPath}`
         });
+        writeServiceLog({ service: 'rtsp', event_type: 'stream_play', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP stream play: ${streamPath}` });
+        writeRTSPLog({ event_type: 'stream_play', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, stream_path: streamPath, message: `RTSP stream play: ${streamPath}` });
     },
 
     logRTSPStreamPause: (ip, sessionId, streamPath, brand, port) => {
@@ -194,6 +208,8 @@ const rtspLogger = {
             port: port,
             message: `RTSP stream pause: ${streamPath}`
         });
+        writeServiceLog({ service: 'rtsp', event_type: 'stream_pause', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP stream pause: ${streamPath}` });
+        writeRTSPLog({ event_type: 'stream_pause', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, stream_path: streamPath, message: `RTSP stream pause: ${streamPath}` });
     },
 
     logRTSPStreamTeardown: (ip, sessionId, streamPath, brand, port) => {
@@ -207,6 +223,8 @@ const rtspLogger = {
             port: port,
             message: `RTSP stream teardown: ${streamPath}`
         });
+        writeServiceLog({ service: 'rtsp', event_type: 'stream_teardown', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP stream teardown: ${streamPath}` });
+        writeRTSPLog({ event_type: 'stream_teardown', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, stream_path: streamPath, message: `RTSP stream teardown: ${streamPath}` });
     },
 
     logRTPStream: (ip, sessionId, event, details, brand, port) => {
@@ -221,9 +239,11 @@ const rtspLogger = {
             port: port,
             message: `RTP stream ${event}: ${details}`
         });
+        writeServiceLog({ service: 'rtsp', event_type: 'rtp_stream', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `RTP stream ${event}: ${details}` });
+        writeRTSPLog({ event_type: 'rtp_stream', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `RTP stream ${event}: ${details}`, raw_data: { details } });
     },
 
-    logRTSPSOptions: (ip, userAgent, brand, port) => {
+    logRTSPSOptions: (ip, userAgent, brand, port, sessionId = null) => {
         logger.info('RTSP options request', {
             service: 'rtsp',
             event_type: 'options_request',
@@ -231,11 +251,14 @@ const rtspLogger = {
             user_agent: userAgent,
             brand: brand,
             port: port,
+            session_id: sessionId,
             message: `RTSP options request from ${ip}`
         });
+        writeServiceLog({ service: 'rtsp', event_type: 'options_request', log_level: 'info', ip_address: ip, brand, port, user_agent: userAgent, session_id: sessionId, message: `RTSP options request from ${ip}` });
+        writeRTSPLog({ event_type: 'options_request', log_level: 'info', ip_address: ip, brand, port, user_agent: userAgent, session_id: sessionId, message: `RTSP options request from ${ip}` });
     },
 
-    logRTSPDescribe: (ip, url, userAgent, brand, port) => {
+    logRTSPDescribe: (ip, url, userAgent, brand, port, sessionId = null) => {
         logger.info('RTSP describe request', {
             service: 'rtsp',
             event_type: 'describe_request',
@@ -244,11 +267,14 @@ const rtspLogger = {
             user_agent: userAgent,
             brand: brand,
             port: port,
+            session_id: sessionId,
             message: `RTSP describe request: ${url}`
         });
+        writeServiceLog({ service: 'rtsp', event_type: 'describe_request', log_level: 'info', ip_address: ip, brand, port, user_agent: userAgent, session_id: sessionId, message: `RTSP describe request: ${url}` });
+        writeRTSPLog({ event_type: 'describe_request', log_level: 'info', ip_address: ip, brand, port, user_agent: userAgent, session_id: sessionId, stream_path: url, message: `RTSP describe request: ${url}` });
     },
 
-    logSuspiciousRTSPActivity: (ip, activity, details, brand, port) => {
+    logSuspiciousRTSPActivity: (ip, activity, details, brand, port, sessionId = null) => {
         logger.warn('Suspicious RTSP activity', {
             service: 'rtsp',
             event_type: 'suspicious_activity',
@@ -257,24 +283,28 @@ const rtspLogger = {
             details: details,
             brand: brand,
             port: port,
+            session_id: sessionId,
             message: `Suspicious RTSP activity: ${activity}`
         });
+        writeServiceLog({ service: 'rtsp', event_type: 'suspicious_activity', log_level: 'warn', ip_address: ip, brand, port, session_id: sessionId, message: `Suspicious RTSP activity: ${activity}`, raw_data: { details } });
+        writeRTSPLog({ event_type: 'suspicious_activity', log_level: 'warn', ip_address: ip, brand, port, session_id: sessionId, message: `Suspicious RTSP activity: ${activity}`, raw_data: { details } });
     },
 
-    logRTSPAttackAttempt: (ip, attackType, payload, brand, port) => {
+    logRTSPAttackAttempt: (ip, _attackType, _payload, brand, port, sessionId = null) => {
         logger.error('RTSP attack attempt', {
             service: 'rtsp',
             event_type: 'attack_attempt',
             ip_address: ip,
-            attack_type: attackType,
-            payload: payload,
             brand: brand,
             port: port,
-            message: `RTSP attack attempt: ${attackType}`
+            session_id: sessionId,
+            message: `RTSP attack attempt`
         });
+        writeServiceLog({ service: 'rtsp', event_type: 'attack_attempt', log_level: 'error', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP attack attempt` });
+        writeRTSPLog({ event_type: 'attack_attempt', log_level: 'error', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP attack attempt` });
     },
 
-    logRTSPServiceEvent: (event, details, brand, port) => {
+    logRTSPServiceEvent: (event, details, brand, port, sessionId = null) => {
         logger.info('RTSP service event', {
             service: 'rtsp',
             event_type: 'service_event',
@@ -282,11 +312,14 @@ const rtspLogger = {
             details: details,
             brand: brand,
             port: port,
+            session_id: sessionId,
             message: `RTSP service ${event}: ${details}`
         });
+        writeServiceLog({ service: 'rtsp', event_type: 'service_event', log_level: 'info', message: `RTSP service ${event}: ${details}`, raw_data: { details }, brand, port, session_id: sessionId });
+        writeRTSPLog({ event_type: 'service_event', log_level: 'info', message: `RTSP service ${event}: ${details}`, raw_data: { details }, brand, port, session_id: sessionId });
     },
 
-    logRTSPDatabaseAuth: (ip, username, success, error, brand, port) => {
+    logRTSPDatabaseAuth: (ip, username, success, error, brand, port, sessionId = null) => {
         logger.info('RTSP database authentication', {
             service: 'rtsp',
             event_type: 'database_auth',
@@ -296,22 +329,27 @@ const rtspLogger = {
             error: error,
             brand: brand,
             port: port,
+            session_id: sessionId,
             message: `RTSP database auth ${success ? 'successful' : 'failed'} for user: ${username}`
         });
+        writeServiceLog({ service: 'rtsp', event_type: 'database_auth', log_level: 'info', ip_address: ip, brand, port, username, session_id: sessionId, message: `RTSP database auth ${success ? 'successful' : 'failed'} for user: ${username}`, raw_data: { error, success } });
+        writeRTSPLog({ event_type: 'database_auth', log_level: 'info', ip_address: ip, brand, port, username, session_id: sessionId, message: `RTSP database auth ${success ? 'successful' : 'failed'} for user: ${username}`, raw_data: { error, success } });
     },
     
-    logRTSPError: (error, context, ip, brand, port) => {
+    logRTSPError: (error, context, ip, brand, port, sessionId = null) => {
         logger.error('RTSP error', {
             service: 'rtsp',
             event_type: 'error',
             error: error.message,
-            stack: error.stack,
             context: context,
             ip_address: ip,
             brand: brand,
             port: port,
+            session_id: sessionId,
             message: `RTSP error: ${error.message}`
         });
+        writeServiceLog({ service: 'rtsp', event_type: 'error', log_level: 'error', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP error: ${error.message}`, raw_data: { context } });
+        writeRTSPLog({ event_type: 'error', log_level: 'error', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP error: ${error.message}`, raw_data: { context } });
     }
 };
 

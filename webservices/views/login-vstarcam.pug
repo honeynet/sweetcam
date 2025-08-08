@@ -96,7 +96,7 @@ html(lang="en")
       option(value='en' selected=locale === 'en')= __('language.english')
       option(value='es' selected=locale === 'es')= __('language.spanish')
 
-    // Image stays centered
+    
     .top-bar
       img.lens-img(src="/brands/login-vstarcam.png" alt="Lens")
 
@@ -111,7 +111,7 @@ html(lang="en")
         button.login-btn(type="submit")= __('login.loginButton')
       div#errorMessage.error-message
 
-    script(src="https://code.jquery.com/jquery-3.6.3.min.js")
+    script(src="https://code.jquery.com/jquery-3.6.0.min.js")
     script(src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js")
     script.
       function changeLanguage(lang) {
@@ -124,10 +124,10 @@ html(lang="en")
           const password = $('input[name="password"]').val();
           const $errorMessage = $('#errorMessage');
 
-          //clear previous error message
+          
           $errorMessage.text('');
 
-          // Determine if this is admin mode based on URL or page context
+          
           const isAdminMode = window.location.pathname === '/admin/login' || #{isAdminMode || false};
           const loginUrl = isAdminMode ? '/admin/login' : '/login';
           
@@ -149,12 +149,12 @@ html(lang="en")
               if (error.response.status === 401) message = 'Wrong password.';
               if (error.response.status === 403) message = 'Too many attempts. Try again later.';
               $errorMessage.text(message);
-              console.log('Error displayed:', message); //debug log
+              console.log('Error displayed:', message); 
             }
           });
         });
         
-        //clear error message when user starts typing
+        
         $('input[name="username"], input[name="password"]').on('input', function() {
           $('#errorMessage').text('');
         });
