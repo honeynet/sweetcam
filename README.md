@@ -8,13 +8,15 @@ The application SweetCam is a honeypot for IP camera. It can simulate a real IP 
 
 # Components
 
-The SweetCam honeypot consists of **22 containers**:
+The SweetCam honeypot consists of **23 containers**:
 
 ### Core Services
 1. **MySQL service** is service for data storage.
 2. **Web service** is main web interface.
 3. **Cowrie service** SSH honeypot service.
-
+4. **Grafana service** is a dashboard for visualizing logs.
+5. **ONVIF service** is a service for ONVIF protocol.
+6. **RTSP service** is a service for RTSP protocol.
 
 ## Service Configuration
 
@@ -291,13 +293,13 @@ Refer to the [Log Manager README](./LOG_MANAGER_README.md) for more details.
 If the dashboard does not appear, check the provisioning mounts in `docker-compose.yml` and the files under `grafana/provisioning` and `grafana/dashboards`.
 
 ### What you can see
-- **Total Logs Over Time**: time series of all events from `service_logs`
-- **Top Attacker IPs**: top `ip_address` by frequency from `service_logs`
-- **Events by Service**: distribution by `service` (web, rtsp, onvif, cowrie) from `service_logs`
-- **Events by Brand**: distribution by `brand` from `service_logs` (filters out `auto`)
-- **Top Countries**: counts by `country` from `ip_reputation`
-- **Recent Security Events**: latest rows from `security_events`
-- **Geo Attacker Distribution**: world map using `ip_reputation.country`
-- **Recent All Logs (Unified)**: most recent entries from the `all_logs` view
+- **Total logs over time**: time series of all events from `service_logs`
+- **Top attacker IPs**: top `ip_address` by frequency from `service_logs`
+- **Events by service**: distribution by `service` (web, rtsp, onvif, cowrie) from `service_logs`
+- **Events by brand**: distribution by `brand` from `service_logs` (filters out `auto`)
+- **Top countries**: counts by `country` from `ip_reputation`
+- **Recent security events**: latest rows from `security_events`
+- **Geo attacker distribution**: world map using `ip_reputation.country`
+- **Recent all logs (unified)**: most recent entries from the `all_logs` view
 
 Use the Grafana time range selector (top-right) to adjust the period. Most panels honor the time filter.

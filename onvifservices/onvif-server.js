@@ -375,14 +375,69 @@ class ONVIFHoneypot {
     const deviceSoapServer = soap.listen(this.server, '/onvif/device_service/soap', this.soapService.createDeviceService(), deviceWsdl);
     const mediaSoapServer = soap.listen(this.server, '/onvif/media_service/soap', this.soapService.createMediaService(), mediaWsdl);
 
-    deviceSoapServer.on('request', (request, response) => {
-      response.setHeader('Server', 'ONVIF/1.0');
-      response.setHeader('Content-Type', 'application/soap+xml; charset=utf-8');
+    // Log SOAP-level events (no direct access to HTTP req/res here)
+    deviceSoapServer.on('request', (xml, methodName) => {
+      try {
+        onvifLogger.logSOAPRequest(null, methodName, 'POST', '/onvif/device_service/soap', this.soapService.brand, this.port);
+      } catch (error) {
+        onvifLogger.logONVIFError(error, 'device_service_soap_request', null, this.soapService.brand, this.port);
+      }
+    });
+    deviceSoapServer.on('response', (xml, methodName) => {
+      try {
+        onvifLogger.logSOAPResponse(null, methodName, 200, this.soapService.brand, this.port);
+      } catch (error) {
+        onvifLogger.logONVIFError(error, 'device_service_soap_response', null, this.soapService.brand, this.port);
+      }
+    });
+    deviceSoapServer.on('soapError', (err) => {
+      onvifLogger.logONVIFError(err, 'device_service_soap_error', null, this.soapService.brand, this.port);
     });
 
-    mediaSoapServer.on('request', (request, response) => {
-      response.setHeader('Server', 'ONVIF/1.0');
-      response.setHeader('Content-Type', 'application/soap+xml; charset=utf-8');
+    mediaSoapServer.on('request', (xml, methodName) => {
+      try {
+        onvifLogger.logSOAPRequest(null, methodName, 'POST', '/onvif/media_service/soap', this.soapService.brand, this.port);
+      } catch (error) {
+        onvifLogger.logONVIFError(error, 'media_service_soap_request', null, this.soapService.brand, this.port);
+      }
+    });
+    mediaSoapServer.on('response', (xml, methodName) => {
+      try {
+        onvifLogger.logSOAPResponse(null, methodName, 200, this.soapService.brand, this.port);
+      } catch (error) {
+        onvifLogger.logONVIFError(error, 'media_service_soap_response', null, this.soapService.brand, this.port);
+      }
+    });
+    mediaSoapServer.on('soapError', (err) => {
+      onvifLogger.logONVIFError(err, 'media_service_soap_error', null, this.soapService.brand, this.port);
+    });
+
+    // Also tap the underlying HTTP server to capture client IP, URL, and status for SOAP POSTs
+    this.server.on('request', (req, res) => {
+      try {
+        const isSoapPost = req.method === 'POST' && req.url && req.url.startsWith('/onvif/') && req.url.endsWith('/soap');
+        if (!isSoapPost) return;
+
+        // Ensure Server header for SOAP replies
+        res.setHeader('Server', 'ONVIF/1.0');
+
+        const ip = (req.socket && req.socket.remoteAddress) || req.headers['x-forwarded-for'] || null;
+
+        // Extract SOAPAction from header or content-type parameter (SOAP 1.2)
+        let soapAction = req.headers['soapaction'];
+        if (!soapAction && typeof req.headers['content-type'] === 'string') {
+          const m = req.headers['content-type'].match(/action="([^"]+)"/i);
+          if (m) soapAction = m[1];
+        }
+
+        onvifLogger.logSOAPRequest(ip, soapAction || 'unknown', req.method, req.url, this.soapService.brand, this.port);
+
+        res.on('finish', () => {
+          onvifLogger.logSOAPResponse(ip, soapAction || 'unknown', res.statusCode, this.soapService.brand, this.port);
+        });
+      } catch (error) {
+        onvifLogger.logONVIFError(error, 'http_server_soap_logging', null, this.soapService.brand, this.port);
+      }
     });
   }
 
