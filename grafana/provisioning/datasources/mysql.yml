@@ -1,0 +1,19 @@
+apiVersion: 1
+
+datasources:
+  - name: Sweetcam MySQL
+    type: mysql
+    access: proxy
+    isDefault: true
+    url: mysql_service:3306
+    database: sweetcam
+    user: grafana
+    jsonData:
+      database: sweetcam
+      maxOpenConns: 50
+      maxIdleConns: 10
+      connMaxLifetime: 14400
+      timeInterval: 10s
+      tlsConfigurationMethod: file
+    secureJsonData:
+      password: grafana_pass 

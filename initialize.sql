@@ -1,4 +1,4 @@
-use sweetcam;
+USE sweetcam;
 
 CREATE TABLE `admins`
 (
@@ -275,3 +275,25 @@ CREATE TABLE IF NOT EXISTS `session_tracking`
     INDEX `idx_status` (`status`),
     INDEX `idx_start_time` (`start_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Unified view for Grafana
+CREATE OR REPLACE VIEW all_logs AS
+SELECT timestamp, service, event_type, ip_address, brand, message
+FROM service_logs
+UNION ALL
+SELECT timestamp, 'web' AS service, event_type, ip_address, brand, message
+FROM web_service_logs
+UNION ALL
+SELECT timestamp, 'rtsp' AS service, event_type, ip_address, brand, message
+FROM rtsp_service_logs
+UNION ALL
+SELECT timestamp, 'onvif' AS service, event_type, ip_address, brand, message
+FROM onvif_service_logs
+UNION ALL
+SELECT timestamp, 'cowrie' AS service, event_type, ip_address, brand, message
+FROM cowrie_service_logs;
+
+-- Read-only user for Grafana
+CREATE USER IF NOT EXISTS 'grafana'@'%' IDENTIFIED BY 'grafana_pass';
+GRANT SELECT ON sweetcam.* TO 'grafana'@'%';
+FLUSH PRIVILEGES;

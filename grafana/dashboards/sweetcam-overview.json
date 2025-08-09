@@ -1,0 +1,155 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "type": "dashboard",
+        "name": "Annotations & Alerts",
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "enable": true,
+        "showIn": 0
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Total Logs Over Time",
+      "gridPos": {"x": 0, "y": 0, "w": 24, "h": 8},
+      "datasource": {"type": "mysql", "uid": ""},
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT UNIX_TIMESTAMP(timestamp) AS time_sec, COUNT(*) AS count FROM service_logs WHERE $__timeFilter(timestamp) GROUP BY time_sec ORDER BY time_sec ASC;",
+          "refId": "A",
+          "timeColumn": "timestamp",
+          "metricColumn": "none"
+        }
+      ]
+    },
+    {
+      "type": "barchart",
+      "title": "Top Attacker IPs",
+      "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+      "datasource": {"type": "mysql", "uid": ""},
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT ip_address AS metric, COUNT(*) AS value FROM service_logs WHERE ip_address IS NOT NULL AND $__timeFilter(timestamp) GROUP BY ip_address ORDER BY value DESC LIMIT 10;",
+          "refId": "A"
+        }
+      ],
+      "options": {"orientation": "auto"}
+    },
+    {
+      "type": "piechart",
+      "title": "Events by Service",
+      "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+      "datasource": {"type": "mysql", "uid": ""},
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT NOW() AS time, service AS metric, COUNT(*) AS value FROM service_logs WHERE $__timeFilter(timestamp) GROUP BY service;",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "piechart",
+      "title": "Events by Brand",
+      "gridPos": {"x": 0, "y": 16, "w": 12, "h": 8},
+      "datasource": {"type": "mysql", "uid": ""},
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT NOW() AS time, brand AS metric, COUNT(*) AS value FROM service_logs WHERE brand IS NOT NULL AND brand <> 'auto' AND $__timeFilter(timestamp) GROUP BY brand;",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "barchart",
+      "title": "Top Countries",
+      "gridPos": {"x": 12, "y": 16, "w": 12, "h": 8},
+      "datasource": {"type": "mysql", "uid": ""},
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT country AS metric, COUNT(*) AS value FROM ip_reputation WHERE country IS NOT NULL GROUP BY country ORDER BY value DESC LIMIT 10;",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "Recent Security Events",
+      "gridPos": {"x": 0, "y": 24, "w": 24, "h": 8},
+      "datasource": {"type": "mysql", "uid": ""},
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT timestamp, service, event_type, severity, ip_address, brand, description FROM security_events WHERE $__timeFilter(timestamp) ORDER BY timestamp DESC LIMIT 50;",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "geomap",
+      "title": "Geo Attacker Distribution",
+      "gridPos": {"x": 0, "y": 32, "w": 24, "h": 12},
+      "datasource": {"type": "mysql", "uid": ""},
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT country AS location, COUNT(*) AS value FROM ip_reputation WHERE country IS NOT NULL GROUP BY country;",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "view": { "id": "world" },
+        "controls": { "showZoom": true, "showAttribution": true },
+        "basemap": { "type": "carto" },
+        "layers": [
+          {
+            "type": "markers",
+            "name": "Counts",
+            "config": {
+              "show": true,
+              "sizeConfig": { "fixed": 6, "field": "value" },
+              "color": { "scheme": "Turbo" },
+              "location": { "mode": "auto", "field": "location" },
+              "aggregation": "sum"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "table",
+      "title": "Recent All Logs (Unified)",
+      "gridPos": {"x": 0, "y": 44, "w": 24, "h": 8},
+      "datasource": {"type": "mysql", "uid": ""},
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT timestamp, service, event_type, ip_address, brand, message FROM all_logs WHERE $__timeFilter(timestamp) ORDER BY timestamp DESC LIMIT 100;",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["sweetcam", "honeypot"],
+  "templating": {"list": []},
+  "time": {"from": "now-24h", "to": "now"},
+  "timepicker": {},
+  "timezone": "",
+  "title": "Sweetcam Overview",
+  "uid": "sweetcam-overview",
+  "version": 4
+} 

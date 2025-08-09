@@ -45,6 +45,7 @@ Below is the list of all services with their ports, protocols and access URLs:
 | ONVIF VStarcam | 8090, 3707 | 8090, 3707 | HTTP/UDP | VStarcam ONVIF SOAP & Discovery | http://localhost:8090 | `onvif_vstarcam_service` |
 | MySQL Database | 3306 | 3306 | TCP | Database | - | `mysql_service` |
 | Web Service | 3000 | 3000 | HTTP | Main web interface | http://localhost:3000 | `web_service` |
+| Grafana | 3000 | 3001 | HTTP | Dashboards & alerts | http://localhost:3001 | `grafana` |
 
 ## Credentials to use 
 
@@ -210,6 +211,9 @@ nmap -sV -p 80 127.0.0.1
 # Test HTTP services
 curl -I http://localhost:80
 ```
+
+
+
 ## Troubleshooting
 ### Common issues
 #### 1. **Port already in use**
@@ -233,18 +237,20 @@ docker compose restart [service_name]
 ## Accessing logs
 
 ### Database (log records)
-- Open MySQL shell:
-```bash
+
+#### Open MySQL shell:
+```shell
 docker compose exec -T mysql_service sh -lc 'mysql -uroot -p"$MYSQLDB_ROOT_PASSWORD"'
 ```
-Then:
+#### Then:
 ```sql
 USE sweetcam;
 SHOW TABLES;
 SELECT COUNT(*) AS total FROM service_logs;
 SELECT * FROM service_logs ORDER BY id DESC LIMIT 20;
 ```
-- Common service-specific queries:
+
+### Common service-specific queries:
 ```sql
 -- Cowrie
 SELECT COUNT(*) FROM cowrie_service_logs;
@@ -263,8 +269,8 @@ SELECT * FROM rtsp_service_logs ORDER BY id DESC LIMIT 10;
 SELECT COUNT(*) FROM onvif_service_logs;
 SELECT * FROM onvif_service_logs ORDER BY id DESC LIMIT 10;
 ```
-- One-liner example:
-```bash
+#### One-liner example:
+```shell
 docker compose exec -T mysql_service sh -lc "mysql -uroot -p\"$MYSQLDB_ROOT_PASSWORD\" -e 'USE sweetcam; SELECT COUNT(*) AS total FROM service_logs; SELECT COUNT(*) AS cowrie_total FROM cowrie_service_logs;'"
 ```
 
@@ -273,3 +279,25 @@ docker compose exec -T mysql_service sh -lc "mysql -uroot -p\"$MYSQLDB_ROOT_PASS
 The SweetCam honeypot includes a log manager tool to help you manage and analyze logs from all honeypot services (Web, RTSP, ONVIF).
 
 Refer to the [Log Manager README](./LOG_MANAGER_README.md) for more details.
+
+## Grafana - Visualizing Logs
+
+### Access
+- URL: `http://localhost:3001`
+- Default credentials: `admin` / `admin` (you will be prompted to change the password on first login)
+- Data source: auto-provisioned MySQL pointing to `mysql_service:3306` database `sweetcam`
+- Dashboard: "Sweetcam Overview" is auto-loaded
+
+If the dashboard does not appear, check the provisioning mounts in `docker-compose.yml` and the files under `grafana/provisioning` and `grafana/dashboards`.
+
+### What you can see
+- **Total Logs Over Time**: time series of all events from `service_logs`
+- **Top Attacker IPs**: top `ip_address` by frequency from `service_logs`
+- **Events by Service**: distribution by `service` (web, rtsp, onvif, cowrie) from `service_logs`
+- **Events by Brand**: distribution by `brand` from `service_logs` (filters out `auto`)
+- **Top Countries**: counts by `country` from `ip_reputation`
+- **Recent Security Events**: latest rows from `security_events`
+- **Geo Attacker Distribution**: world map using `ip_reputation.country`
+- **Recent All Logs (Unified)**: most recent entries from the `all_logs` view
+
+Use the Grafana time range selector (top-right) to adjust the period. Most panels honor the time filter.

@@ -46,7 +46,7 @@ function mapCowrieToLogEvent(event) {
     case 'cowrie.direct-tcpip.request':
       return { ...base, event_type: 'suspicious_activity', log_level: 'warn', message: `Direct TCPIP request to ${event.dst_ip || ''}:${event.dst_port || ''}` };
     case 'cowrie.alert':
-      return { ...base, event_type: 'alert', log_level: (event.severity && event.severity >= 3) ? 'error' : 'warn', message: event.message || 'Cowrie alert', raw_data: { ...event, threat_level: event.severity } };
+      return { ...base, event_type: 'alert', log_level: (event.severity && event.severity >= 3) ? 'error' : 'warn', message: event.message || 'Cowrie alert' };
     default:
       return { ...base, event_type: 'service_event', message: eventId || 'cowrie_event' };
   }
@@ -56,7 +56,7 @@ function startCowrieIngestor() {
   const container = DEFAULT_CONTAINER;
   const preferredPath = DEFAULT_LOG_PATH;
  
-  // Python script selects the first existing path and follows it
+  //python script selects the first existing path and follows it
   const pyFollower = `
 import os, sys, time
 candidates = [${JSON.stringify(preferredPath)}, '/cowrie/var/log/cowrie/cowrie.json']

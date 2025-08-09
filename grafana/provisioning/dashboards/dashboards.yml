@@ -1,0 +1,13 @@
+apiVersion: 1
+
+providers:
+  - name: 'Sweetcam Dashboards'
+    orgId: 1
+    folder: ''
+    type: file
+    disableDeletion: false
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      scanInterval: 10s
+      updateIntervalSeconds: 10 
