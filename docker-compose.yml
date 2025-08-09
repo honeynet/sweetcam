@@ -25,6 +25,8 @@ services:
       - ${COWRIE_LOCAL_PORT}:${COWRIE_DOCKER_PORT}
     volumes:
       - cowrie-var:/cowrie/cowrie-git/var
+      - ./cowrie/cowrie.cfg:/cowrie/cowrie-git/etc/cowrie.cfg:ro
+      - ./cowrie/userdb.txt:/cowrie/cowrie-git/etc/userdb.txt:ro
 
   mysql_service:
     image: mysql:8.0
