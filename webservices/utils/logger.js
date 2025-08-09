@@ -7,6 +7,10 @@ const SessionLogger = require('./session_logger');
 // Import database logger
 const databaseLogger = require('./database-logger');
 
+function logCowrieEvent(event) {
+  return databaseLogger.logEvent({ service: 'cowrie', ...event });
+}
+
 // Create logs directory if it doesn't exist
 // Check if we're running in Docker container (logs directory exists at /app/logs)
 const dockerLogsDir = path.join('/app', 'logs', 'webservices');
@@ -384,4 +388,4 @@ const honeypotLogger = {
     }
 };
 
-module.exports = { logger, honeypotLogger };
+module.exports = { logger, honeypotLogger, logCowrieEvent };

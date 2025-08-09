@@ -8,7 +8,7 @@ const bcrypt = require('bcrypt');
 const fs = require('fs');
 const adminRouter = require('./controllers/admin');
 const { honeypotLogger } = require('./utils/logger');
-
+const { startCowrieIngestor } = require('./services/cowrie-ingestor');
 
 
 const app = express();
@@ -574,4 +574,15 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Web service listening on port ${PORT}`);
   honeypotLogger.logServiceEvent('started', `Web service started on port ${PORT}`, null);
+  // Start Cowrie ingestor (non-blocking)
+  try {
+    const enabled = String(process.env.COWRIE_INGESTOR_ENABLED || '').toLowerCase();
+    if (enabled === 'true' || enabled === '1') {
+      startCowrieIngestor();
+    } else {
+      console.log('[COWRIE_INGESTOR] Disabled by environment flag');
+    }
+  } catch (e) {
+    console.error('[COWRIE_INGESTOR] Failed to start:', e.message);
+  }
 });

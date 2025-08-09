@@ -229,6 +229,45 @@ docker ps -a
 # Restart specific service
 docker compose restart [service_name]
 ```
+
+## Accessing logs
+
+### Database (log records)
+- Open MySQL shell:
+```bash
+docker compose exec -T mysql_service sh -lc 'mysql -uroot -p"$MYSQLDB_ROOT_PASSWORD"'
+```
+Then:
+```sql
+USE sweetcam;
+SHOW TABLES;
+SELECT COUNT(*) AS total FROM service_logs;
+SELECT * FROM service_logs ORDER BY id DESC LIMIT 20;
+```
+- Common service-specific queries:
+```sql
+-- Cowrie
+SELECT COUNT(*) FROM cowrie_service_logs;
+SELECT * FROM cowrie_service_logs ORDER BY id DESC LIMIT 10;
+
+SELECT COUNT(*) AS total FROM service_logs; \
+SELECT COUNT(*) AS cowrie_total FROM cowrie_service_logs; \
+SELECT * FROM cowrie_service_logs ORDER BY id DESC LIMIT 5;
+-- Web
+SELECT COUNT(*) FROM web_service_logs;
+SELECT * FROM web_service_logs ORDER BY id DESC LIMIT 10;
+-- RTSP
+SELECT COUNT(*) FROM rtsp_service_logs;
+SELECT * FROM rtsp_service_logs ORDER BY id DESC LIMIT 10;
+-- ONVIF
+SELECT COUNT(*) FROM onvif_service_logs;
+SELECT * FROM onvif_service_logs ORDER BY id DESC LIMIT 10;
+```
+- One-liner example:
+```bash
+docker compose exec -T mysql_service sh -lc "mysql -uroot -p\"$MYSQLDB_ROOT_PASSWORD\" -e 'USE sweetcam; SELECT COUNT(*) AS total FROM service_logs; SELECT COUNT(*) AS cowrie_total FROM cowrie_service_logs;'"
+```
+
 ## Log Manager
 
 The SweetCam honeypot includes a log manager tool to help you manage and analyze logs from all honeypot services (Web, RTSP, ONVIF).

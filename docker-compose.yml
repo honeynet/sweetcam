@@ -21,6 +21,7 @@ services:
       - ${COWRIE_LOCAL_PORT}:${COWRIE_DOCKER_PORT}
     volumes:
       - cowrie-var:/cowrie/cowrie-git/var
+
   mysql_service:
     image: mysql:8.0
     container_name: mysql_service
@@ -40,6 +41,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
   web_service:
     container_name: web_service
     build: 
@@ -54,6 +56,10 @@ services:
       - DB_NAME=${DB_NAME}
       - DB_PORT=${DB_PORT}
       - ADMIN_PATH=admin
+      - COWRIE_INGESTOR_ENABLED=true
+      - COWRIE_CONTAINER_NAME=cowrie-services
+      - COWRIE_LOG_PATH=/cowrie/cowrie-git/var/log/cowrie/cowrie.json
+      - COWRIE_PY=python3
     ports:
       - "3000:3000"
     stdin_open: true
@@ -66,6 +72,8 @@ services:
     depends_on:
       mysql_service:
         condition: service_healthy
+      cowrie_service:
+        condition: service_started
 
   #RTSP
   rtsp_main:
