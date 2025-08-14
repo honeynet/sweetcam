@@ -97,9 +97,6 @@ class DatabaseLogger {
                 await this.updateIpReputation(logData);
             }
 
-            // Check for security events
-            await this.checkSecurityEvent(logData);
-
             return mainResult.insertId;
         } catch (error) {
             console.error('[DATABASE] Error logging event:', error.message);
@@ -298,14 +295,13 @@ class DatabaseLogger {
         const geoip_country = raw_data?.geoip_country || null;
         const geoip_city = raw_data?.geoip_city || null;
         const threat_level = raw_data?.threat_level || null;
-        const alert_type = raw_data?.alert_type || null;
 
         const query = `
             INSERT INTO cowrie_service_logs 
             (timestamp, event_type, log_level, ip_address, brand, port, 
              username, password, session_id, command, file_path, file_size,
-             geoip_country, geoip_city, threat_level, alert_type, message, raw_data)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             geoip_country, geoip_city, threat_level, message, raw_data)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const params = [
@@ -324,7 +320,6 @@ class DatabaseLogger {
             geoip_country || null,
             geoip_city || null,
             threat_level || null,
-            alert_type || null,
             message || null,
             raw_data ? JSON.stringify(raw_data) : null
         ];
@@ -399,85 +394,31 @@ class DatabaseLogger {
                 const reputation = existing[0];
                 let failed_logins = reputation.failed_logins;
                 let successful_logins = reputation.successful_logins;
-                let suspicious_activities = reputation.suspicious_activities;
 
                 // Update counters based on event type
                 if (event_type === 'auth_failure' || event_type === 'login_attempt') {
                     failed_logins++;
                 } else if (event_type === 'login_success') {
                     successful_logins++;
-                } else if (event_type === 'suspicious_activity' || event_type === 'attack_attempt') {
-                    suspicious_activities++;
                 }
 
                 // Calculate threat score (0-100)
                 let threat_score = 0;
                 if (failed_logins > 0) threat_score += Math.min(failed_logins * 10, 40);
-                if (suspicious_activities > 0) threat_score += Math.min(suspicious_activities * 20, 60);
 
                 await this.pool.execute(`
                     UPDATE ip_reputation 
                     SET total_events = total_events + 1,
                         failed_logins = ?,
                         successful_logins = ?,
-                        suspicious_activities = ?,
                         threat_score = ?,
                         last_seen = NOW(),
                         updated_at = NOW()
                     WHERE ip_address = ?
-                `, [failed_logins, successful_logins, suspicious_activities, threat_score, ip_address]);
+                `, [failed_logins, successful_logins, threat_score, ip_address]);
             }
         } catch (error) {
             console.error('[DATABASE] Error updating IP reputation:', error.message);
-        }
-    }
-
-    async checkSecurityEvent(logData) {
-        const { event_type, ip_address, service, message, raw_data } = logData;
-
-        // Define security event patterns
-        const securityEvents = [
-            'auth_failure',
-            'suspicious_activity',
-            'attack_attempt',
-            'brute_force',
-            'unauthorized_access'
-        ];
-
-        if (securityEvents.includes(event_type)) {
-            try {
-                let severity = 'medium';
-                let threat_type = event_type;
-
-                // Determine severity based on event type and context
-                if (event_type === 'attack_attempt' || event_type === 'brute_force') {
-                    severity = 'high';
-                } else if (event_type === 'suspicious_activity') {
-                    severity = 'medium';
-                } else if (event_type === 'auth_failure') {
-                    severity = 'low';
-                }
-
-                await this.pool.execute(`
-                    INSERT INTO security_events 
-                    (timestamp, service, event_type, severity, ip_address, 
-                     username, password, session_id, threat_type, description, raw_data)
-                    VALUES (NOW(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                `, [
-                    service,
-                    event_type,
-                    severity,
-                    ip_address,
-                    logData.username,
-                    logData.password,
-                    logData.session_id,
-                    threat_type,
-                    message,
-                    raw_data ? JSON.stringify(raw_data) : null
-                ]);
-            } catch (error) {
-                console.error('[DATABASE] Error creating security event:', error.message);
-            }
         }
     }
 

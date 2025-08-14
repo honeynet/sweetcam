@@ -155,7 +155,7 @@ CREATE TABLE IF NOT EXISTS `cowrie_service_logs`
 (
     `id`             bigint       NOT NULL AUTO_INCREMENT,
     `timestamp`      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `event_type`     varchar(100) NOT NULL COMMENT 'session_start, session_end, login_attempt, command_execution, file_operation, download_attempt, upload_attempt, suspicious_activity, attack_attempt, threat_intelligence, geoip_lookup, alert, service_event, startup_shutdown',
+    `event_type`     varchar(100) NOT NULL COMMENT 'session_start, session_end, login_attempt, command_execution, file_operation, download_attempt, upload_attempt, threat_intelligence, geoip_lookup, service_event, startup_shutdown',
     `log_level`      varchar(20)  NOT NULL DEFAULT 'info',
     `ip_address`     varchar(45)  DEFAULT NULL,
     `brand`          varchar(50)  DEFAULT NULL,
@@ -169,7 +169,6 @@ CREATE TABLE IF NOT EXISTS `cowrie_service_logs`
     `geoip_country`  varchar(10)  DEFAULT NULL,
     `geoip_city`     varchar(100) DEFAULT NULL,
     `threat_level`   varchar(20)  DEFAULT NULL COMMENT 'low, medium, high, critical',
-    `alert_type`     varchar(100) DEFAULT NULL,
     `message`        text         DEFAULT NULL,
     `raw_data`       json         DEFAULT NULL,
     `created_at`     TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
@@ -181,31 +180,6 @@ CREATE TABLE IF NOT EXISTS `cowrie_service_logs`
     INDEX `idx_session_id` (`session_id`),
     INDEX `idx_threat_level` (`threat_level`),
     INDEX `idx_geoip_country` (`geoip_country`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Security events table for high-priority events
-CREATE TABLE IF NOT EXISTS `security_events`
-(
-    `id`           bigint       NOT NULL AUTO_INCREMENT,
-    `timestamp`    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `service`      varchar(50)  NOT NULL,
-    `event_type`   varchar(100) NOT NULL,
-    `severity`     varchar(20)  NOT NULL DEFAULT 'medium' COMMENT 'low, medium, high, critical',
-    `ip_address`   varchar(45)  DEFAULT NULL,
-    `brand`        varchar(50)  DEFAULT NULL,
-    `username`     varchar(255) DEFAULT NULL,
-    `password`     varchar(255) DEFAULT NULL,
-    `session_id`   varchar(255) DEFAULT NULL,
-    `threat_type`  varchar(100) DEFAULT NULL COMMENT 'brute_force, suspicious_command, unauthorized_access, etc.',
-    `description`  text         DEFAULT NULL,
-    `raw_data`     json         DEFAULT NULL,
-    `created_at`   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`),
-    INDEX `idx_severity` (`severity`),
-    INDEX `idx_timestamp` (`timestamp`),
-    INDEX `idx_service` (`service`),
-    INDEX `idx_ip_address` (`ip_address`),
-    INDEX `idx_threat_type` (`threat_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Statistics table for aggregated data
@@ -237,7 +211,6 @@ CREATE TABLE IF NOT EXISTS `ip_reputation`
     `total_events`         int          NOT NULL DEFAULT 0,
     `failed_logins`        int          NOT NULL DEFAULT 0,
     `successful_logins`    int          NOT NULL DEFAULT 0,
-    `suspicious_activities` int         NOT NULL DEFAULT 0,
     `threat_score`         int          NOT NULL DEFAULT 0 COMMENT '0-100 threat score',
     `country`              varchar(10)  DEFAULT NULL,
     `city`                 varchar(100) DEFAULT NULL,

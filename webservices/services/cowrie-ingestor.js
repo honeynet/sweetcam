@@ -44,9 +44,9 @@ function mapCowrieToLogEvent(event) {
     case 'cowrie.client.fingerprint':
       return { ...base, event_type: 'service_event', message: eventId === 'cowrie.client.version' ? `Client version: ${event.version || ''}` : `Client fingerprint: ${event.kexAlgs || ''}` };
     case 'cowrie.direct-tcpip.request':
-      return { ...base, event_type: 'suspicious_activity', log_level: 'warn', message: `Direct TCPIP request to ${event.dst_ip || ''}:${event.dst_port || ''}` };
+      return { ...base, event_type: 'service_event', log_level: 'info', message: `Direct TCPIP request to ${event.dst_ip || ''}:${event.dst_port || ''}` };
     case 'cowrie.alert':
-      return { ...base, event_type: 'alert', log_level: (event.severity && event.severity >= 3) ? 'error' : 'warn', message: event.message || 'Cowrie alert' };
+      return { ...base, event_type: 'service_event', log_level: 'info', message: event.message || 'Cowrie event' };
     default:
       return { ...base, event_type: 'service_event', message: eventId || 'cowrie_event' };
   }

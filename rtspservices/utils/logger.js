@@ -38,13 +38,6 @@ const securityFormat = format.combine(
     })
 );
 
-const securityFileTransport = new transports.DailyRotateFile({
-    filename: path.join(logsDir, "rtsp-security-%DATE%.log"),
-    datePattern: "YYYY-MM-DD",
-    maxFiles: "30d",
-    level: 'info'
-});
-
 const appFileTransport = new transports.DailyRotateFile({
     filename: path.join(logsDir, "rtsp-app-%DATE%.log"),
     datePattern: "YYYY-MM-DD",
@@ -76,7 +69,6 @@ const logConfiguration = {
     transports: [
         consoleTransport,
         appFileTransport,
-        securityFileTransport,
         errorFileTransport
     ],
     format: securityFormat,
@@ -274,35 +266,7 @@ const rtspLogger = {
         writeRTSPLog({ event_type: 'describe_request', log_level: 'info', ip_address: ip, brand, port, user_agent: userAgent, session_id: sessionId, stream_path: url, message: `RTSP describe request: ${url}` });
     },
 
-    logSuspiciousRTSPActivity: (ip, activity, details, brand, port, sessionId = null) => {
-        logger.warn('Suspicious RTSP activity', {
-            service: 'rtsp',
-            event_type: 'suspicious_activity',
-            ip_address: ip,
-            activity: activity,
-            details: details,
-            brand: brand,
-            port: port,
-            session_id: sessionId,
-            message: `Suspicious RTSP activity: ${activity}`
-        });
-        writeServiceLog({ service: 'rtsp', event_type: 'suspicious_activity', log_level: 'warn', ip_address: ip, brand, port, session_id: sessionId, message: `Suspicious RTSP activity: ${activity}`, raw_data: { details } });
-        writeRTSPLog({ event_type: 'suspicious_activity', log_level: 'warn', ip_address: ip, brand, port, session_id: sessionId, message: `Suspicious RTSP activity: ${activity}`, raw_data: { details } });
-    },
 
-    logRTSPAttackAttempt: (ip, _attackType, _payload, brand, port, sessionId = null) => {
-        logger.error('RTSP attack attempt', {
-            service: 'rtsp',
-            event_type: 'attack_attempt',
-            ip_address: ip,
-            brand: brand,
-            port: port,
-            session_id: sessionId,
-            message: `RTSP attack attempt`
-        });
-        writeServiceLog({ service: 'rtsp', event_type: 'attack_attempt', log_level: 'error', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP attack attempt` });
-        writeRTSPLog({ event_type: 'attack_attempt', log_level: 'error', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP attack attempt` });
-    },
 
     logRTSPServiceEvent: (event, details, brand, port, sessionId = null) => {
         logger.info('RTSP service event', {

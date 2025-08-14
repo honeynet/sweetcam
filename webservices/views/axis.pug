@@ -386,7 +386,7 @@ html(lang="en")
                 h3= __('main.systemInfo')
                 ul#system-info-list
                     style.
-                        /* RTSP Toggle Styles */
+                        
                         .rtsp-control-item {
                             border-top: 2px solid #e0e0e0;
                             padding-top: 15px;
@@ -879,6 +879,12 @@ html(lang="en")
                 
                 if (!toggle || !statusText) return;
                 
+                const currentState = toggle.checked;
+                const newState = !currentState;
+                
+                toggle.checked = newState;
+                statusText.textContent = newState ? '!{__("main.rtspEnabled")}' : '!{__("main.rtspDisabled")}';
+                statusText.className = `rtsp-status-text ${newState ? 'enabled' : 'disabled'}`;
                 
                 toggle.disabled = true;
                 
@@ -893,50 +899,33 @@ html(lang="en")
                     if (response.ok) {
                         const result = await response.json();
                         if (result.success) {
-                            
-                            showNotification('!{__("main.rtspToggleSuccess")}', 'success');    
-                            
-                            const activeTab = document.querySelector('.tab-btn.active');
-                            if (activeTab) {
-                                localStorage.setItem('lastActiveTab', activeTab.getAttribute('data-tab'));
-                            } 
-                            
-                            setTimeout(() => {
-                                window.location.reload();
-                            }, 1500);
+                            showNotification('!{__("main.rtspToggleSuccess")}', 'success');
+                            await loadRTSPStatus();
                         } else {
                             showNotification(result.message || '!{__("main.rtspToggleError")}', 'error');
-                            const activeTab = document.querySelector('.tab-btn.active');
-                            if (activeTab) {
-                                localStorage.setItem('lastActiveTab', activeTab.getAttribute('data-tab'));
-                            }                            
-                            setTimeout(() => {
-                                window.location.reload();
-                            }, 1500);
+                            await loadRTSPStatus();
                         }
+                    } else if (response.status === 401) {
+                        showNotification('Authentication required. Please log in again.', 'error');
+                        await loadRTSPStatus();
+                        setTimeout(() => {
+                            window.location.href = '/login';
+                        }, 1500);
+                    } else if (response.status === 403) {
+                        showNotification('Admin access required. Please log in as admin.', 'error');
+                        await loadRTSPStatus();
+                        setTimeout(() => {
+                            window.location.href = '/login';
+                        }, 1500);
                     } else {
                         showNotification('!{__("main.rtspToggleError")}', 'error');
-                        const activeTab = document.querySelector('.tab-btn.active');
-                        if (activeTab) {
-                            localStorage.setItem('lastActiveTab', activeTab.getAttribute('data-tab'));
-                        }
-                    
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 1500);
+                        await loadRTSPStatus();
                     }
                 } catch (error) {
                     console.error('Error toggling RTSP service:', error);
                     showNotification('!{__("main.rtspToggleError")}', 'error');
-                    const activeTab = document.querySelector('.tab-btn.active');
-                    if (activeTab) {
-                        localStorage.setItem('lastActiveTab', activeTab.getAttribute('data-tab'));
-                    }
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1500);
+                    await loadRTSPStatus();
                 } finally {
-                    
                     toggle.disabled = false;
                 }
             }
@@ -975,6 +964,12 @@ html(lang="en")
                 
                 if (!toggle || !statusText) return;
                 
+                const currentState = toggle.checked;
+                const newState = !currentState;
+                
+                toggle.checked = newState;
+                statusText.textContent = newState ? '!{__("main.onvifEnabled")}' : '!{__("main.onvifDisabled")}';
+                statusText.className = `onvif-status-text ${newState ? 'enabled' : 'disabled'}`;
                 
                 toggle.disabled = true;
                 
@@ -989,78 +984,33 @@ html(lang="en")
                     if (response.ok) {
                         const result = await response.json();
                         if (result.success) {
-                            
                             showNotification('!{__("main.onvifToggleSuccess")}', 'success');
-                            
-                            
-                            const activeTab = document.querySelector('.tab-btn.active');
-                            if (activeTab) {
-                                localStorage.setItem('lastActiveTab', activeTab.getAttribute('data-tab'));
-                            }
-                            
-                            
-                            setTimeout(() => {
-                                window.location.reload();
-                            }, 1500);
+                            await loadONVIFStatus();
                         } else {
-                            
                             showNotification(result.message || '!{__("main.onvifToggleError")}', 'error');
-                            
-                            
-                            const activeTab = document.querySelector('.tab-btn.active');
-                            if (activeTab) {
-                                localStorage.setItem('lastActiveTab', activeTab.getAttribute('data-tab'));
-                            }
-                            
-                            
-                            setTimeout(() => {
-                                window.location.reload();
-                            }, 1500);
+                            await loadONVIFStatus();
                         }
                     } else if (response.status === 401) {
-                        
                         showNotification('Authentication required. Please log in again.', 'error');
+                        await loadONVIFStatus();
                         setTimeout(() => {
                             window.location.href = '/login';
                         }, 1500);
                     } else if (response.status === 403) {
-                        
                         showNotification('Admin access required. Please log in as admin.', 'error');
+                        await loadONVIFStatus();
                         setTimeout(() => {
                             window.location.href = '/login';
                         }, 1500);
                     } else {
-                        
                         showNotification('!{__("main.onvifToggleError")}', 'error');
-                        
-                        
-                        const activeTab = document.querySelector('.tab-btn.active');
-                        if (activeTab) {
-                            localStorage.setItem('lastActiveTab', activeTab.getAttribute('data-tab'));
-                        }
-                        
-                        
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 1500);
+                        await loadONVIFStatus();
                     }
                 } catch (error) {
                     console.error('Error toggling ONVIF service:', error);
-                    
                     showNotification('!{__("main.onvifToggleError")}', 'error');
-                    
-                    
-                    const activeTab = document.querySelector('.tab-btn.active');
-                    if (activeTab) {
-                        localStorage.setItem('lastActiveTab', activeTab.getAttribute('data-tab'));
-                    }
-                    
-                    
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1500);
+                    await loadONVIFStatus();
                 } finally {
-                    
                     toggle.disabled = false;
                 }
             }

@@ -1,10 +1,11 @@
 # SweetCam Honeypot Log Manager
 
-A Node.js tool for managing and analyzing logs from all honeypot services (Web, RTSP, ONVIF).
+A Node.js tool for managing and analyzing logs from all honeypot services (Web, RTSP, ONVIF) with Docker container support.
 
 ## Features
 
 - **Multi-service support**: Web, RTSP, and ONVIF services
+- **Docker integration**: Read logs directly from Docker containers
 - **Event type filtering**: Filter by specific event types
 - **Log level filtering**: Filter by info, error, warn, debug
 - **Time-based filtering**: Custom date ranges
@@ -16,13 +17,15 @@ A Node.js tool for managing and analyzing logs from all honeypot services (Web, 
 - **Password display**: Show passwords in authentication logs
 - **Dry run mode**: Safe deletion with preview
 - **Color-coded output**: Easy-to-read formatted output
+- **Cross-container support**: Manage logs across all service containers
 
 ## Installation
 
 1. Make sure you have Node.js installed
-2. Make the script executable:
+2. Make sure Docker containers are running
+3. The script is ready to use:
    ```shell
-   chmod +x log_manager.js
+   node log_manager.js --help
    ```
 
 ## Usage
@@ -30,77 +33,99 @@ A Node.js tool for managing and analyzing logs from all honeypot services (Web, 
 ### Basic Usage
 
 ```shell
-# Show all logs
-node log_manager.js
+# Show all logs from Docker containers
+node log_manager.js --docker
 
 # Show logs for specific service
-node log_manager.js --service web
-node log_manager.js --service rtsp
-node log_manager.js --service onvif
+node log_manager.js --docker --service web
+node log_manager.js --docker --service rtsp
+node log_manager.js --docker --service onvif
 
 # Show logs for specific date
-node log_manager.js --date 2025-08-02
+node log_manager.js --docker --date 2025-08-14
+
+# Show logs from local files (if available)
+node log_manager.js --service web
 ```
 
 ### Filtering Options
 
 ```shell
 # Filter by event types
-node log_manager.js --event-types login_attempt auth_failure
-node log_manager.js --event-types soap_request connection_event
+node log_manager.js --docker --event-types login_attempt auth_failure
+node log_manager.js --docker --event-types soap_request connection_event
 
 # Filter by log levels
-node log_manager.js --log-levels error warn
-node log_manager.js --log-levels info
+node log_manager.js --docker --log-levels error warn
+node log_manager.js --docker --log-levels info
 
 # Filter by date range
-node log_manager.js --start-date 2025-08-01 --end-date 2025-08-02
+node log_manager.js --docker --start-date 2025-08-01 --end-date 2025-08-02
 
 # Filter by IP addresses
-node log_manager.js --ip-addresses 192.168.1.100 10.0.0.1
+node log_manager.js --docker --ip-addresses 192.168.1.100 10.0.0.1
 
 # Filter by brands
-node log_manager.js --brands hikvision dahua axis
+node log_manager.js --docker --brands hikvision dahua axis
 ```
 
 ### Analysis and Statistics
 
 ```shell
 # Perform log analysis
-node log_manager.js --analyze
+node log_manager.js --docker --analyze
 
 # Show passwords in authentication logs
-node log_manager.js --show-passwords
+node log_manager.js --docker --show-passwords
 
 # Limit number of displayed entries
-node log_manager.js --limit 50
+node log_manager.js --docker --limit 50
 ```
 
 ### Search Functionality
 
 ```shell
 # Search for specific text
-node log_manager.js --search "admin"
+node log_manager.js --docker --search "admin"
 
 # Case-sensitive search
-node log_manager.js --search "Admin" --case-sensitive
+node log_manager.js --docker --search "Admin" --case-sensitive
 
 # Search in specific service
-node log_manager.js --search "password" --service web
+node log_manager.js --docker --search "password" --service web
 ```
 
 ### Log Management
 
 ```shell
 # Preview old logs (dry run)
-node log_manager.js --delete-old 30
+node log_manager.js --docker --delete-old 7
 
 # Actually delete old logs
-node log_manager.js --delete-old 30 --execute
+node log_manager.js --docker --delete-old 7 --execute
+
+# Delete today's logs (use negative number)
+node log_manager.js --docker --delete-old -1 --execute
 
 # Delete old logs for specific service
-node log_manager.js --delete-old 30 --service web --execute
+node log_manager.js --docker --delete-old 30 --service web --execute
 ```
+
+## Docker Integration
+
+The `--docker` flag enables reading logs directly from Docker containers:
+
+- **web_service**: Web service logs
+- **rtsp_main_service**: RTSP service logs  
+- **onvif_service**: ONVIF service logs
+
+### Docker Container Mapping
+
+| Service | Container Name | Log Location |
+|---------|----------------|--------------|
+| Web | `web_service` | `/app/logs/webservices/` |
+| RTSP | `rtsp_main_service` | `/app/logs/` |
+| ONVIF | `onvif_service` | `/app/logs/` |
 
 ## Event Types by Service
 
@@ -117,6 +142,7 @@ node log_manager.js --delete-old 30 --service web --execute
 - `connection_event`: Connection events
 - `service_event`: General service events
 - `auth_attempt`: Authentication attempts
+- `database_auth`: Database authentication events
 
 ### ONVIF Services
 - `soap_request`: SOAP requests
@@ -129,46 +155,124 @@ node log_manager.js --delete-old 30 --service web --execute
 
 ### 1. Check Recent Authentication Failures
 ```shell
-node log_manager.js --event-types auth_failure --log-levels error warn --limit 20
+node log_manager.js --docker --event-types auth_failure --log-levels error warn --limit 20
 ```
 
 ### 2. Analyze ONVIF Activity by Brand
 ```shell
-node log_manager.js --service onvif --brands hikvision dahua --analyze
+node log_manager.js --docker --service onvif --brands hikvision dahua --analyze
 ```
 
 ### 3. Search for Suspicious IP Activity
 ```shell
-node log_manager.js --ip-addresses 192.168.1.100 --analyze
+node log_manager.js --docker --ip-addresses 192.168.1.100 --analyze
 ```
 
 ### 4. Check RTSP Service Management
 ```shell
-node log_manager.js --service web --event-types rtsp_management rtsp_service_toggle
+node log_manager.js --docker --service web --event-types rtsp_management rtsp_service_toggle
 ```
 
 ### 5. Find Failed Login Attempts with Passwords
 ```shell
-node log_manager.js --event-types auth_failure --show-passwords --limit 10
+node log_manager.js --docker --event-types auth_failure --show-passwords --limit 10
 ```
 
 ### 6. Clean Up Old Logs (Preview)
 ```shell
-node log_manager.js --delete-old 7 --service web
+node log_manager.js --docker --delete-old 7 --service web
 ```
 
-### 7. Comprehensive Analysis
+### 7. Delete Today's Logs
 ```shell
-node log_manager.js --start-date 2025-08-01 --end-date 2025-08-02 --analyze
+node log_manager.js --docker --delete-old -1 --execute
 ```
 
-### 8. Monitor Specific Attack Patterns
+### 8. Comprehensive Analysis
 ```shell
-node log_manager.js --search "sql injection" --case-sensitive
-node log_manager.js --search "xss" --case-sensitive
+node log_manager.js --docker --start-date 2025-08-01 --end-date 2025-08-02 --analyze
 ```
 
-### Custom Log Directory
+### 9. Monitor Specific Attack Patterns
+```shell
+node log_manager.js --docker --search "sql injection" --case-sensitive
+node log_manager.js --docker --search "xss" --case-sensitive
+```
+
+### 10. View All Recent Activity
+```shell
+node log_manager.js --docker --limit 100
+```
+
+### 11. Check Service Startup Events
+```shell
+node log_manager.js --docker --event-types service_event --search "started"
+```
+
+### 12. Monitor Database Authentication
+```shell
+node log_manager.js --docker --service rtsp --event-types database_auth
+```
+
+## Log Deletion Guidelines
+
+### Understanding `--delete-old` Parameter
+
+- `--delete-old 0`: Delete files **older than 0 days** (yesterday and earlier)
+- `--delete-old 1`: Delete files **older than 1 day** (day before yesterday and earlier)
+- `--delete-old 7`: Delete files **older than 7 days** (keep last week)
+- `--delete-old -1`: Delete files **older than -1 days** (today's files)
+
+### Recommended Cleanup Schedule
+
+```shell
+# Daily: Clean up logs older than 30 days
+node log_manager.js --docker --delete-old 30 --execute
+
+# Weekly: Clean up logs older than 7 days (if needed)
+node log_manager.js --docker --delete-old 7 --execute
+
+# Emergency: Clean up today's logs
+node log_manager.js --docker --delete-old -1 --execute
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **"No old log files found to delete"**
+   - This is normal if all logs are from today
+   - Use `--delete-old -1` to delete today's files
+
+2. **"Container not found"**
+   - Ensure Docker containers are running
+   - Check container names with `docker ps`
+
+3. **"Logs directory not found"**
+   - Use `--docker` flag to read from containers
+   - Or ensure local logs directory exists
+
+### Performance Tips
+
+- Use `--limit` to restrict output size
+- Use `--service` to focus on specific services
+- Use `--date` to limit time range
+- Use `--execute` only when ready to delete
+
+## Advanced Usage
+
+### Custom Log Directory (Local Files)
 ```shell
 node log_manager.js --logs-dir /path/to/logs --service web
+```
+
+### Combined Filters
+```shell
+node log_manager.js --docker --service web --event-types auth_failure --log-levels error --limit 50 --show-passwords
+```
+
+### Real-time Monitoring
+```shell
+# Monitor logs every 30 seconds
+watch -n 30 'node log_manager.js --docker --limit 10'
 ```

@@ -2,7 +2,6 @@ const { format, createLogger, transports } = require("winston");
 require("winston-daily-rotate-file");
 const fs = require('fs');
 const path = require('path');
-const SessionLogger = require('./session_logger');
 
 // Import database logger
 const databaseLogger = require('./database-logger');
@@ -21,9 +20,6 @@ const logsDir = fs.existsSync('/app/logs') ? dockerLogsDir : localLogsDir;
 if (!fs.existsSync(logsDir)) {
     fs.mkdirSync(logsDir, { recursive: true });
 }
-
-// Initialize session logger
-const sessionLogger = new SessionLogger('webservice');
 
 // Security-focused log format for honeypot events
 const securityFormat = format.combine(
@@ -53,14 +49,6 @@ const securityFormat = format.combine(
         return JSON.stringify(logEntry);
     })
 );
-
-// Separate transport for security events (honeypot-specific)
-const securityFileTransport = new transports.DailyRotateFile({
-    filename: path.join(logsDir, "security-%DATE%.log"),
-    datePattern: "YYYY-MM-DD",
-    maxFiles: "30d",
-    level: 'info'
-});
 
 // Regular application logs
 const appFileTransport = new transports.DailyRotateFile({
@@ -98,7 +86,6 @@ const logConfiguration = {
     transports: [
         consoleTransport,
         appFileTransport,
-        securityFileTransport,
         errorFileTransport
     ],
     format: securityFormat,
@@ -140,11 +127,6 @@ const honeypotLogger = {
             message: `Login attempt ${success ? 'successful' : 'failed'} for user: ${username}`
         });
         
-        // Also log to session logger for consolidation
-        if (sessionId) {
-            sessionLogger.logLoginAttempt(ip, username, success, userAgent, sessionId, brand, port, password);
-        }
-
         // Log to database
         try {
             await databaseLogger.logEvent({
@@ -172,7 +154,7 @@ const honeypotLogger = {
     },
 
     // Log authentication failures
-    logAuthFailure: (ip, username, reason, userAgent, brand, port, password = null, sessionId = null) => {
+    logAuthFailure: (ip, username, reason, userAgent, brand, port, password = null, sessionId = null, requestMethod = null, requestUrl = null, responseStatus = null) => {
         // Log to regular log file
         logger.warn('Authentication failure', {
             service: 'webservice',
@@ -185,49 +167,12 @@ const honeypotLogger = {
             brand: brand,
             port: port,
             session_id: sessionId,
+            request_method: requestMethod,
+            request_url: requestUrl,
+            response_status: responseStatus,
             message: `Authentication failure for user: ${username}, reason: ${reason}`
         });
         
-        // Also log to session logger for consolidation
-        if (sessionId) {
-            sessionLogger.logAuthFailure(ip, username, reason, userAgent, brand, port, password, sessionId);
-        }
-    },
-
-    // Log suspicious activities
-    logSuspiciousActivity: (ip, activity, details, userAgent, brand, port, sessionId = null) => {
-        // Log to regular log file
-        logger.warn('Suspicious activity detected', {
-            service: 'webservice',
-            event_type: 'suspicious_activity',
-            ip_address: ip,
-            activity: activity,
-            details: details,
-            user_agent: userAgent,
-            brand: brand,
-            port: port,
-            session_id: sessionId,
-            message: `Suspicious activity detected: ${activity}`
-        });
-        
-        // Also log to session logger for consolidation
-        if (sessionId) {
-            sessionLogger.logSuspiciousActivity(ip, activity, details, userAgent, brand, port, sessionId);
-        }
-    },
-
-    // Log attack attempts
-    logAttackAttempt: (ip, attackType, userAgent, brand, port, sessionId = null) => {
-        logger.error('Attack attempt detected', {
-            service: 'webservice',
-            event_type: 'attack_attempt',
-            ip_address: ip,
-            user_agent: userAgent,
-            brand: brand,
-            port: port,
-            session_id: sessionId,
-            message: `Attack attempt detected: ${attackType}`
-        });
     },
 
     // Log service access
@@ -247,11 +192,6 @@ const honeypotLogger = {
             message: `${method} ${url} - ${statusCode}`
         });
         
-        // Also log to session logger for consolidation
-        if (sessionId) {
-            sessionLogger.logServiceAccess(ip, method, url, statusCode, userAgent, brand, port, sessionId);
-        }
-
         // Log to database
         try {
             await databaseLogger.logEvent({
@@ -290,10 +230,6 @@ const honeypotLogger = {
             message: `Session ${event}: ${sessionId}`
         });
         
-        // Also log to session logger for consolidation
-        if (sessionId) {
-            sessionLogger.logSessionEvent(ip, sessionId, event, username, brand, port);
-        }
     },
 
     // Log database events

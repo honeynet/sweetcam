@@ -4,7 +4,7 @@
       {
         "builtIn": 1,
         "type": "dashboard",
-        "name": "Annotations & Alerts",
+        "name": "Annotations",
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
         "enable": true,
@@ -85,22 +85,9 @@
       ]
     },
     {
-      "type": "table",
-      "title": "Recent Security Events",
-      "gridPos": {"x": 0, "y": 24, "w": 24, "h": 8},
-      "datasource": {"type": "mysql", "uid": ""},
-      "targets": [
-        {
-          "format": "table",
-          "rawSql": "SELECT timestamp, service, event_type, severity, ip_address, brand, description FROM security_events WHERE $__timeFilter(timestamp) ORDER BY timestamp DESC LIMIT 50;",
-          "refId": "A"
-        }
-      ]
-    },
-    {
       "type": "geomap",
       "title": "Geo Attacker Distribution",
-      "gridPos": {"x": 0, "y": 32, "w": 24, "h": 12},
+      "gridPos": {"x": 0, "y": 24, "w": 24, "h": 12},
       "datasource": {"type": "mysql", "uid": ""},
       "targets": [
         {
@@ -131,7 +118,7 @@
     {
       "type": "table",
       "title": "Recent All Logs (Unified)",
-      "gridPos": {"x": 0, "y": 44, "w": 24, "h": 8},
+      "gridPos": {"x": 0, "y": 36, "w": 24, "h": 8},
       "datasource": {"type": "mysql", "uid": ""},
       "targets": [
         {

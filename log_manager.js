@@ -47,7 +47,8 @@ let config = {
     caseSensitive: false,
     deleteOld: null,
     execute: false,
-    dryRun: true
+    dryRun: true,
+    docker: false
 };
 
 function parseArgs() {
@@ -145,6 +146,9 @@ function parseArgs() {
                 config.logsDir = nextArg;
                 i++;
                 break;
+            case '--docker':
+                config.docker = true;
+                break;
             case '-h':
             case '--help':
                 showUsage();
@@ -181,6 +185,7 @@ OPTIONS:
     --delete-old DAYS         Delete logs older than N days
     --execute                 Execute delete operations (default is dry run)
     --logs-dir DIR            Logs directory path (default: ./logs)
+    --docker                  Read logs from Docker containers (default: read from files)
     -h, --help               Show this help message
 
 EXAMPLES:
@@ -468,76 +473,156 @@ function deleteOldLogs(days, service = null) {
     cutoffDate.setDate(cutoffDate.getDate() - days);
     const cutoffDateStr = cutoffDate.toISOString().split('T')[0];
     
-    const logFiles = getLogFiles(service, null);
-    const filesToDelete = [];
-    
-    logFiles.forEach(file => {
-        try {
-            //try to extract date from filename
-            const filename = path.basename(file);
-            const dateMatch = filename.match(/(\d{4}-\d{2}-\d{2})/);
+    if (config.docker) {
+        // Delete from Docker containers
+        const containerMap = {
+            'web': 'web_service',
+            'rtsp': 'rtsp_main_service',
+            'onvif': 'onvif_service'
+        };
+        
+        const servicesToCheck = service ? [service] : Object.keys(containerMap);
+        const filesToDelete = [];
+        
+        for (const serviceName of servicesToCheck) {
+            const containerName = containerMap[serviceName];
+            if (!containerName) continue;
             
-            if (dateMatch) {
-                const fileDate = dateMatch[1];
-                if (fileDate < cutoffDateStr) {
-                    filesToDelete.push(file);
-                }
-            } else {
-                const stats = fs.statSync(file);
-                const mtime = new Date(stats.mtime);
-                const mtimeStr = mtime.toISOString().split('T')[0];
-                
-                if (mtimeStr < cutoffDateStr) {
-                    filesToDelete.push(file);
-                }
-            }
-        } catch (error) {
-            console.log(`${colors.yellow}[WARN] Error checking file ${file}: ${error.message}${colors.reset}`);
-        }
-    });
-    
-    if (filesToDelete.length === 0) {
-        console.log(`${colors.yellow}[EMPTY] No old log files found to delete.${colors.reset}`);
-        return;
-    }
-    
-    console.log(`\n${colors.red}[DELETE] Found ${filesToDelete.length} log files older than ${days} days:${colors.reset}`);
-    filesToDelete.forEach(file => {
-        console.log(`   ${file}`);
-    });
-    
-    if (!config.dryRun) {
-        console.log(`\n${colors.red}[WARN] Deleting ${filesToDelete.length} files...${colors.reset}`);
-        filesToDelete.forEach(file => {
             try {
-                fs.unlinkSync(file);
-                console.log(`   ${colors.green}[OK] Deleted: ${file}${colors.reset}`);
+                // Find old log files in container
+                const result = execSync(`docker exec ${containerName} find /app/logs -name "*.log" -type f`, { encoding: 'utf8' });
+                const containerFiles = result.trim().split('\n').filter(file => file);
+                
+                for (const containerFile of containerFiles) {
+                    try {
+                        // Extract date from filename
+                        const filename = path.basename(containerFile);
+                        const dateMatch = filename.match(/(\d{4}-\d{2}-\d{2})/);
+                        
+                        if (dateMatch) {
+                            const fileDate = dateMatch[1];
+                            if (fileDate < cutoffDateStr) {
+                                filesToDelete.push({ container: containerName, file: containerFile });
+                            }
+                        } else {
+                            // Check file modification time
+                            const stats = execSync(`docker exec ${containerName} stat -c %Y "${containerFile}"`, { encoding: 'utf8' });
+                            const mtime = new Date(parseInt(stats.trim()) * 1000);
+                            const mtimeStr = mtime.toISOString().split('T')[0];
+                            
+                            if (mtimeStr < cutoffDateStr) {
+                                filesToDelete.push({ container: containerName, file: containerFile });
+                            }
+                        }
+                    } catch (error) {
+                        console.log(`${colors.yellow}[WARN] Error checking file ${containerFile}: ${error.message}${colors.reset}`);
+                    }
+                }
             } catch (error) {
-                console.log(`   ${colors.red}[ERROR] Error deleting ${file}: ${error.message}${colors.reset}`);
+                console.log(`${colors.yellow}[WARN] Error accessing container ${containerName}: ${error.message}${colors.reset}`);
+            }
+        }
+        
+        if (filesToDelete.length === 0) {
+            console.log(`${colors.yellow}[EMPTY] No old log files found to delete.${colors.reset}`);
+            return;
+        }
+        
+        console.log(`\n${colors.red}[DELETE] Found ${filesToDelete.length} log files older than ${days} days:${colors.reset}`);
+        filesToDelete.forEach(({ container, file }) => {
+            console.log(`   ${container}:${file}`);
+        });
+        
+        if (!config.dryRun) {
+            console.log(`\n${colors.red}[WARN] Deleting ${filesToDelete.length} files...${colors.reset}`);
+            filesToDelete.forEach(({ container, file }) => {
+                try {
+                    execSync(`docker exec ${container} rm "${file}"`, { encoding: 'utf8' });
+                    console.log(`   ${colors.green}[OK] Deleted: ${container}:${file}${colors.reset}`);
+                } catch (error) {
+                    console.log(`   ${colors.red}[ERROR] Error deleting ${container}:${file}: ${error.message}${colors.reset}`);
+                }
+            });
+        } else {
+            console.log(`\n${colors.blue}[DRY-RUN] Dry run mode - no files were deleted.${colors.reset}`);
+            console.log('   Use --execute to actually delete the files.');
+        }
+    } else {
+        // Original local file logic
+        const logFiles = getLogFiles(service, null);
+        const filesToDelete = [];
+        
+        logFiles.forEach(file => {
+            try {
+                //try to extract date from filename
+                const filename = path.basename(file);
+                const dateMatch = filename.match(/(\d{4}-\d{2}-\d{2})/);
+                
+                if (dateMatch) {
+                    const fileDate = dateMatch[1];
+                    if (fileDate < cutoffDateStr) {
+                        filesToDelete.push(file);
+                    }
+                } else {
+                    const stats = fs.statSync(file);
+                    const mtime = new Date(stats.mtime);
+                    const mtimeStr = mtime.toISOString().split('T')[0];
+                    
+                    if (mtimeStr < cutoffDateStr) {
+                        filesToDelete.push(file);
+                    }
+                }
+            } catch (error) {
+                console.log(`${colors.yellow}[WARN] Error checking file ${file}: ${error.message}${colors.reset}`);
             }
         });
-    } else {
-        console.log(`\n${colors.blue}[DRY-RUN] Dry run mode - no files were deleted.${colors.reset}`);
-        console.log('   Use --execute to actually delete the files.');
+        
+        if (filesToDelete.length === 0) {
+            console.log(`${colors.yellow}[EMPTY] No old log files found to delete.${colors.reset}`);
+            return;
+        }
+        
+        console.log(`\n${colors.red}[DELETE] Found ${filesToDelete.length} log files older than ${days} days:${colors.reset}`);
+        filesToDelete.forEach(file => {
+            console.log(`   ${file}`);
+        });
+        
+        if (!config.dryRun) {
+            console.log(`\n${colors.red}[WARN] Deleting ${filesToDelete.length} files...${colors.reset}`);
+            filesToDelete.forEach(file => {
+                try {
+                    fs.unlinkSync(file);
+                    console.log(`   ${colors.green}[OK] Deleted: ${file}${colors.reset}`);
+                } catch (error) {
+                    console.log(`   ${colors.red}[ERROR] Error deleting ${file}: ${error.message}${colors.reset}`);
+                }
+            });
+        } else {
+            console.log(`\n${colors.blue}[DRY-RUN] Dry run mode - no files were deleted.${colors.reset}`);
+            console.log('   Use --execute to actually delete the files.');
+        }
     }
 }
 
 function main() {
     parseArgs();
     
-    if (!fs.existsSync(config.logsDir)) {
-        console.log(`${colors.red}[ERROR] Logs directory not found: ${config.logsDir}${colors.reset}`);
-        process.exit(1);
-    }    
     if (config.search) {
         searchLogs(config.search, config.service);
         return;
     }
     
-    if (config.deleteOld) {
+    if (config.deleteOld !== null) {
         deleteOldLogs(config.deleteOld, config.service);
         return;
-    }    
+    }
+    
+    // Only check logs directory if not using Docker
+    if (!config.docker && !fs.existsSync(config.logsDir)) {
+        console.log(`${colors.red}[ERROR] Logs directory not found: ${config.logsDir}${colors.reset}`);
+        process.exit(1);
+    }
+    
     const entries = readLogs(config.service, config.date);
     if (entries.length === 0) {
         console.log(`${colors.yellow}[EMPTY] No log entries found.${colors.reset}`);

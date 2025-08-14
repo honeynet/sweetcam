@@ -155,9 +155,7 @@ class SessionLogger {
                 login_attempts: session.events.filter(e => e.event_type === 'login_attempt').length,
                 auth_failures: session.events.filter(e => e.event_type === 'auth_failure').length,
                 service_access: session.events.filter(e => e.event_type === 'service_access').length,
-                session_events: session.events.filter(e => e.event_type === 'session_event').length,
-                suspicious_activity: session.events.filter(e => e.event_type === 'suspicious_activity').length,
-                attack_attempts: session.events.filter(e => e.event_type === 'attack_attempt').length
+                session_events: session.events.filter(e => e.event_type === 'session_event').length
             }
         };
         
@@ -237,23 +235,6 @@ class SessionLogger {
             message: `Session ${event}: ${sessionId}`,
             ip_address: ip,
             username: username,
-            brand: brand,
-            port: port
-        };
-        
-        if (sessionId) {
-            this.addEventToSession(sessionId, eventData);
-        }
-    }
-
-    logSuspiciousActivity(ip, activity, details, userAgent, brand, port, sessionId = null) {
-        const eventData = {
-            timestamp: new Date().toISOString(),
-            level: 'warn',
-            event_type: 'suspicious_activity',
-            message: `Suspicious activity detected: ${activity}`,
-            ip_address: ip,
-            user_agent: userAgent,
             brand: brand,
             port: port
         };

@@ -37,13 +37,6 @@ const securityFormat = format.combine(
     })
 );
 
-const securityFileTransport = new transports.DailyRotateFile({
-    filename: path.join(logsDir, "onvif-security-%DATE%.log"),
-    datePattern: "YYYY-MM-DD",
-    maxFiles: "30d",
-    level: 'info'
-});
-
 const appFileTransport = new transports.DailyRotateFile({
     filename: path.join(logsDir, "onvif-app-%DATE%.log"),
     datePattern: "YYYY-MM-DD",
@@ -73,7 +66,6 @@ const logConfiguration = {
     transports: [
         consoleTransport,
         appFileTransport,
-        securityFileTransport,
         errorFileTransport
     ],
     format: securityFormat,
@@ -207,35 +199,7 @@ const onvifLogger = {
         writeONVIFLog({ event_type: 'system_request', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `System ${requestType} requested from ${ip}` });
     },
 
-    logSuspiciousONVIFActivity: (ip, activity, details, brand, port, sessionId = null) => {
-        logger.warn('Suspicious ONVIF activity', {
-            service: 'onvif',
-            event_type: 'suspicious_activity',
-            ip_address: ip,
-            activity: activity,
-            details: details,
-            brand: brand,
-            port: port,
-            session_id: sessionId,
-            message: `Suspicious ONVIF activity: ${activity}`
-        });
-        writeServiceLog({ service: 'onvif', event_type: 'suspicious_activity', log_level: 'warn', ip_address: ip, brand, port, session_id: sessionId, message: `Suspicious ONVIF activity: ${activity}`, raw_data: { details } });
-        writeONVIFLog({ event_type: 'suspicious_activity', log_level: 'warn', ip_address: ip, brand, port, session_id: sessionId, message: `Suspicious ONVIF activity: ${activity}`, raw_data: { details } });
-    },
 
-    logONVIFAttackAttempt: (ip, _attackType, _payload, brand, port, sessionId = null) => {
-        logger.error('ONVIF attack attempt', {
-            service: 'onvif',
-            event_type: 'attack_attempt',
-            ip_address: ip,
-            brand: brand,
-            port: port,
-            session_id: sessionId,
-            message: `ONVIF attack attempt`
-        });
-        writeServiceLog({ service: 'onvif', event_type: 'attack_attempt', log_level: 'error', ip_address: ip, brand, port, session_id: sessionId, message: `ONVIF attack attempt` });
-        writeONVIFLog({ event_type: 'attack_attempt', log_level: 'error', ip_address: ip, brand, port, session_id: sessionId, message: `ONVIF attack attempt` });
-    },
 
     logONVIFServiceEvent: (event, details, brand, port, sessionId = null) => {
         logger.info('ONVIF service event', {

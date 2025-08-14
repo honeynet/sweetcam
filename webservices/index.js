@@ -335,13 +335,10 @@ app.post('/login', async (req, res) => { //login endpoint
         if (currentTime - beginTimeOfLogin <= 60000) { //check if login request is within 60 seconds
             sess.loginTimes += 1;
             if (sess.loginTimes > sweetcamServices.getLoginLimit()) {
-                honeypotLogger.logSuspiciousActivity(
-                    req.ip,
+                honeypotLogger.logError(
+                    new Error('Login rate limit exceeded'),
                     'login_rate_limit_exceeded',
-                    `Login attempts: ${sess.loginTimes}`,
-                    req.get('User-Agent'),
-                    cameraType,
-                    port
+                    req.sessionID
                 );
                 return res.status(403).send({ error: "Login request reached limit" });
             }
@@ -358,7 +355,12 @@ app.post('/login', async (req, res) => { //login endpoint
                 'missing_credentials',
                 req.get('User-Agent'),
                 cameraType,
-                port
+                port,
+                null,
+                req.sessionID,
+                req.method,
+                req.url,
+                400
             );
             return res.status(400).send({ error: "Username and password are required" });
         }
@@ -389,7 +391,10 @@ app.post('/login', async (req, res) => { //login endpoint
                 cameraType,
                 port,
                 password,
-                req.sessionID
+                req.sessionID,
+                req.method,
+                req.url,
+                404
             );
                 return res.status(404).send({ error: "User not found" });
             } else {
@@ -401,7 +406,10 @@ app.post('/login', async (req, res) => { //login endpoint
                     cameraType,
                     port,
                     password,
-                    req.sessionID
+                    req.sessionID,
+                    req.method,
+                    req.url,
+                    401
                 );
                 return res.status(401).send({ error: "Wrong password" });
             }
@@ -436,13 +444,9 @@ app.post('/admin/login', async (req, res) => { //admin login endpoint
         if (currentTime - beginTimeOfLogin <= 60000) { //check if login request is within 60 seconds
             sess.loginTimes += 1;
             if (sess.loginTimes > sweetcamServices.getLoginLimit()) {
-                honeypotLogger.logSuspiciousActivity(
-                    req.ip,
+                honeypotLogger.logError(
+                    new Error('Admin login rate limit exceeded'),
                     'admin_login_rate_limit_exceeded',
-                    `Admin login attempts: ${sess.loginTimes}`,
-                    req.get('User-Agent'),
-                    cameraType,
-                    port,
                     req.sessionID
                 );
                 return res.status(403).send({ error: "Login request reached limit" });
@@ -462,7 +466,10 @@ app.post('/admin/login', async (req, res) => { //admin login endpoint
                 cameraType,
                 port,
                 null,
-                req.sessionID
+                req.sessionID,
+                req.method,
+                req.url,
+                400
             );
             return res.status(400).send({ error: "Username and password are required" });
         }
@@ -500,7 +507,10 @@ app.post('/admin/login', async (req, res) => { //admin login endpoint
                         cameraType,
                         port,
                         password,
-                        req.sessionID
+                        req.sessionID,
+                        req.method,
+                        req.url,
+                        401
                     );
                     return res.status(401).send({ error: "Wrong password" });
                 } catch (error) {
@@ -513,7 +523,10 @@ app.post('/admin/login', async (req, res) => { //admin login endpoint
                         cameraType,
                         port,
                         password,
-                        req.sessionID
+                        req.sessionID,
+                        req.method,
+                        req.url,
+                        404
                     );
                     return res.status(404).send({ error: "User not found" });
                 }
@@ -529,7 +542,10 @@ app.post('/admin/login', async (req, res) => { //admin login endpoint
                 cameraType,
                 port,
                 null,
-                req.sessionID
+                req.sessionID,
+                req.method,
+                req.url,
+                500
             );
             return res.status(500).send({ error: "Authentication error. Please try again." });
         }

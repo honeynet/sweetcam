@@ -47,7 +47,7 @@ Below is the list of all services with their ports, protocols and access URLs:
 | ONVIF VStarcam | 8090, 3707 | 8090, 3707 | HTTP/UDP | VStarcam ONVIF SOAP & Discovery | http://localhost:8090 | `onvif_vstarcam_service` |
 | MySQL Database | 3306 | 3306 | TCP | Database | - | `mysql_service` |
 | Web Service | 3000 | 3000 | HTTP | Main web interface | http://localhost:3000 | `web_service` |
-| Grafana | 3000 | 3001 | HTTP | Dashboards & alerts | http://localhost:3001 | `grafana` |
+| Grafana | 3000 | 3001 | HTTP | Dashboards | http://localhost:3001 | `grafana` |
 
 ## Credentials to use 
 
@@ -298,7 +298,6 @@ If the dashboard does not appear, check the provisioning mounts in `docker-compo
 - **Events by service**: distribution by `service` (web, rtsp, onvif, cowrie) from `service_logs`
 - **Events by brand**: distribution by `brand` from `service_logs` (filters out `auto`)
 - **Top countries**: counts by `country` from `ip_reputation`
-- **Recent security events**: latest rows from `security_events`
 - **Geo attacker distribution**: world map using `ip_reputation.country`
 - **Recent all logs (unified)**: most recent entries from the `all_logs` view
 
