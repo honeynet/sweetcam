@@ -48,6 +48,46 @@ class SessionLogger {
             format: sessionLogFormat,
             exitOnError: false
         });
+
+        // Add error handling to ensure log files exist
+        this.sessionLogger.on('error', (error) => {
+            console.error('Session logger error:', error);
+            this.ensureLogFilesExist();
+        });
+    }
+
+    // Function to ensure log files exist
+    ensureLogFilesExist() {
+        const today = new Date().toISOString().split('T')[0];
+        const sessionLogFile = path.join(this.logsDir, `session-${today}.log`);
+        
+        // Check if log file exists
+        try {
+            if (!fs.existsSync(sessionLogFile)) {
+                try {
+                    // Create the file with some initial content to ensure it's writable
+                    fs.writeFileSync(sessionLogFile, `{"timestamp":"${new Date().toISOString()}","level":"info","message":"Session log file initialized","service":"${this.serviceName}"}\n`);
+                    
+                    // Force the transport to reopen by triggering a rotation check
+                    if (this.sessionLogger && this.sessionLogger.transports && this.sessionLogger.transports.length > 0) {
+                        const transport = this.sessionLogger.transports[0];
+                        if (transport.rotate) {
+                            transport.rotate();
+                        }
+                    }
+                } catch (writeError) {
+                    console.error('Failed to create session log file:', writeError.message);
+                    // If we can't create the file, try to touch it to ensure it exists
+                    try {
+                        fs.closeSync(fs.openSync(sessionLogFile, 'a'));
+                    } catch (touchError) {
+                        console.error('Failed to touch session log file:', touchError.message);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error in ensureLogFilesExist:', error.message);
+        }
     }
 
     startCleanupInterval() {
@@ -158,6 +198,9 @@ class SessionLogger {
                 session_events: session.events.filter(e => e.event_type === 'session_event').length
             }
         };
+        
+        // Ensure log files exist before logging
+        this.ensureLogFilesExist();
         
         // Log the consolidated session
         this.sessionLogger.info('Consolidated session', consolidatedEntry);

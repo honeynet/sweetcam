@@ -4,9 +4,157 @@ const fs = require('fs');
 const path = require('path');
 const { writeServiceLog, writeRTSPLog } = require('./db-logger');
 
-const logsDir = path.join(__dirname, '..', 'logs');
+const dockerLogsDir = path.join('/app', 'logs');
+const localLogsDir = path.join(__dirname, '..', 'logs');
+
+const logsDir = fs.existsSync('/app/logs') ? dockerLogsDir : localLogsDir;
+
 if (!fs.existsSync(logsDir)) {
     fs.mkdirSync(logsDir, { recursive: true });
+}
+
+function ensureLogFilesExist() {
+    const today = new Date().toISOString().split('T')[0];
+    const appLogFile = path.join(logsDir, `rtsp-app-${today}.log`);
+    const errorLogFile = path.join(logsDir, `rtsp-error-${today}.log`);
+    
+    let needsReopen = false;
+    
+    try {
+        if (!fs.existsSync(appLogFile)) {
+            try {
+                fs.writeFileSync(appLogFile, `{"timestamp":"${new Date().toISOString()}","level":"info","message":"RTSP log file initialized","service":"rtsp"}\n`);
+                needsReopen = true;
+            } catch (writeError) {
+                console.error('Failed to create RTSP app log file:', writeError.message);
+                try {
+                    fs.closeSync(fs.openSync(appLogFile, 'a'));
+                    needsReopen = true;
+                } catch (touchError) {
+                    console.error('Failed to touch RTSP app log file:', touchError.message);
+                }
+            }
+        }
+        
+        if (!fs.existsSync(errorLogFile)) {
+            try {
+                fs.writeFileSync(errorLogFile, `{"timestamp":"${new Date().toISOString()}","level":"error","message":"RTSP error log file initialized","service":"rtsp"}\n`);
+                needsReopen = true;
+            } catch (writeError) {
+                console.error('Failed to create RTSP error log file:', writeError.message);
+                try {
+                    fs.closeSync(fs.openSync(errorLogFile, 'a'));
+                    needsReopen = true;
+                } catch (touchError) {
+                    console.error('Failed to touch RTSP error log file:', touchError.message);
+                }
+            }
+        }
+        
+        if (needsReopen) {
+            try {
+                if (appFileTransport && typeof appFileTransport.close === 'function') {
+                    appFileTransport.close();
+                }
+                if (errorFileTransport && typeof errorFileTransport.close === 'function') {
+                    errorFileTransport.close();
+                }
+                
+                logger.remove(appFileTransport);
+                logger.remove(errorFileTransport);
+                
+                const newAppFileTransport = new transports.DailyRotateFile({
+                    filename: path.join(logsDir, "rtsp-app-%DATE%.log"),
+                    datePattern: "YYYY-MM-DD",
+                    maxFiles: "14d",
+                    level: 'info'
+                });
+                
+                const newErrorFileTransport = new transports.DailyRotateFile({
+                    filename: path.join(logsDir, "rtsp-error-%DATE%.log"),
+                    datePattern: "YYYY-MM-DD",
+                    maxFiles: "30d",
+                    level: 'error'
+                });
+                
+                appFileTransport = newAppFileTransport;
+                errorFileTransport = newErrorFileTransport;
+                
+                logger.clear();
+                logger.add(consoleTransport);
+                logger.add(newAppFileTransport);
+                logger.add(newErrorFileTransport);
+            } catch (error) {
+                console.error('Failed to reopen RTSP transports:', error.message);
+            }
+        }
+    } catch (error) {
+        console.error('Error in ensureLogFilesExist:', error.message);
+    }
+}
+
+function checkAndRecreateLogFiles() {
+    const today = new Date().toISOString().split('T')[0];
+    const appLogFile = path.join(logsDir, `rtsp-app-${today}.log`);
+    const errorLogFile = path.join(logsDir, `rtsp-error-${today}.log`);
+    
+    let needsRecreate = false;
+    
+    try {
+        if (!fs.existsSync(appLogFile)) {
+            console.log(`[LOGGER] RTSP app log file not found: ${appLogFile}`);
+            needsRecreate = true;
+        } else {
+            try {
+                fs.accessSync(appLogFile, fs.constants.W_OK);
+            } catch (accessError) {
+                needsRecreate = true;
+            }
+        }
+        
+        if (!fs.existsSync(errorLogFile)) {
+            needsRecreate = true;
+        } else {
+            try {
+                fs.accessSync(errorLogFile, fs.constants.W_OK);
+            } catch (accessError) {
+                needsRecreate = true;
+            }
+        }
+        
+        if (needsRecreate) {
+            ensureLogFilesExist();
+        }
+    } catch (error) {
+        console.error('[LOGGER] Error checking RTSP log files:', error.message);
+        try {
+            ensureLogFilesExist();
+        } catch (ensureError) {
+            console.error('[LOGGER] Failed to ensure RTSP log files exist:', ensureError.message);
+        }
+    }
+}
+
+function setupFileWatcher() {
+    try {
+        const watcher = fs.watch(logsDir, { recursive: false }, (eventType, filename) => {
+            if (eventType === 'rename' && filename) {
+                const today = new Date().toISOString().split('T')[0];
+                if (filename.includes(today) && filename.endsWith('.log')) {
+                    setTimeout(checkAndRecreateLogFiles, 100);
+                }
+            }
+        });
+        
+        watcher.on('error', (error) => {
+            console.error('RTSP file watcher error:', error.message);
+        });
+        
+        return watcher;
+    } catch (error) {
+        console.error('Failed to set up RTSP file watcher:', error.message);
+        return null;
+    }
 }
 
 const securityFormat = format.combine(
@@ -38,14 +186,14 @@ const securityFormat = format.combine(
     })
 );
 
-const appFileTransport = new transports.DailyRotateFile({
+let appFileTransport = new transports.DailyRotateFile({
     filename: path.join(logsDir, "rtsp-app-%DATE%.log"),
     datePattern: "YYYY-MM-DD",
     maxFiles: "14d",
     level: 'info'
 });
 
-const errorFileTransport = new transports.DailyRotateFile({
+let errorFileTransport = new transports.DailyRotateFile({
     filename: path.join(logsDir, "rtsp-error-%DATE%.log"),
     datePattern: "YYYY-MM-DD",
     maxFiles: "30d",
@@ -77,9 +225,33 @@ const logConfiguration = {
 
 const logger = createLogger(logConfiguration);
 
+logger.on('error', (error) => {
+    console.error('Logger error:', error);
+    ensureLogFilesExist();
+});
+    
+const safeLogger = {
+    info: (message, meta) => {
+        checkAndRecreateLogFiles();
+        return logger.info(message, meta);
+    },
+    warn: (message, meta) => {
+        checkAndRecreateLogFiles();
+        return logger.warn(message, meta);
+    },
+    error: (message, meta) => {
+        checkAndRecreateLogFiles();
+        return logger.error(message, meta);
+    },
+    debug: (message, meta) => {
+        checkAndRecreateLogFiles();
+        return logger.debug(message, meta);
+    }
+};
+
 const rtspLogger = {
     logRTSPConnection: (ip, event, brand, port, sessionId = null) => {
-        logger.info('RTSP connection event', {
+        safeLogger.info('RTSP connection event', {
             service: 'rtsp',
             event_type: 'connection_event',
             ip_address: ip,
@@ -94,7 +266,7 @@ const rtspLogger = {
     },
 
     logRTSPAuthAttempt: (ip, username, success, reason, brand, port, sessionId = null) => {
-        logger.info('RTSP authentication attempt', {
+        safeLogger.info('RTSP authentication attempt', {
             service: 'rtsp',
             event_type: 'auth_attempt',
             ip_address: ip,
@@ -111,7 +283,7 @@ const rtspLogger = {
     },
 
     logRTSPMethod: (ip, method, url, sessionId, brand, port) => {
-        logger.info('RTSP method request', {
+        safeLogger.info('RTSP method request', {
             service: 'rtsp',
             event_type: 'rtsp_method',
             ip_address: ip,
@@ -127,7 +299,7 @@ const rtspLogger = {
     },
 
     logRTSPResponse: (ip, method, statusCode, sessionId, brand, port) => {
-        logger.info('RTSP response', {
+        safeLogger.info('RTSP response', {
             service: 'rtsp',
             event_type: 'rtsp_response',
             ip_address: ip,
@@ -143,7 +315,7 @@ const rtspLogger = {
     },
 
     logRTSPSession: (ip, sessionId, event, streamPath, brand, port) => {
-        logger.info('RTSP session event', {
+        safeLogger.info('RTSP session event', {
             service: 'rtsp',
             event_type: 'session_event',
             ip_address: ip,
@@ -159,7 +331,7 @@ const rtspLogger = {
     },
 
     logRTSPStreamSetup: (ip, sessionId, streamPath, transportInfo, brand, port) => {
-        logger.info('RTSP stream setup', {
+        safeLogger.info('RTSP stream setup', {
             service: 'rtsp',
             event_type: 'stream_setup',
             ip_address: ip,
@@ -175,7 +347,7 @@ const rtspLogger = {
     },
 
     logRTSPStreamPlay: (ip, sessionId, streamPath, brand, port) => {
-        logger.info('RTSP stream play', {
+        safeLogger.info('RTSP stream play', {
             service: 'rtsp',
             event_type: 'stream_play',
             ip_address: ip,
@@ -190,7 +362,7 @@ const rtspLogger = {
     },
 
     logRTSPStreamPause: (ip, sessionId, streamPath, brand, port) => {
-        logger.info('RTSP stream pause', {
+        safeLogger.info('RTSP stream pause', {
             service: 'rtsp',
             event_type: 'stream_pause',
             ip_address: ip,
@@ -200,12 +372,12 @@ const rtspLogger = {
             port: port,
             message: `RTSP stream pause: ${streamPath}`
         });
-        writeServiceLog({ service: 'rtsp', event_type: 'stream_pause', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP stream pause: ${streamPath}` });
+        writeServiceLog({ service: 'rtsp', event_type: 'stream_pause', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP stream pause: ${streamPath}`, raw_data: { transportInfo } });
         writeRTSPLog({ event_type: 'stream_pause', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, stream_path: streamPath, message: `RTSP stream pause: ${streamPath}` });
     },
 
     logRTSPStreamTeardown: (ip, sessionId, streamPath, brand, port) => {
-        logger.info('RTSP stream teardown', {
+        safeLogger.info('RTSP stream teardown', {
             service: 'rtsp',
             event_type: 'stream_teardown',
             ip_address: ip,
@@ -215,12 +387,12 @@ const rtspLogger = {
             port: port,
             message: `RTSP stream teardown: ${streamPath}`
         });
-        writeServiceLog({ service: 'rtsp', event_type: 'stream_teardown', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP stream teardown: ${streamPath}` });
+        writeServiceLog({ service: 'rtsp', event_type: 'stream_teardown', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP stream teardown: ${streamPath}`, raw_data: { transportInfo } });
         writeRTSPLog({ event_type: 'stream_teardown', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, stream_path: streamPath, message: `RTSP stream teardown: ${streamPath}` });
     },
 
     logRTPStream: (ip, sessionId, event, details, brand, port) => {
-        logger.info('RTP stream event', {
+        safeLogger.info('RTP stream event', {
             service: 'rtsp',
             event_type: 'rtp_stream',
             ip_address: ip,
@@ -236,7 +408,7 @@ const rtspLogger = {
     },
 
     logRTSPSOptions: (ip, userAgent, brand, port, sessionId = null) => {
-        logger.info('RTSP options request', {
+        safeLogger.info('RTSP options request', {
             service: 'rtsp',
             event_type: 'options_request',
             ip_address: ip,
@@ -251,7 +423,7 @@ const rtspLogger = {
     },
 
     logRTSPDescribe: (ip, url, userAgent, brand, port, sessionId = null) => {
-        logger.info('RTSP describe request', {
+        safeLogger.info('RTSP describe request', {
             service: 'rtsp',
             event_type: 'describe_request',
             ip_address: ip,
@@ -262,14 +434,12 @@ const rtspLogger = {
             session_id: sessionId,
             message: `RTSP describe request: ${url}`
         });
-        writeServiceLog({ service: 'rtsp', event_type: 'describe_request', log_level: 'info', ip_address: ip, brand, port, user_agent: userAgent, session_id: sessionId, message: `RTSP describe request: ${url}` });
+        writeServiceLog({ service: 'rtsp', event_type: 'describe_request', log_level: 'info', ip_address: ip, brand, port, user_agent: userAgent, session_id: sessionId, message: `RTSP describe request: ${url}`, raw_data: { url } });
         writeRTSPLog({ event_type: 'describe_request', log_level: 'info', ip_address: ip, brand, port, user_agent: userAgent, session_id: sessionId, stream_path: url, message: `RTSP describe request: ${url}` });
     },
 
-
-
     logRTSPServiceEvent: (event, details, brand, port, sessionId = null) => {
-        logger.info('RTSP service event', {
+        safeLogger.info('RTSP service event', {
             service: 'rtsp',
             event_type: 'service_event',
             event: event,
@@ -284,7 +454,7 @@ const rtspLogger = {
     },
 
     logRTSPDatabaseAuth: (ip, username, success, error, brand, port, sessionId = null) => {
-        logger.info('RTSP database authentication', {
+        safeLogger.info('RTSP database authentication', {
             service: 'rtsp',
             event_type: 'database_auth',
             ip_address: ip,
@@ -296,12 +466,12 @@ const rtspLogger = {
             session_id: sessionId,
             message: `RTSP database auth ${success ? 'successful' : 'failed'} for user: ${username}`
         });
-        writeServiceLog({ service: 'rtsp', event_type: 'database_auth', log_level: 'info', ip_address: ip, brand, port, username, session_id: sessionId, message: `RTSP database auth ${success ? 'successful' : 'failed'} for user: ${username}`, raw_data: { error, success } });
-        writeRTSPLog({ event_type: 'database_auth', log_level: 'info', ip_address: ip, brand, port, username, session_id: sessionId, message: `RTSP database auth ${success ? 'successful' : 'failed'} for user: ${username}`, raw_data: { error, success } });
+        writeServiceLog({ service: 'rtsp', event_type: 'database_auth', log_level: 'info', ip_address: ip, brand, port, username, sessionId, message: `RTSP database auth ${success ? 'successful' : 'failed'} for user: ${username}`, raw_data: { error, success } });
+        writeRTSPLog({ event_type: 'database_auth', log_level: 'info', ip_address: ip, brand, port, username, sessionId, message: `RTSP database auth ${success ? 'successful' : 'failed'} for user: ${username}`, raw_data: { error, success } });
     },
     
     logRTSPError: (error, context, ip, brand, port, sessionId = null) => {
-        logger.error('RTSP error', {
+        safeLogger.error('RTSP error', {
             service: 'rtsp',
             event_type: 'error',
             error: error.message,
@@ -317,4 +487,42 @@ const rtspLogger = {
     }
 };
 
-module.exports = { logger, rtspLogger }; 
+// Set up file watcher when module is loaded
+let fileWatcher = null;
+
+try {
+    fileWatcher = setupFileWatcher();
+    if (fileWatcher) {
+        console.log('[LOGGER] RTSP file watcher set up successfully');
+    }
+} catch (error) {
+    console.error('[LOGGER] Failed to set up RTSP file watcher:', error.message);
+    // Continue without file watcher, rely on checkAndRecreateLogFiles
+}
+
+// Cleanup function for graceful shutdown
+process.on('SIGINT', () => {
+    if (fileWatcher) {
+        try {
+            fileWatcher.close();
+            console.log('[LOGGER] RTSP file watcher closed');
+        } catch (error) {
+            console.error('[LOGGER] Error closing RTSP file watcher:', error.message);
+        }
+    }
+    process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+    if (fileWatcher) {
+        try {
+        fileWatcher.close();
+        console.log('[LOGGER] RTSP file watcher closed');
+    } catch (error) {
+        console.error('[LOGGER] Error closing RTSP file watcher:', error.message);
+    }
+    }
+    process.exit(0);
+});
+
+module.exports = { logger: safeLogger, rtspLogger }; 

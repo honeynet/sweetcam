@@ -3,15 +3,12 @@ require("winston-daily-rotate-file");
 const fs = require('fs');
 const path = require('path');
 
-// Import database logger
 const databaseLogger = require('./database-logger');
 
 function logCowrieEvent(event) {
   return databaseLogger.logEvent({ service: 'cowrie', ...event });
 }
 
-// Create logs directory if it doesn't exist
-// Check if we're running in Docker container (logs directory exists at /app/logs)
 const dockerLogsDir = path.join('/app', 'logs', 'webservices');
 const localLogsDir = path.join(__dirname, '..', '..', 'logs', 'webservices');
 
@@ -21,7 +18,150 @@ if (!fs.existsSync(logsDir)) {
     fs.mkdirSync(logsDir, { recursive: true });
 }
 
-// Security-focused log format for honeypot events
+function ensureLogFilesExist() {
+    const today = new Date().toISOString().split('T')[0];
+    const appLogFile = path.join(logsDir, `app-${today}.log`);
+    const errorLogFile = path.join(logsDir, `error-${today}.log`);
+    
+    let needsReopen = false;
+    
+    try {
+        if (!fs.existsSync(appLogFile)) {
+            try {
+                fs.writeFileSync(appLogFile, `{"timestamp":"${new Date().toISOString()}","level":"info","message":"Log file initialized","service":"webservice"}\n`);
+                needsReopen = true;
+            } catch (writeError) {
+                console.error('Failed to create app log file:', writeError.message);
+                                    try {
+                        fs.closeSync(fs.openSync(appLogFile, 'a'));
+                        needsReopen = true;
+                    } catch (touchError) {
+                    console.error('Failed to touch app log file:', touchError.message);
+                }
+            }
+        }
+        
+        if (!fs.existsSync(errorLogFile)) {
+            try {
+                fs.writeFileSync(errorLogFile, `{"timestamp":"${new Date().toISOString()}","level":"error","message":"Error log file initialized","service":"webservice"}\n`);
+                needsReopen = true;
+            } catch (writeError) {
+                console.error('Failed to create error log file:', writeError.message);
+                                    try {
+                        fs.closeSync(fs.openSync(errorLogFile, 'a'));
+                        needsReopen = true;
+                    } catch (touchError) {
+                    console.error('Failed to touch error log file:', touchError.message);
+                }
+            }
+        }
+        
+        if (needsReopen) {
+            try {
+                if (appFileTransport && typeof appFileTransport.close === 'function') {
+                    appFileTransport.close();
+                }
+                if (errorFileTransport && typeof errorFileTransport.close === 'function') {
+                    errorFileTransport.close();
+                }
+                
+                logger.remove(appFileTransport);
+                logger.remove(errorFileTransport);
+                
+                const newAppFileTransport = new transports.DailyRotateFile({
+                    filename: path.join(logsDir, "app-%DATE%.log"),
+                    datePattern: "YYYY-MM-DD",
+                    maxFiles: "14d",
+                    level: 'info'
+                });
+                
+                const newErrorFileTransport = new transports.DailyRotateFile({
+                    filename: path.join(logsDir, "error-%DATE%.log"),
+                    datePattern: "YYYY-MM-DD",
+                    maxFiles: "30d",
+                    level: 'error'
+                });
+                
+                appFileTransport = newAppFileTransport;
+                errorFileTransport = newErrorFileTransport;
+                
+                logger.clear();
+                logger.add(consoleTransport);
+                logger.add(newAppFileTransport);
+                logger.add(newErrorFileTransport);
+            } catch (error) {
+                console.error('Failed to reopen transports:', error.message);
+            }
+        }
+    } catch (error) {
+        console.error('Error in ensureLogFilesExist:', error.message);
+    }
+}
+
+function checkAndRecreateLogFiles() {
+    const today = new Date().toISOString().split('T')[0];
+    const appLogFile = path.join(logsDir, `app-${today}.log`);
+    const errorLogFile = path.join(logsDir, `error-${today}.log`);
+    
+    let needsRecreate = false;
+    
+    try {
+        if (!fs.existsSync(appLogFile)) {
+            needsRecreate = true;
+        } else {
+            try {
+                fs.accessSync(appLogFile, fs.constants.W_OK);
+            } catch (accessError) {
+                needsRecreate = true;
+            }
+        }
+        
+        if (!fs.existsSync(errorLogFile)) {
+            needsRecreate = true;
+        } else {
+            try {
+                fs.accessSync(errorLogFile, fs.constants.W_OK);
+            } catch (accessError) {
+                needsRecreate = true;
+            }
+        }
+        
+        if (needsRecreate) {
+            ensureLogFilesExist();
+        }
+    } catch (error) {
+        console.error('[LOGGER] Error checking log files:', error.message);
+        try {
+            ensureLogFilesExist();
+        } catch (ensureError) {
+            console.error('[LOGGER] Failed to ensure log files exist:', ensureError.message);
+        }
+    }
+}
+
+function setupFileWatcher() {
+    try {
+        const watcher = fs.watch(logsDir, { recursive: false }, (eventType, filename) => {
+            if (eventType === 'rename' && filename) {
+                const today = new Date().toISOString().split('T')[0];
+                if (filename.includes(today) && filename.endsWith('.log')) {
+                    console.log(`[LOGGER] Detected log file change: ${filename}, checking files...`);
+                    setTimeout(checkAndRecreateLogFiles, 100);
+                }
+            }
+        });
+        
+        watcher.on('error', (error) => {
+            console.error('File watcher error:', error.message);
+        });
+        
+        return watcher;
+    } catch (error) {
+        console.error('Failed to set up file watcher:', error.message);
+        return null;
+    }
+}
+
 const securityFormat = format.combine(
     format.timestamp({
         format: 'YYYY-MM-DD HH:mm:ss'
@@ -50,29 +190,25 @@ const securityFormat = format.combine(
     })
 );
 
-// Regular application logs
-const appFileTransport = new transports.DailyRotateFile({
+let appFileTransport = new transports.DailyRotateFile({
     filename: path.join(logsDir, "app-%DATE%.log"),
     datePattern: "YYYY-MM-DD",
     maxFiles: "14d",
     level: 'info'
 });
 
-// Error logs
-const errorFileTransport = new transports.DailyRotateFile({
+let errorFileTransport = new transports.DailyRotateFile({
     filename: path.join(logsDir, "error-%DATE%.log"),
     datePattern: "YYYY-MM-DD",
     maxFiles: "30d",
     level: 'error'
 });
 
-// Console transport (only in development)
 const consoleTransport = new transports.Console({
     format: format.combine(
         format.colorize(),
         format.simple(),
         format.printf(info => {
-            // Don't log sensitive information to console
             const safeInfo = { ...info };
             delete safeInfo.payload;
             delete safeInfo.username;
@@ -89,31 +225,112 @@ const logConfiguration = {
         errorFileTransport
     ],
     format: securityFormat,
-    // Don't exit on error
     exitOnError: false
 };
 
 const logger = createLogger(logConfiguration);
 
-// Add error handling to the logger
 logger.on('error', (error) => {
     console.error('Logger error:', error);
+    ensureLogFilesExist();
 });
 
 logger.on('warn', (info) => {
     console.warn('Logger warning:', info);
 });
 
+const safeLogger = {
+    info: (message, meta) => {
+        checkAndRecreateLogFiles();
+        try {
+            const result = logger.info(message, meta);
+            return result;
+        } catch (error) {   
+            console.error('[LOGGER] Winston failed, using fallback logging:', error.message);
+            return fallbackLog('info', message, meta);
+        }
+    },
+    warn: (message, meta) => {
+        checkAndRecreateLogFiles();
+        console.log('[DEBUG] Attempting to log with Winston...');
+        try {
+            const result = logger.warn(message, meta);
+            console.log('[DEBUG] Winston logging successful');
+            return result;
+        } catch (error) {
+            console.error('[LOGGER] Winston failed, using fallback logging:', error.message);
+            return fallbackLog('warn', message, meta);
+        }
+    },
+    error: (message, meta) => {
+        checkAndRecreateLogFiles();
+        console.log('[DEBUG] Attempting to log with Winston...');
+        try {
+            const result = logger.error(message, meta);
+            console.log('[DEBUG] Winston logging successful');
+            return result;
+        } catch (error) {
+            console.error('[LOGGER] Winston failed, using fallback logging:', error.message);
+            return fallbackLog('error', message, meta);
+        }
+    },
+    debug: (message, meta) => {
+        checkAndRecreateLogFiles();
+        try {
+            const result = logger.debug(message, meta);
+            return result;
+        } catch (error) {
+            console.error('[LOGGER] Winston failed, using fallback logging:', error.message);
+            return fallbackLog('debug', message, meta);
+        }
+    }
+};
+
+function fallbackLog(level, message, meta) {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const timestamp = new Date().toISOString();
+        
+        const logEntry = {
+            timestamp: timestamp,
+            level: level,
+            message: message,
+            service: meta?.service || 'webservice',
+            event_type: meta?.event_type || 'general',
+            ip_address: meta?.ip_address || null,
+            user_agent: meta?.user_agent || null,
+            session_id: meta?.session_id || null,
+            username: meta?.username || null,
+            password: meta?.password || null,
+            request_method: meta?.request_method || null,
+            request_url: meta?.request_url || null,
+            response_status: meta?.response_status || null,
+            brand: meta?.brand || null,
+            port: meta?.port || null
+        };
+        
+        const logLine = JSON.stringify(logEntry) + '\n';
+        
+        if (level === 'error') {
+            const errorLogFile = path.join(logsDir, `error-${today}.log`);
+            fs.appendFileSync(errorLogFile, logLine);
+        } else {
+            const appLogFile = path.join(logsDir, `app-${today}.log`);
+            fs.appendFileSync(appLogFile, logLine);
+        }
+        
+        console.log(`[FALLBACK_LOGGER] ${level.toUpperCase()}: ${message}`);
+        return true;
+    } catch (error) {
+        console.error('[FALLBACK_LOGGER] Failed to write log:', error.message);
+        return false;
+    }
+}
 
 
-
-
-// Helper functions for honeypot-specific logging
 const honeypotLogger = {
-    // Log login attempts
     logLoginAttempt: async (ip, username, success, userAgent, sessionId, brand, port, password = null) => {
-        // Log to regular log file
-        logger.info('Login attempt', {
+        safeLogger.info('Login attempt', {
             service: 'webservice',
             event_type: 'login_attempt',
             ip_address: ip,
@@ -127,7 +344,6 @@ const honeypotLogger = {
             message: `Login attempt ${success ? 'successful' : 'failed'} for user: ${username}`
         });
         
-        // Log to database
         try {
             await databaseLogger.logEvent({
                 service: 'web',
@@ -153,10 +369,8 @@ const honeypotLogger = {
         }
     },
 
-    // Log authentication failures
     logAuthFailure: (ip, username, reason, userAgent, brand, port, password = null, sessionId = null, requestMethod = null, requestUrl = null, responseStatus = null) => {
-        // Log to regular log file
-        logger.warn('Authentication failure', {
+        safeLogger.warn('Authentication failure', {
             service: 'webservice',
             event_type: 'auth_failure',
             ip_address: ip,
@@ -175,10 +389,8 @@ const honeypotLogger = {
         
     },
 
-    // Log service access
     logServiceAccess: async (ip, method, url, statusCode, userAgent, brand, port, sessionId = null) => {
-        // Log to regular log file
-        logger.info('Service access', {
+        safeLogger.info('Service access', {
             service: 'webservice',
             event_type: 'service_access',
             ip_address: ip,
@@ -192,7 +404,6 @@ const honeypotLogger = {
             message: `${method} ${url} - ${statusCode}`
         });
         
-        // Log to database
         try {
             await databaseLogger.logEvent({
                 service: 'web',
@@ -215,10 +426,8 @@ const honeypotLogger = {
         }
     },
 
-    // Log session events
     logSessionEvent: (ip, sessionId, event, username, brand, port) => {
-        // Log to regular log file
-        logger.info('Session event', {
+        safeLogger.info('Session event', {
             service: 'webservice',
             event_type: 'session_event',
             ip_address: ip,
@@ -232,9 +441,8 @@ const honeypotLogger = {
         
     },
 
-    // Log database events
     logDatabaseEvent: (event, details, success, sessionId = null) => {
-        logger.info('Database event', {
+        safeLogger.info('Database event', {
             service: 'webservice',
             event_type: 'database_event',
             event: event,
@@ -245,9 +453,8 @@ const honeypotLogger = {
         });
     },
 
-    // Log service startup/shutdown
     logServiceEvent: (event, details, sessionId = null) => {
-        logger.info('Service event', {
+        safeLogger.info('Service event', {
             service: 'webservice',
             event_type: 'service_event',
             event: event,
@@ -257,9 +464,8 @@ const honeypotLogger = {
         });
     },
 
-    // General error logging
     logError: (error, context, sessionId = null) => {
-        logger.error('Error occurred', {
+        safeLogger.error('Error occurred', {
             service: 'webservice',
             event_type: 'error',
             error: error.message,
@@ -270,9 +476,8 @@ const honeypotLogger = {
         });
     },
 
-    // Log RTSP service management
     logRTSPManagement: (ip, action, serviceName, status, userAgent, brand, port, sessionId = null) => {
-        logger.info('RTSP management', {
+        safeLogger.info('RTSP management', {
             service: 'webservice',
             event_type: 'rtsp_management',
             ip_address: ip,
@@ -287,14 +492,13 @@ const honeypotLogger = {
         });
     },
 
-    // Log RTSP service toggle
     logRTSPServiceToggle: (ip, serviceName, action, previousStatus, newStatus, userAgent, brand, port, sessionId = null) => {
-        logger.info('RTSP service toggle', {
+        safeLogger.info('RTSP service toggle', {
             service: 'webservice',
             event_type: 'rtsp_service_toggle',
             ip_address: ip,
-            service_name: serviceName,
             action: action,
+            service_name: serviceName,
             previous_status: previousStatus,
             new_status: newStatus,
             user_agent: userAgent,
@@ -305,14 +509,13 @@ const honeypotLogger = {
         });
     },
 
-    // Log ONVIF service toggle
     logONVIFServiceToggle: (ip, serviceName, action, previousStatus, newStatus, userAgent, brand, port, sessionId = null) => {
-        logger.info('ONVIF service toggle', {
+        safeLogger.info('ONVIF service toggle', {
             service: 'webservice',
             event_type: 'onvif_service_toggle',
             ip_address: ip,
-            service_name: serviceName,
             action: action,
+            service_name: serviceName,
             previous_status: previousStatus,
             new_status: newStatus,
             user_agent: userAgent,
@@ -324,4 +527,37 @@ const honeypotLogger = {
     }
 };
 
-module.exports = { logger, honeypotLogger, logCowrieEvent };
+let fileWatcher = null;
+
+try {
+    fileWatcher = setupFileWatcher();
+    if (fileWatcher) {
+        // File watcher set up successfully
+    }
+} catch (error) {
+    console.error('[LOGGER] Failed to set up file watcher:', error.message);
+}
+
+process.on('SIGINT', () => {
+    if (fileWatcher) {
+        try {
+            fileWatcher.close();
+        } catch (error) {
+            console.error('[LOGGER] Error closing file watcher:', error.message);
+        }
+    }
+    process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+    if (fileWatcher) {
+        try {
+            fileWatcher.close();
+        } catch (error) {
+            console.error('[LOGGER] Error closing file watcher:', error.message);
+        }
+    }
+    process.exit(0);
+});
+
+module.exports = { logger: safeLogger, honeypotLogger, logCowrieEvent };

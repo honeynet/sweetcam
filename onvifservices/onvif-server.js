@@ -741,11 +741,7 @@ class ONVIFHoneypot {
       await this.wsDiscovery.start();
 
       this.server.listen(this.port, () => {
-        console.log('Services available:');
-        console.log(`- WS-Discovery: UDP 3702 (multicast 239.255.255.250)`);
-        console.log(`- Device Service: http://localhost:${this.port}/onvif/device_service`);
-        console.log(`- Media Service: http://localhost:${this.port}/onvif/media_service`);
-        console.log(`- Health Check: http://localhost:${this.port}/health`);
+
         
         onvifLogger.logONVIFServiceEvent('started', `ONVIF service started on port ${this.port}`, this.soapService.brandConfig.brand, this.port);
       });
@@ -760,19 +756,17 @@ class ONVIFHoneypot {
   stop() {
     this.wsDiscovery.stop();
     this.server.close();
-    console.log('ONVIF stopped');
+    
     onvifLogger.logONVIFServiceEvent('stopped', 'ONVIF service stopped', this.soapService.brandConfig.brand, this.port);
   }
 }
 
 //handle shutdown
 process.on('SIGINT', () => {
-  console.log('Received SIGINT, shutting down...');
   process.exit(0);
 });
 
 process.on('SIGTERM', () => {
-  console.log('Received SIGTERM, shutting down...');
   process.exit(0);
 });
 

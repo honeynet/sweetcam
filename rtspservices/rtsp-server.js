@@ -31,10 +31,10 @@ const pool = mysql.createPool(poolConfig);
 pool.getConnection((err, connection) => {
     if (err) {
         console.error('Failed to connect to database:', err.message);
-        console.log('RTSP server will start but authentication will fail until database is available');
+
         rtspLogger.logRTSPError(err, 'database_connection', null, 'auto', RTSP_PORT);
     } else {
-        console.log('Database connection successful');
+
         rtspLogger.logRTSPDatabaseAuth(null, null, true, null, 'auto', RTSP_PORT);
         connection.release();
     }
@@ -64,14 +64,14 @@ function authenticateUser(username, password) {
         pool.query(query, [lowerUsername], (error, results) => {
             if (error) {
                 console.error('Database query error:', error.message);
-                console.log(`Database authentication failed for user: ${username} - database connection error`);
+        
                 rtspLogger.logRTSPDatabaseAuth(null, username, false, error.message, 'auto', RTSP_PORT);
                 resolve(false);
                 return;
             }
             
             if (results.length === 0) {
-                console.log(`User not found: ${username}`);
+        
                 rtspLogger.logRTSPDatabaseAuth(null, username, false, 'user_not_found', 'auto', RTSP_PORT);
                 resolve(false);
                 return;
@@ -82,7 +82,7 @@ function authenticateUser(username, password) {
                 try {
                     const isValid = bcrypt.compareSync(password, user.passwordHash);
                     if (isValid) {
-                        console.log(`Database authentication successful for user: ${username}`);
+                
                         rtspLogger.logRTSPDatabaseAuth(null, username, true, null, 'auto', RTSP_PORT);
                         resolve(true);
                         return;
@@ -93,7 +93,7 @@ function authenticateUser(username, password) {
                 }
             }
             
-            console.log(`Invalid password for user: ${username}`);
+    
             rtspLogger.logRTSPDatabaseAuth(null, username, false, 'wrong_password', 'auto', RTSP_PORT);
             resolve(false);
         });
@@ -491,13 +491,13 @@ a=control:trackID=1\r
             jpeg = fs.readFileSync(imagePath);
         } catch (e) {
             console.error(`Could not load the image: ${e.message}`);
-            console.log('Please ensure the image is present. Exiting...');
+    
             rtp.close();
             rtcp.close();
             return;
         }
 
-        console.log(`Starting RTP stream to ${session.clientAddress}:${session.clientRtpPort}`);
+
 
         session.rtpSocket = rtp;
         session.rtcpSocket = rtcp;
@@ -628,12 +628,12 @@ const server = net.createServer(socket => {
 });
 
 server.listen(RTSP_PORT, '0.0.0.0', () => {
-    console.log(`RTSP server started on port ${RTSP_PORT}`);
+    
     rtspLogger.logRTSPServiceEvent('started', `RTSP server started on port ${RTSP_PORT}`, 'auto', RTSP_PORT);
 });
 
 process.on('SIGINT', () => {
-    console.log('Shutting down RTSP server...');
+    
     rtspLogger.logRTSPServiceEvent('stopping', 'RTSP server shutting down', 'auto', RTSP_PORT);
     server.close(() => {
         rtspLogger.logRTSPServiceEvent('stopped', 'RTSP server stopped', 'auto', RTSP_PORT);

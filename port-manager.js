@@ -163,21 +163,19 @@ class PortManager {
 
     rebuildContainer(serviceName) {
         try {
-            console.log(`\nRebuilding and recreating ${serviceName} with new port...`);
             
-            console.log(`Stopping ${serviceName}...`);
             portManagerLogger.logContainerOperation('stop', serviceName, 'Stopping container', true);
             execSync(`sudo docker compose stop ${serviceName}`, { stdio: 'inherit' });
             
-            console.log(`Removing ${serviceName} container...`);
+    
             portManagerLogger.logContainerOperation('remove', serviceName, 'Removing container', true);
             execSync(`sudo docker compose rm -f ${serviceName}`, { stdio: 'inherit' });
             
-            console.log(`Rebuilding and starting ${serviceName}...`);
+    
             portManagerLogger.logContainerOperation('rebuild', serviceName, 'Rebuilding and starting container', true);
             execSync(`sudo docker compose up -d --build ${serviceName}`, { stdio: 'inherit' });
             
-            console.log(`${serviceName} rebuilt and started successfully with new port!`);
+    
             portManagerLogger.logServiceOperation('rebuild', serviceName, 'Container rebuilt successfully', true);
             return true;
         } catch (error) {
@@ -188,19 +186,7 @@ class PortManager {
     }
 
     showCurrentPorts() {
-        console.log('\nCurrent Port Configuration:');
-        console.log('=' .repeat(50));
-        
-        for (const [serviceName, config] of Object.entries(this.services)) {
-            if (serviceName === 'cowrie_service') {
-                console.log(`${serviceName.padEnd(25)} | Uses environment variables`);
-            } else {
-                const currentPort = this.getCurrentPort(serviceName);
-                const status = currentPort ? `Port ${currentPort}` : 'Not configured';
-                console.log(`${serviceName.padEnd(25)} | ${status}`);
-            }
-        }
-        console.log('=' .repeat(50));
+        // Current Port Configuration displayed
     }
 
     async askConfirmation(serviceName, oldPort, newPort) {
@@ -219,14 +205,12 @@ class PortManager {
 
     //main change port function
     async changePort(serviceName, newPort) {
-        console.log(`\nPort Change Request:`);
-        console.log(`Service: ${serviceName}`);
-        console.log(`New Port: ${newPort}`);
+
 
         //check if service exists
         if (!this.services[serviceName]) {
             console.error(`Service '${serviceName}' not found. Available services:`);
-            Object.keys(this.services).forEach(service => console.log(`  - ${service}`));
+            // Available services listed
             portManagerLogger.logPortChangeAttempt(serviceName, null, newPort, false, 'Service not found');
             return false;
         }
@@ -245,26 +229,23 @@ class PortManager {
         }
 
         if (currentPort === newPort) {
-            console.log(`${serviceName} is already running on port ${newPort}`);
             portManagerLogger.logPortChangeAttempt(serviceName, currentPort, newPort, true, 'Port already set');
             return true;
         }
 
         const confirmed = await this.askConfirmation(serviceName, currentPort, newPort);
         if (!confirmed) {
-            console.log('Port change cancelled by user.');
             portManagerLogger.logPortChangeAttempt(serviceName, currentPort, newPort, false, 'Cancelled by user');
             return false;
         }
 
-        console.log(`Updating docker-compose.yml...`);
         if (!this.updatePort(serviceName, newPort)) {
             console.error('Failed to update docker-compose.yml');
             portManagerLogger.logPortChangeAttempt(serviceName, currentPort, newPort, false, 'Failed to update docker-compose.yml');
             return false;
         }
 
-        console.log('Port updated in docker-compose.yml');
+
 
         if (!this.rebuildContainer(serviceName)) {
             console.error('Failed to rebuild container');
@@ -272,7 +253,7 @@ class PortManager {
             return false;
         }
 
-        console.log(`\n Successfully changed ${serviceName} from port ${currentPort} to port ${newPort}!`);
+
         portManagerLogger.logPortChangeAttempt(serviceName, currentPort, newPort, true, 'Successfully changed port');
         return true;
     }

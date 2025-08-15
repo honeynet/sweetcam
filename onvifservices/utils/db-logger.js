@@ -1,7 +1,6 @@
 const mysql = require('mysql2/promise');
 const { pool: existingPool } = require('../config/db-config');
 
-// Use existing pool from config if provided; fallback to local pool creation
 const pool = existingPool || mysql.createPool({
   host: process.env.DB_HOST || 'mysql_service',
   user: process.env.DB_USER || 'root',
