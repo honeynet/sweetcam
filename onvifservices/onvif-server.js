@@ -3,6 +3,7 @@ const http = require('http');
 const soap = require('soap');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 require('dotenv').config();
 
 const UDPWSDiscoveryService = require('./services/udp-ws-discovery');
@@ -23,9 +24,69 @@ class ONVIFHoneypot {
     this.soapService = new ONVIFSoapService();
     this.port = process.env.ONVIF_HTTP_PORT || 8080;
     
+    // Session management
+    this.sessions = new Map(); // Store active sessions
+    this.sessionTimeout = 30 * 60 * 1000; // 30 minutes
+    
     this.setupMiddleware();
     this.setupSOAPServices();
     this.setupRoutes();
+    
+    // Clean up expired sessions every 5 minutes
+    setInterval(() => this.cleanupSessions(), 5 * 60 * 1000);
+  }
+
+  // Generate unique session ID
+  generateSessionId() {
+    return crypto.randomBytes(16).toString('hex');
+  }
+
+  // Get or create session for IP
+  getOrCreateSession(ip) {
+    const now = Date.now();
+    
+    // Check if IP already has an active session
+    if (this.sessions.has(ip)) {
+      const session = this.sessions.get(ip);
+      if (now - session.lastActivity < this.sessionTimeout) {
+        // Update last activity
+        session.lastActivity = now;
+        return session.id;
+      } else {
+        // Session expired, remove it
+        this.sessions.delete(ip);
+      }
+    }
+    
+    // Create new session
+    const sessionId = this.generateSessionId();
+    this.sessions.set(ip, {
+      id: sessionId,
+      createdAt: now,
+      lastActivity: now,
+      requestCount: 0
+    });
+    
+    return sessionId;
+  }
+
+  // Update session activity
+  updateSessionActivity(ip) {
+    if (this.sessions.has(ip)) {
+      const session = this.sessions.get(ip);
+      session.lastActivity = Date.now();
+      session.requestCount++;
+    }
+  }
+
+  // Clean up expired sessions
+  cleanupSessions() {
+    const now = Date.now();
+    for (const [ip, session] of this.sessions.entries()) {
+      if (now - session.lastActivity > this.sessionTimeout) {
+        this.sessions.delete(ip);
+      }
+    }
   }
 
   setupMiddleware() {    
@@ -39,13 +100,22 @@ class ONVIFHoneypot {
       res.setHeader('Connection', 'close');
       res.setHeader('Content-Type', 'application/soap+xml; charset=utf-8');
       
-      try {
-        const brand = this.soapService.brand || 'hikvision';
-        onvifLogger.logONVIFConnection(req.ip, 'connected', brand, this.port);
-      } catch (error) {
-        console.error('Error in ONVIF middleware:', error);
-        onvifLogger.logONVIFConnection(req.ip, 'connected', 'hikvision', this.port);
-      }
+      // Get or create session for this IP
+      const sessionId = this.getOrCreateSession(req.ip);
+      
+      // Capture response status after it's sent
+      const originalSend = res.send;
+      res.send = function(data) {
+        const statusCode = res.statusCode;
+        try {
+          const brand = this.soapService?.brand || 'hikvision';
+          const userAgent = req.headers['user-agent'] || null;
+          onvifLogger.logONVIFConnection(req.ip, 'connected', brand, this.port, userAgent, req.method, req.url, statusCode, sessionId);
+        } catch (error) {
+          console.error('Error in ONVIF middleware response logging:', error);
+        }
+        return originalSend.call(this, data);
+      }.bind(this);
       
       next();
     });
@@ -65,12 +135,18 @@ class ONVIFHoneypot {
       res.setHeader('Location', '/onvif/device_service');
       res.setHeader('Content-Type', 'text/plain; charset=utf-8');
       
+      // Get session ID for this request
+      const sessionId = this.getOrCreateSession(req.ip);
+      this.updateSessionActivity(req.ip);
+      
       try {
         const brand = this.soapService.brand || 'hikvision';
-        onvifLogger.logSOAPRequest(req.ip, 'GET', req.method, '/', brand, this.port);
+        const userAgent = req.headers['user-agent'] || null;
+        onvifLogger.logSOAPRequest(req.ip, 'GET', req.method, '/', brand, this.port, userAgent, 302, sessionId);
       } catch (error) {
         console.error('Error in ONVIF root route:', error);
-        onvifLogger.logSOAPRequest(req.ip, 'GET', req.method, '/', 'hikvision', this.port);
+        const userAgent = req.headers['user-agent'] || null;
+        onvifLogger.logSOAPRequest(req.ip, 'GET', req.method, '/', 'hikvision', this.port, userAgent, 302, sessionId);
       }
       
       res.status(302).send('Found. Redirecting to /onvif/device_service');
@@ -84,7 +160,10 @@ class ONVIFHoneypot {
         
         try {
           const brand = this.soapService.brand || 'hikvision';
-          onvifLogger.logSOAPRequest(req.ip, 'GET', req.method, '/onvif/device_service', brand, this.port);
+          const userAgent = req.headers['user-agent'] || null;
+          const sessionId = this.getOrCreateSession(req.ip);
+          this.updateSessionActivity(req.ip);
+          onvifLogger.logSOAPRequest(req.ip, 'GET', req.method, '/onvif/device_service', brand, this.port, userAgent, 200, sessionId);
           
           const deviceInfo = this.soapService.deviceInfo || {
             manufacturer: 'Unknown',
@@ -218,7 +297,10 @@ class ONVIFHoneypot {
         
         try {
           const brand = this.soapService.brand || 'hikvision';
-          onvifLogger.logSOAPRequest(req.ip, 'GET', req.method, '/onvif/media_service', brand, this.port);
+          const userAgent = req.headers['user-agent'] || null;
+          const sessionId = this.getOrCreateSession(req.ip);
+          this.updateSessionActivity(req.ip);
+          onvifLogger.logSOAPRequest(req.ip, 'GET', req.method, '/onvif/media_service', brand, this.port, userAgent, 200, sessionId);
           
           const deviceInfo = this.soapService.deviceInfo || {
             manufacturer: 'Unknown',
@@ -337,7 +419,10 @@ class ONVIFHoneypot {
       
       try {
         const brand = this.soapService.brand || 'hikvision';
-        onvifLogger.logSOAPRequest(req.ip, req.method, req.url, brand, this.port);
+        const userAgent = req.headers['user-agent'] || null;
+        const sessionId = this.getOrCreateSession(req.ip);
+        this.updateSessionActivity(req.ip);
+        onvifLogger.logSOAPRequest(req.ip, req.method, req.url, brand, this.port, userAgent, 404, sessionId);
         
         res.status(404).send(`
           <html>
@@ -378,7 +463,9 @@ class ONVIFHoneypot {
     // Log SOAP-level events (no direct access to HTTP req/res here)
     deviceSoapServer.on('request', (xml, methodName) => {
       try {
-        onvifLogger.logSOAPRequest(null, methodName, 'POST', '/onvif/device_service/soap', this.soapService.brand, this.port);
+        // Generate a session ID for SOAP requests (since we don't have IP context)
+        const sessionId = this.generateSessionId();
+        onvifLogger.logSOAPRequest(null, methodName, 'POST', '/onvif/device_service/soap', this.soapService.brand, this.port, null, 200, sessionId);
       } catch (error) {
         onvifLogger.logONVIFError(error, 'device_service_soap_request', null, this.soapService.brand, this.port);
       }
@@ -396,7 +483,9 @@ class ONVIFHoneypot {
 
     mediaSoapServer.on('request', (xml, methodName) => {
       try {
-        onvifLogger.logSOAPRequest(null, methodName, 'POST', '/onvif/media_service/soap', this.soapService.brand, this.port);
+        // Generate a session ID for SOAP requests (since we don't have IP context)
+        const sessionId = this.generateSessionId();
+        onvifLogger.logSOAPRequest(null, methodName, 'POST', '/onvif/media_service/soap', this.soapService.brand, this.port, null, 200, sessionId);
       } catch (error) {
         onvifLogger.logONVIFError(error, 'media_service_soap_request', null, this.soapService.brand, this.port);
       }
@@ -430,7 +519,10 @@ class ONVIFHoneypot {
           if (m) soapAction = m[1];
         }
 
-        onvifLogger.logSOAPRequest(ip, soapAction || 'unknown', req.method, req.url, this.soapService.brand, this.port);
+        const userAgent = req.headers['user-agent'] || null;
+        const sessionId = this.getOrCreateSession(ip);
+        this.updateSessionActivity(ip);
+        onvifLogger.logSOAPRequest(ip, soapAction || 'unknown', req.method, req.url, this.soapService.brand, this.port, userAgent, 200, sessionId);
 
         res.on('finish', () => {
           onvifLogger.logSOAPResponse(ip, soapAction || 'unknown', res.statusCode, this.soapService.brand, this.port);

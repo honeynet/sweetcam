@@ -263,7 +263,7 @@ const onvifLogger = {
         writeONVIFLog({ event_type: 'ws_discovery', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `WS-Discovery ${action}: ${details}`, raw_data: { action, details }, discovery_type: 'WS-Discovery' });
     },
 
-    logSOAPRequest: (ip, soapAction, method, url, brand, port, sessionId = null) => {
+    logSOAPRequest: (ip, soapAction, method, url, brand, port, userAgent = null, responseStatus = null, sessionId = null) => {
         safeLogger.info('SOAP request', {
             service: 'onvif',
             event_type: 'soap_request',
@@ -271,13 +271,15 @@ const onvifLogger = {
             soap_action: soapAction,
             request_method: method,
             request_url: url,
+            user_agent: userAgent,
             brand: brand,
             port: port,
+            response_status: responseStatus,
             session_id: sessionId,
             message: `SOAP request: ${soapAction} from ${ip}`
         });
-        writeServiceLog({ service: 'onvif', event_type: 'soap_request', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `SOAP request: ${soapAction} from ${ip}`, raw_data: { method, url, soapAction } });
-        writeONVIFLog({ event_type: 'soap_request', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, soap_action: soapAction, message: `SOAP request: ${soapAction} from ${ip}` });
+        writeServiceLog({ service: 'onvif', event_type: 'soap_request', log_level: 'info', ip_address: ip, brand, port, user_agent: userAgent, request_method: method, request_url: url, response_status: responseStatus, session_id: sessionId, message: `SOAP request: ${soapAction} from ${ip}`, raw_data: { method, url, soapAction } });
+        writeONVIFLog({ event_type: 'soap_request', log_level: 'info', ip_address: ip, brand, port, user_agent: userAgent, request_method: method, request_url: url, response_status: responseStatus, session_id: sessionId, soap_action: soapAction, message: `SOAP request: ${soapAction} from ${ip}` });
     },
 
     logSOAPResponse: (ip, soapAction, statusCode, brand, port, sessionId = null) => {
@@ -384,7 +386,7 @@ const onvifLogger = {
         writeONVIFLog({ event_type: 'service_event', log_level: 'info', message: `ONVIF service ${event}: ${details}`, raw_data: { details }, brand, port, session_id: sessionId });
     },
 
-    logONVIFConnection: (ip, event, brand, port, sessionId = null) => {
+    logONVIFConnection: (ip, event, brand, port, userAgent = null, requestMethod = null, requestUrl = null, responseStatus = null, sessionId = null) => {
         safeLogger.info('ONVIF connection event', {
             service: 'onvif',
             event_type: 'connection_event',
@@ -392,11 +394,15 @@ const onvifLogger = {
             event: event,
             brand: brand,
             port: port,
+            user_agent: userAgent,
+            request_method: requestMethod,
+            request_url: requestUrl,
+            response_status: responseStatus,
             session_id: sessionId,
             message: `ONVIF connection ${event}: ${ip}`
         });
-        writeServiceLog({ service: 'onvif', event_type: 'connection_event', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `ONVIF connection ${event}: ${ip}`, raw_data: { event } });
-        writeONVIFLog({ event_type: 'connection_event', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `ONVIF connection ${event}: ${ip}`, raw_data: { event } });
+        writeServiceLog({ service: 'onvif', event_type: 'connection_event', log_level: 'info', ip_address: ip, brand, port, user_agent: userAgent, request_method: requestMethod, request_url: requestUrl, response_status: responseStatus, session_id: sessionId, message: `ONVIF connection ${event}: ${ip}`, raw_data: { event } });
+        writeONVIFLog({ event_type: 'connection_event', log_level: 'info', ip_address: ip, brand, port, user_agent: userAgent, request_method: requestMethod, request_url: requestUrl, response_status: responseStatus, session_id: sessionId, message: `ONVIF connection ${event}: ${ip}`, raw_data: { event } });
     },
 
     logONVIFError: (error, context, ip, brand, port, sessionId = null) => {

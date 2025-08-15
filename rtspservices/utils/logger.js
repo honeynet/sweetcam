@@ -487,7 +487,6 @@ const rtspLogger = {
     }
 };
 
-// Set up file watcher when module is loaded
 let fileWatcher = null;
 
 try {
@@ -497,10 +496,8 @@ try {
     }
 } catch (error) {
     console.error('[LOGGER] Failed to set up RTSP file watcher:', error.message);
-    // Continue without file watcher, rely on checkAndRecreateLogFiles
 }
 
-// Cleanup function for graceful shutdown
 process.on('SIGINT', () => {
     if (fileWatcher) {
         try {

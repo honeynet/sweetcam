@@ -136,6 +136,10 @@ CREATE TABLE IF NOT EXISTS `onvif_service_logs`
     `password`       varchar(255) DEFAULT NULL,
     `session_id`     varchar(255) DEFAULT NULL,
     `soap_action`    varchar(500) DEFAULT NULL,
+    `user_agent`     text         DEFAULT NULL,
+    `request_method` varchar(10)  DEFAULT NULL,
+    `request_url`    varchar(500) DEFAULT NULL,
+    `response_status` int         DEFAULT NULL,
     `device_info`    json         DEFAULT NULL,
     `discovery_type` varchar(50)  DEFAULT NULL COMMENT 'WS-Discovery, Probe, Resolve',
     `message`        text         DEFAULT NULL,
@@ -147,6 +151,10 @@ CREATE TABLE IF NOT EXISTS `onvif_service_logs`
     INDEX `idx_ip_address` (`ip_address`),
     INDEX `idx_brand` (`brand`),
     INDEX `idx_soap_action` (`soap_action`),
+    INDEX `idx_user_agent` (`user_agent`(100)),
+    INDEX `idx_request_method` (`request_method`),
+    INDEX `idx_request_url` (`request_url`(100)),
+    INDEX `idx_response_status` (`response_status`),
     INDEX `idx_session_id` (`session_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
