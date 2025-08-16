@@ -163,7 +163,7 @@ CREATE TABLE IF NOT EXISTS `cowrie_service_logs`
 (
     `id`             bigint       NOT NULL AUTO_INCREMENT,
     `timestamp`      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `event_type`     varchar(100) NOT NULL COMMENT 'session_start, session_end, login_attempt, command_execution, file_operation, download_attempt, upload_attempt, threat_intelligence, geoip_lookup, service_event, startup_shutdown',
+    `event_type`     varchar(100) NOT NULL COMMENT 'session_start, session_end, login_attempt, command_execution, file_operation, download_attempt, upload_attempt, geoip_lookup, service_event, startup_shutdown',
     `log_level`      varchar(20)  NOT NULL DEFAULT 'info',
     `ip_address`     varchar(45)  DEFAULT NULL,
     `brand`          varchar(50)  DEFAULT NULL,
@@ -176,7 +176,6 @@ CREATE TABLE IF NOT EXISTS `cowrie_service_logs`
     `file_size`      bigint       DEFAULT NULL,
     `geoip_country`  varchar(10)  DEFAULT NULL,
     `geoip_city`     varchar(100) DEFAULT NULL,
-    `threat_level`   varchar(20)  DEFAULT NULL COMMENT 'low, medium, high, critical',
     `message`        text         DEFAULT NULL,
     `raw_data`       json         DEFAULT NULL,
     `created_at`     TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
@@ -186,7 +185,6 @@ CREATE TABLE IF NOT EXISTS `cowrie_service_logs`
     INDEX `idx_ip_address` (`ip_address`),
     INDEX `idx_brand` (`brand`),
     INDEX `idx_session_id` (`session_id`),
-    INDEX `idx_threat_level` (`threat_level`),
     INDEX `idx_geoip_country` (`geoip_country`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

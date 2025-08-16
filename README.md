@@ -126,22 +126,7 @@ SweetCam includes a **Port Manager** CLI tool to easily manage port changes for 
 
 ### Usage
 
-#### Method 1: Using the wrapper script (Recommended)
-```shell
-# Make the wrapper executable (if not already)
-chmod +x ./port-manager
-
-# Show current port configuration
-./port-manager list
-
-# Change port for a service
-./port-manager change dahua_service 8080
-
-# Show help
-./port-manager help
-```
-
-#### Method 2: Using Node.js directly
+#### Using Node.js directly
 ```shell
 # Show current port configuration
 node port-manager.js list
