@@ -24,41 +24,35 @@ class ONVIFHoneypot {
     this.soapService = new ONVIFSoapService();
     this.port = process.env.ONVIF_HTTP_PORT || 8080;
     
-    // Session management
-    this.sessions = new Map(); // Store active sessions
-    this.sessionTimeout = 30 * 60 * 1000; // 30 minutes
+    this.sessions = new Map(); 
+    this.sessionTimeout = 30 * 60 * 1000; 
     
     this.setupMiddleware();
     this.setupSOAPServices();
     this.setupRoutes();
     
-    // Clean up expired sessions every 5 minutes
     setInterval(() => this.cleanupSessions(), 5 * 60 * 1000);
   }
 
-  // Generate unique session ID
   generateSessionId() {
     return crypto.randomBytes(16).toString('hex');
   }
 
-  // Get or create session for IP
   getOrCreateSession(ip) {
     const now = Date.now();
     
-    // Check if IP already has an active session
+    //check if IP already has an active session
     if (this.sessions.has(ip)) {
       const session = this.sessions.get(ip);
       if (now - session.lastActivity < this.sessionTimeout) {
-        // Update last activity
+        //update last activity
         session.lastActivity = now;
         return session.id;
       } else {
-        // Session expired, remove it
         this.sessions.delete(ip);
       }
     }
     
-    // Create new session
     const sessionId = this.generateSessionId();
     this.sessions.set(ip, {
       id: sessionId,
@@ -70,7 +64,6 @@ class ONVIFHoneypot {
     return sessionId;
   }
 
-  // Update session activity
   updateSessionActivity(ip) {
     if (this.sessions.has(ip)) {
       const session = this.sessions.get(ip);
@@ -79,7 +72,6 @@ class ONVIFHoneypot {
     }
   }
 
-  // Clean up expired sessions
   cleanupSessions() {
     const now = Date.now();
     for (const [ip, session] of this.sessions.entries()) {
@@ -100,10 +92,9 @@ class ONVIFHoneypot {
       res.setHeader('Connection', 'close');
       res.setHeader('Content-Type', 'application/soap+xml; charset=utf-8');
       
-      // Get or create session for this IP
       const sessionId = this.getOrCreateSession(req.ip);
       
-      // Capture response status after it's sent
+      //capture response status after it is sent
       const originalSend = res.send;
       res.send = function(data) {
         const statusCode = res.statusCode;
@@ -135,7 +126,6 @@ class ONVIFHoneypot {
       res.setHeader('Location', '/onvif/device_service');
       res.setHeader('Content-Type', 'text/plain; charset=utf-8');
       
-      // Get session ID for this request
       const sessionId = this.getOrCreateSession(req.ip);
       this.updateSessionActivity(req.ip);
       
@@ -422,7 +412,7 @@ class ONVIFHoneypot {
         const userAgent = req.headers['user-agent'] || null;
         const sessionId = this.getOrCreateSession(req.ip);
         this.updateSessionActivity(req.ip);
-        onvifLogger.logSOAPRequest(req.ip, req.method, req.url, brand, this.port, userAgent, 404, sessionId);
+        onvifLogger.logSOAPRequest(req.ip, 'POST', req.method, req.url, brand, this.port, userAgent, 404, sessionId);
         
         res.status(404).send(`
           <html>

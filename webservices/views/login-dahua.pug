@@ -177,7 +177,7 @@ html(lang="en")
                             let message = 'An unknown error occurred.';
                             if (xhr.status === 404) message = 'User not found.';
                             if (xhr.status === 401) message = 'Wrong password.';
-                            if (xhr.status === 403) message = 'Too many attempts. Try again later';
+                            if (xhr.status === 403) message = 'Too many attempts. Try again later.';
                             
                             $errorMessage.text(message);
                             console.log('Error displayed:', message);

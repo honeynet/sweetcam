@@ -20,7 +20,7 @@
       "type": "timeseries",
       "title": "Total Logs Over Time",
       "gridPos": {"x": 0, "y": 0, "w": 24, "h": 8},
-      "datasource": {"type": "mysql", "uid": ""},
+      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
       "targets": [
         {
           "format": "time_series",
@@ -35,11 +35,11 @@
       "type": "barchart",
       "title": "Top Attacker IPs",
       "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
-      "datasource": {"type": "mysql", "uid": ""},
+      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT ip_address AS metric, COUNT(*) AS value FROM service_logs WHERE ip_address IS NOT NULL AND $__timeFilter(timestamp) GROUP BY ip_address ORDER BY value DESC LIMIT 10;",
+          "rawSql": "SELECT ip_address AS metric, COUNT(*) AS value FROM service_logs WHERE ip_address IS NOT NULL AND ip_address <> '' AND $__timeFilter(timestamp) GROUP BY ip_address ORDER BY value DESC LIMIT 10;",
           "refId": "A"
         }
       ],
@@ -49,7 +49,7 @@
       "type": "piechart",
       "title": "Events by Service",
       "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
-      "datasource": {"type": "mysql", "uid": ""},
+      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
       "targets": [
         {
           "format": "time_series",
@@ -62,11 +62,11 @@
       "type": "piechart",
       "title": "Events by Brand",
       "gridPos": {"x": 0, "y": 16, "w": 12, "h": 8},
-      "datasource": {"type": "mysql", "uid": ""},
+      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "SELECT NOW() AS time, brand AS metric, COUNT(*) AS value FROM service_logs WHERE brand IS NOT NULL AND brand <> 'auto' AND $__timeFilter(timestamp) GROUP BY brand;",
+          "rawSql": "SELECT NOW() AS time, brand AS metric, COUNT(*) AS value FROM service_logs WHERE brand IS NOT NULL AND brand NOT IN ('auto', 'test', '8080', 'curl/8.14.1') AND $__timeFilter(timestamp) GROUP BY brand;",
           "refId": "A"
         }
       ]
@@ -75,11 +75,11 @@
       "type": "barchart",
       "title": "Top Countries",
       "gridPos": {"x": 12, "y": 16, "w": 12, "h": 8},
-      "datasource": {"type": "mysql", "uid": ""},
+      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT country AS metric, COUNT(*) AS value FROM ip_reputation WHERE country IS NOT NULL GROUP BY country ORDER BY value DESC LIMIT 10;",
+          "rawSql": "SELECT country AS metric, COUNT(*) AS value FROM ip_reputation WHERE country IS NOT NULL AND ip_address NOT IN ('172.18.0.1', '::ffff:172.18.0.1', '127.0.0.1', '::1', 'localhost') GROUP BY country ORDER BY value DESC LIMIT 10;",
           "refId": "A"
         }
       ]
@@ -88,17 +88,17 @@
       "type": "geomap",
       "title": "Geo Attacker Distribution",
       "gridPos": {"x": 0, "y": 24, "w": 24, "h": 12},
-      "datasource": {"type": "mysql", "uid": ""},
+      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT country AS location, COUNT(*) AS value FROM ip_reputation WHERE country IS NOT NULL GROUP BY country;",
+          "rawSql": "SELECT country AS location, COUNT(*) AS value FROM ip_reputation WHERE country IS NOT NULL AND ip_address NOT IN ('172.18.0.1', '::ffff:172.18.0.1', '127.0.0.1', '::1', 'localhost') GROUP BY country;",
           "refId": "A"
         }
       ],
       "options": {
         "view": { "id": "world" },
-        "controls": { "showZoom": true, "showAttribution": true },
+        "controls": { "showZoom": true, "showAttribution": "true" },
         "basemap": { "type": "carto" },
         "layers": [
           {
@@ -116,14 +116,218 @@
       }
     },
     {
-      "type": "table",
-      "title": "Recent All Logs (Unified)",
+      "type": "timeseries",
+      "title": "Connection per Protocol Over Time",
       "gridPos": {"x": 0, "y": 36, "w": 24, "h": 8},
-      "datasource": {"type": "mysql", "uid": ""},
+      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT UNIX_TIMESTAMP(hour_bucket) AS time_sec, COUNT(*) AS web_connections FROM (SELECT DATE_FORMAT(timestamp, '%Y-%m-%d %H:00:00') AS hour_bucket FROM service_logs WHERE service = 'web' AND $__timeFilter(timestamp)) AS subquery GROUP BY hour_bucket ORDER BY time_sec ASC;",
+          "refId": "A"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT UNIX_TIMESTAMP(hour_bucket) AS time_sec, COUNT(*) AS rtsp_connections FROM (SELECT DATE_FORMAT(timestamp, '%Y-%m-%d %H:00:00') AS hour_bucket FROM service_logs WHERE service = 'rtsp' AND $__timeFilter(timestamp)) AS subquery GROUP BY hour_bucket ORDER BY time_sec ASC;",
+          "refId": "B"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT UNIX_TIMESTAMP(hour_bucket) AS time_sec, COUNT(*) AS onvif_connections FROM (SELECT DATE_FORMAT(timestamp, '%Y-%m-%d %H:00:00') AS hour_bucket FROM service_logs WHERE service = 'onvif' AND $__timeFilter(timestamp)) AS subquery GROUP BY hour_bucket ORDER BY time_sec ASC;",
+          "refId": "C"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT UNIX_TIMESTAMP(hour_bucket) AS time_sec, COUNT(*) AS cowrie_connections FROM (SELECT DATE_FORMAT(timestamp, '%Y-%m-%d %H:00:00') AS hour_bucket FROM service_logs WHERE service = 'cowrie' AND $__timeFilter(timestamp)) AS subquery GROUP BY hour_bucket ORDER BY time_sec ASC;",
+          "refId": "D"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "type": "heatmap",
+      "title": "Daily/Monthly Events Extraction",
+      "gridPos": {"x": 0, "y": 44, "w": 24, "h": 8},
+      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT UNIX_TIMESTAMP(day_bucket) AS time_sec, COUNT(*) AS web_connections FROM (SELECT DATE(timestamp) AS day_bucket FROM service_logs WHERE service = 'web' AND $__timeFilter(timestamp)) AS subquery GROUP BY day_bucket ORDER BY time_sec ASC;",
+          "refId": "A"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT UNIX_TIMESTAMP(day_bucket) AS time_sec, COUNT(*) AS rtsp_connections FROM (SELECT DATE(timestamp) AS day_bucket FROM service_logs WHERE service = 'rtsp' AND $__timeFilter(timestamp)) AS subquery GROUP BY day_bucket ORDER BY time_sec ASC;",
+          "refId": "B"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT UNIX_TIMESTAMP(day_bucket) AS time_sec, COUNT(*) AS onvif_connections FROM (SELECT DATE(timestamp) AS day_bucket FROM service_logs WHERE service = 'onvif' AND $__timeFilter(timestamp)) AS subquery GROUP BY day_bucket ORDER BY time_sec ASC;",
+          "refId": "C"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT UNIX_TIMESTAMP(day_bucket) AS time_sec, COUNT(*) AS cowrie_connections FROM (SELECT DATE(timestamp) AS day_bucket FROM service_logs WHERE service = 'cowrie' AND $__timeFilter(timestamp)) AS subquery GROUP BY day_bucket ORDER BY time_sec ASC;",
+          "refId": "D"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "scheme",
+            "schemeName": "Spectral"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "calculate": true,
+        "cellGap": 1,
+        "cellValues": {
+          "decimals": 2
+        },
+        "color": {
+          "exponent": 0.5,
+          "fill": "dark-orange",
+          "reverse": false,
+          "scale": "exponential",
+          "scheme": "Spectral",
+          "steps": 64
+        },
+        "exemplars": {
+          "color": "rgba(0,0,255,0.7)"
+        },
+        "filterValues": {
+          "le": 1e-9
+        },
+        "legend": {
+          "show": true
+        },
+        "rowsFrame": {
+          "layout": "auto"
+        },
+        "tooltip": {
+          "show": true,
+          "yHistogram": false
+        },
+        "yAxis": {
+          "axisPlacement": "left",
+          "reverse": false,
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "type": "barchart",
+      "title": "Top Usernames Attempted",
+      "gridPos": {"x": 0, "y": 52, "w": 12, "h": 8},
+      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT timestamp, service, event_type, ip_address, brand, message FROM all_logs WHERE $__timeFilter(timestamp) ORDER BY timestamp DESC LIMIT 100;",
+          "rawSql": "SELECT username AS metric, COUNT(*) AS value FROM service_logs WHERE username IS NOT NULL AND username <> '' AND username <> 'null' AND $__timeFilter(timestamp) GROUP BY username ORDER BY value DESC LIMIT 15;",
+          "refId": "A"
+        }
+      ],
+      "options": {"orientation": "auto"}
+    },
+    {
+      "type": "barchart",
+      "title": "Top Passwords Attempted",
+      "gridPos": {"x": 12, "y": 52, "w": 12, "h": 8},
+      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT password AS metric, COUNT(*) AS value FROM service_logs WHERE password IS NOT NULL AND password <> '' AND password <> 'null' AND $__timeFilter(timestamp) GROUP BY password ORDER BY value DESC LIMIT 15;",
+          "refId": "A"
+        }
+      ],
+      "options": {"orientation": "auto"}
+    },
+    {
+      "type": "table",
+      "title": "Recent All Logs (Unified)",
+      "gridPos": {"x": 0, "y": 60, "w": 24, "h": 8},
+      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT timestamp, service, event_type, COALESCE(ip_address, 'No IP') as ip_address, brand, message FROM all_logs WHERE $__timeFilter(timestamp) ORDER BY timestamp DESC LIMIT 100;",
           "refId": "A"
         }
       ]
@@ -138,5 +342,6 @@
   "timezone": "",
   "title": "Sweetcam Overview",
   "uid": "sweetcam-overview",
-  "version": 4
+  "version": 17,
+  "description": "SweetCam Honeypot Dashboard"
 } 

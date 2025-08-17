@@ -375,6 +375,7 @@ services:
     user: root
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:rw
+      - ./logs:/app/logs
     depends_on:
       mysql_service:
         condition: service_healthy
