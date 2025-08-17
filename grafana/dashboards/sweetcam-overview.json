@@ -320,9 +320,373 @@
       "options": {"orientation": "auto"}
     },
     {
+      "type": "barchart",
+      "title": "Top Overall Payloads by Event Type",
+      "gridPos": {"x": 0, "y": 60, "w": 12, "h": 8},
+      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT event_type AS metric, COUNT(*) AS value FROM service_logs WHERE event_type IS NOT NULL AND event_type <> '' AND $__timeFilter(timestamp) GROUP BY event_type ORDER BY value DESC LIMIT 15;",
+          "refId": "A"
+        }
+      ],
+      "options": {"orientation": "auto"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "barchart",
+      "title": "Top Payloads by Service",
+      "gridPos": {"x": 12, "y": 60, "w": 12, "h": 8},
+      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT service AS metric, COUNT(*) AS value FROM service_logs WHERE service IS NOT NULL AND service <> '' AND $__timeFilter(timestamp) GROUP BY service ORDER BY value DESC LIMIT 10;",
+          "refId": "A"
+        }
+      ],
+      "options": {"orientation": "auto"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "table",
+      "title": "Top Web Service Payloads",
+      "gridPos": {"x": 0, "y": 68, "w": 12, "h": 8},
+      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT event_type, COUNT(*) as count, MAX(timestamp) as last_seen FROM service_logs WHERE service = 'web' AND $__timeFilter(timestamp) GROUP BY event_type ORDER BY count DESC LIMIT 10;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      }
+    },
+    {
+      "type": "table",
+      "title": "Top RTSP Service Payloads",
+      "gridPos": {"x": 12, "y": 68, "w": 12, "h": 8},
+      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT event_type, COUNT(*) as count, MAX(timestamp) as last_seen FROM service_logs WHERE service = 'rtsp' AND $__timeFilter(timestamp) GROUP BY event_type ORDER BY count DESC LIMIT 10;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      }
+    },
+    {
+      "type": "table",
+      "title": "Top ONVIF Service Payloads",
+      "gridPos": {"x": 0, "y": 76, "w": 12, "h": 8},
+      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT event_type, COUNT(*) as count, MAX(timestamp) as last_seen FROM service_logs WHERE service = 'onvif' AND $__timeFilter(timestamp) GROUP BY event_type ORDER BY count DESC LIMIT 10;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      }
+    },
+    {
+      "type": "table",
+      "title": "Top Cowrie Service Payloads",
+      "gridPos": {"x": 12, "y": 76, "w": 12, "h": 8},
+      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT event_type, COUNT(*) as count, MAX(timestamp) as last_seen FROM service_logs WHERE service = 'cowrie' AND $__timeFilter(timestamp) GROUP BY event_type ORDER BY count DESC LIMIT 10;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Payload Trends Over Time - All Services",
+      "gridPos": {"x": 0, "y": 84, "w": 24, "h": 8},
+      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT UNIX_TIMESTAMP(hour_bucket) AS time_sec, COUNT(*) AS web_payloads FROM (SELECT DATE_FORMAT(timestamp, '%Y-%m-%d %H:00:00') AS hour_bucket FROM service_logs WHERE service = 'web' AND $__timeFilter(timestamp)) AS subquery GROUP BY hour_bucket ORDER BY time_sec ASC;",
+          "refId": "A"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT UNIX_TIMESTAMP(hour_bucket) AS time_sec, COUNT(*) AS rtsp_payloads FROM (SELECT DATE_FORMAT(timestamp, '%Y-%m-%d %H:00:00') AS hour_bucket FROM service_logs WHERE service = 'rtsp' AND $__timeFilter(timestamp)) AS subquery GROUP BY hour_bucket ORDER BY time_sec ASC;",
+          "refId": "B"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT UNIX_TIMESTAMP(hour_bucket) AS time_sec, COUNT(*) AS onvif_payloads FROM (SELECT DATE_FORMAT(timestamp, '%Y-%m-%d %H:00:00') AS hour_bucket FROM service_logs WHERE service = 'onvif' AND $__timeFilter(timestamp)) AS subquery GROUP BY hour_bucket ORDER BY time_sec ASC;",
+          "refId": "C"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT UNIX_TIMESTAMP(hour_bucket) AS time_sec, COUNT(*) AS cowrie_payloads FROM (SELECT DATE_FORMAT(timestamp, '%Y-%m-%d %H:00:00') AS hour_bucket FROM service_logs WHERE service = 'cowrie' AND $__timeFilter(timestamp)) AS subquery GROUP BY hour_bucket ORDER BY time_sec ASC;",
+          "refId": "D"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      }
+    },
+    {
       "type": "table",
       "title": "Recent All Logs (Unified)",
-      "gridPos": {"x": 0, "y": 60, "w": 24, "h": 8},
+      "gridPos": {"x": 0, "y": 92, "w": 24, "h": 8},
       "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
       "targets": [
         {
@@ -342,6 +706,6 @@
   "timezone": "",
   "title": "Sweetcam Overview",
   "uid": "sweetcam-overview",
-  "version": 17,
-  "description": "SweetCam Honeypot Dashboard"
+  "version": 18,
+  "description": "SweetCam Honeypot Dashboard with Payload Trend Analysis"
 } 
