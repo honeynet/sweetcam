@@ -1,0 +1,57 @@
+#!/bin/bash
+
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' 
+
+if ! command -v node &> /dev/null; then
+    echo -e "${RED}ERROR: Node.js is not installed${NC}"
+    echo "Please install Node.js (version 14 or higher) to run the Docker Manager"
+    echo "Visit: https://nodejs.org/"
+    exit 1
+fi
+
+NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
+if [ "$NODE_VERSION" -lt 14 ]; then
+    echo -e "${RED}ERROR: Node.js version 14 or higher is required${NC}"
+    echo "Current version: $(node -v)"
+    echo "Please upgrade Node.js to continue"
+    exit 1
+fi
+
+if ! docker info &> /dev/null; then
+    echo -e "${RED}ERROR: Docker is not running or not accessible${NC}"
+    echo "Please ensure Docker is running and you have proper permissions"
+    exit 1
+fi
+
+if ! docker compose version &> /dev/null; then
+    echo -e "${RED}ERROR: Docker Compose is not available${NC}"
+    echo "Please ensure Docker Compose is installed and accessible"
+    exit 1
+fi
+
+if [ ! -f "docker-compose.yml" ]; then
+    echo -e "${RED}ERROR: docker-compose.yml not found in current directory${NC}"
+    echo "Please run this script from the directory containing docker-compose.yml"
+    exit 1
+fi
+
+if [ ! -f "docker-manager.js" ]; then
+    echo -e "${RED}ERROR: docker-manager.js not found in current directory${NC}"
+    echo "Please ensure docker-manager.js is in the same directory as this script"
+    exit 1
+fi
+
+chmod +x docker-manager.js
+
+echo -e "${BLUE}Starting SweetCam Docker Manager (JavaScript Version)...${NC}"
+echo -e "${GREEN}Node.js version: $(node -v)${NC}"
+echo -e "${GREEN}Docker version: $(docker --version)${NC}"
+echo -e "${GREEN}Docker Compose version: $(docker compose version | head -n1)${NC}"
+echo ""
+
+node docker-manager.js "$@" 

@@ -105,7 +105,33 @@ docker compose up -d
 # Stop with volume cleanup
 docker compose down -v
 ```
+## Docker Manager
 
+SweetCam includes a comprehensive **Docker Manager** tool that provides advanced Docker service management, health monitoring and flexible deployment options for the honeypot environment.
+
+### Features
+- **Camera Management**: Single camera, multi-camera, standard, and custom setup options
+- **Service Management**: Start, stop, restart, and remove individual services
+- **Health Monitoring**: Real-time container health checks and status overview
+- **Log Management**: View service logs with configurable line count (1-100)
+- **Protocol Support**: Full support for SSH, ONVIF, RTSP, and web interfaces across all camera brands
+
+### Usage
+
+#### Using the Docker Manager
+```shell
+# Run the Docker Manager
+./docker-manager-js
+
+# Health check only
+./docker-manager-js --health-check
+
+# Status overview only
+./docker-manager-js --status
+
+# Help
+./docker-manager-js --help
+```
 ## Network access
 
 ### Port Mapping
@@ -199,7 +225,12 @@ nmap -sV -p 80 127.0.0.1
 curl -I http://localhost:80
 ```
 
+### Setup Scenarios
 
+- **Single Camera Setup**: Deploy individual camera with all supported protocols
+- **Multi-Camera Setup**: Deploy multiple cameras simultaneously with shared services
+- **Standard Setup**: Complete deployment with all services and cameras
+- **Custom Setup**: Selective service deployment based on specific requirements
 
 ## Troubleshooting
 ### Common issues
