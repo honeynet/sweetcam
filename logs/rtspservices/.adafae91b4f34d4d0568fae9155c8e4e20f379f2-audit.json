@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "/app/logs/.adafae91b4f34d4d0568fae9155c8e4e20f379f2-audit.json",
+    "files": [
+        {
+            "date": 1755506345876,
+            "name": "/app/logs/rtsp-app-2025-08-18.log",
+            "hash": "bc940479cf4c71455eeab6618b6c861f3568be419a1145e29e67ed1f84bff520"
+        }
+    ],
+    "hashType": "sha256"
+}

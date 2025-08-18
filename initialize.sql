@@ -1,4 +1,4 @@
-USE sweetcam;
+    USE sweetcam;
 
 CREATE TABLE `admins`
 (

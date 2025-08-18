@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 30
+    },
+    "auditLog": "/app/logs/.017fa2c86641803faec32927dcb40f1108374e12-audit.json",
+    "files": [
+        {
+            "date": 1755506353706,
+            "name": "/app/logs/onvif-error-2025-08-18.log",
+            "hash": "0f3ad897c0b8a740cd819355f05fb05c8897f42a9ca6a533d955faecd817a598"
+        }
+    ],
+    "hashType": "sha256"
+}

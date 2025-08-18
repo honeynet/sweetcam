@@ -202,51 +202,35 @@
       }
     },
     {
-      "type": "heatmap",
-      "title": "Daily/Monthly Events Extraction",
-      "gridPos": {"x": 0, "y": 44, "w": 24, "h": 8},
+      "type": "table",
+      "title": "Daily Service Activity Summary",
+      "gridPos": {"x": 0, "y": 36, "w": 24, "h": 8},
       "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
       "targets": [
         {
-          "format": "time_series",
-          "rawSql": "SELECT UNIX_TIMESTAMP(day_bucket) AS time_sec, COUNT(*) AS web_connections FROM (SELECT DATE(timestamp) AS day_bucket FROM service_logs WHERE service = 'web' AND $__timeFilter(timestamp)) AS subquery GROUP BY day_bucket ORDER BY time_sec ASC;",
+          "format": "table",
+          "rawSql": "SELECT \n  DATE(timestamp) as Date,\n  SUM(CASE WHEN service = 'web' THEN 1 ELSE 0 END) as Web_Events,\n  SUM(CASE WHEN service = 'rtsp' THEN 1 ELSE 0 END) as RTSP_Events,\n  SUM(CASE WHEN service = 'onvif' THEN 1 ELSE 0 END) as ONVIF_Events,\n  SUM(CASE WHEN service = 'cowrie' THEN 1 ELSE 0 END) as Cowrie_Events,\n  COUNT(DISTINCT ip_address) as Unique_IPs,\n  COUNT(*) as Total_Events\nFROM service_logs \nWHERE $__timeFilter(timestamp)\nGROUP BY DATE(timestamp)\nORDER BY Date DESC\nLIMIT 30;",
           "refId": "A"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT UNIX_TIMESTAMP(day_bucket) AS time_sec, COUNT(*) AS rtsp_connections FROM (SELECT DATE(timestamp) AS day_bucket FROM service_logs WHERE service = 'rtsp' AND $__timeFilter(timestamp)) AS subquery GROUP BY day_bucket ORDER BY time_sec ASC;",
-          "refId": "B"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT UNIX_TIMESTAMP(day_bucket) AS time_sec, COUNT(*) AS onvif_connections FROM (SELECT DATE(timestamp) AS day_bucket FROM service_logs WHERE service = 'onvif' AND $__timeFilter(timestamp)) AS subquery GROUP BY day_bucket ORDER BY time_sec ASC;",
-          "refId": "C"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT UNIX_TIMESTAMP(day_bucket) AS time_sec, COUNT(*) AS cowrie_connections FROM (SELECT DATE(timestamp) AS day_bucket FROM service_logs WHERE service = 'cowrie' AND $__timeFilter(timestamp)) AS subquery GROUP BY day_bucket ORDER BY time_sec ASC;",
-          "refId": "D"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "scheme",
-            "schemeName": "Spectral"
+            "mode": "palette-classic"
           },
           "custom": {
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "vis": false
-            }
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
           },
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "transparent",
+                "color": "green",
                 "value": null
               }
             ]
@@ -255,46 +239,72 @@
         "overrides": []
       },
       "options": {
-        "calculate": true,
-        "cellGap": 1,
-        "cellValues": {
-          "decimals": 2
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
         },
-        "color": {
-          "exponent": 0.5,
-          "fill": "dark-orange",
-          "reverse": false,
-          "scale": "exponential",
-          "scheme": "Spectral",
-          "steps": 64
-        },
-        "exemplars": {
-          "color": "rgba(0,0,255,0.7)"
-        },
-        "filterValues": {
-          "le": 1e-9
-        },
-        "legend": {
-          "show": true
-        },
-        "rowsFrame": {
-          "layout": "auto"
-        },
-        "tooltip": {
-          "show": true,
-          "yHistogram": false
-        },
-        "yAxis": {
-          "axisPlacement": "left",
-          "reverse": false,
-          "unit": "short"
+        "showHeader": true
+      }
+    },
+    {
+      "type": "table",
+      "title": "Monthly Service Activity Summary",
+      "gridPos": {"x": 0, "y": 44, "w": 24, "h": 8},
+      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT \n  DATE_FORMAT(timestamp, '%Y-%m') as Month,\n  SUM(CASE WHEN service = 'web' THEN 1 ELSE 0 END) as Web_Events,\n  SUM(CASE WHEN service = 'rtsp' THEN 1 ELSE 0 END) as RTSP_Events,\n  SUM(CASE WHEN service = 'onvif' THEN 1 ELSE 0 END) as ONVIF_Events,\n  SUM(CASE WHEN service = 'cowrie' THEN 1 ELSE 0 END) as Cowrie_Events,\n  COUNT(DISTINCT ip_address) as Unique_IPs,\n  COUNT(*) as Total_Events\nFROM service_logs \nWHERE $__timeFilter(timestamp)\nGROUP BY DATE_FORMAT(timestamp, '%Y-%m')\nORDER BY Month DESC\nLIMIT 12;",
+          "refId": "A"
         }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
       }
     },
     {
       "type": "barchart",
       "title": "Top Usernames Attempted",
-      "gridPos": {"x": 0, "y": 52, "w": 12, "h": 8},
+      "gridPos": {"x": 0, "y": 60, "w": 12, "h": 8},
       "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
       "targets": [
         {
@@ -308,7 +318,7 @@
     {
       "type": "barchart",
       "title": "Top Passwords Attempted",
-      "gridPos": {"x": 12, "y": 52, "w": 12, "h": 8},
+      "gridPos": {"x": 12, "y": 60, "w": 12, "h": 8},
       "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
       "targets": [
         {
@@ -322,7 +332,7 @@
     {
       "type": "barchart",
       "title": "Top Overall Payloads by Event Type",
-      "gridPos": {"x": 0, "y": 60, "w": 12, "h": 8},
+      "gridPos": {"x": 0, "y": 68, "w": 12, "h": 8},
       "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
       "targets": [
         {
@@ -361,7 +371,7 @@
     {
       "type": "barchart",
       "title": "Top Payloads by Service",
-      "gridPos": {"x": 12, "y": 60, "w": 12, "h": 8},
+      "gridPos": {"x": 12, "y": 68, "w": 12, "h": 8},
       "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
       "targets": [
         {
@@ -598,95 +608,9 @@
       }
     },
     {
-      "type": "timeseries",
-      "title": "Payload Trends Over Time - All Services",
-      "gridPos": {"x": 0, "y": 84, "w": 24, "h": 8},
-      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
-      "targets": [
-        {
-          "format": "time_series",
-          "rawSql": "SELECT UNIX_TIMESTAMP(hour_bucket) AS time_sec, COUNT(*) AS web_payloads FROM (SELECT DATE_FORMAT(timestamp, '%Y-%m-%d %H:00:00') AS hour_bucket FROM service_logs WHERE service = 'web' AND $__timeFilter(timestamp)) AS subquery GROUP BY hour_bucket ORDER BY time_sec ASC;",
-          "refId": "A"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT UNIX_TIMESTAMP(hour_bucket) AS time_sec, COUNT(*) AS rtsp_payloads FROM (SELECT DATE_FORMAT(timestamp, '%Y-%m-%d %H:00:00') AS hour_bucket FROM service_logs WHERE service = 'rtsp' AND $__timeFilter(timestamp)) AS subquery GROUP BY hour_bucket ORDER BY time_sec ASC;",
-          "refId": "B"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT UNIX_TIMESTAMP(hour_bucket) AS time_sec, COUNT(*) AS onvif_payloads FROM (SELECT DATE_FORMAT(timestamp, '%Y-%m-%d %H:00:00') AS hour_bucket FROM service_logs WHERE service = 'onvif' AND $__timeFilter(timestamp)) AS subquery GROUP BY hour_bucket ORDER BY time_sec ASC;",
-          "refId": "C"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT UNIX_TIMESTAMP(hour_bucket) AS time_sec, COUNT(*) AS cowrie_payloads FROM (SELECT DATE_FORMAT(timestamp, '%Y-%m-%d %H:00:00') AS hour_bucket FROM service_logs WHERE service = 'cowrie' AND $__timeFilter(timestamp)) AS subquery GROUP BY hour_bucket ORDER BY time_sec ASC;",
-          "refId": "D"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "vis": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      }
-    },
-    {
       "type": "table",
       "title": "Recent All Logs (Unified)",
-      "gridPos": {"x": 0, "y": 92, "w": 24, "h": 8},
+      "gridPos": {"x": 0, "y": 84, "w": 24, "h": 8},
       "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
       "targets": [
         {

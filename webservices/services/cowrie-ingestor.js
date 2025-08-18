@@ -61,14 +61,13 @@ function startCowrieIngestor() {
 import os, sys, time
 candidates = [${JSON.stringify(preferredPath)}, '/cowrie/var/log/cowrie/cowrie.json']
 p = None
-while True:
-    for c in candidates:
-        if os.path.exists(c):
-            p = c
-            break
-    if p:
+for c in candidates:
+    if os.path.exists(c):
+        p = c
         break
-    time.sleep(1)
+if not p:
+    print('[COWRIE_INGESTOR] No log file found, exiting')
+    sys.exit(1)
 print('[COWRIE_INGESTOR] Using log path:', p)
 f = open(p, 'r', encoding='utf-8', errors='ignore')
 f.seek(0, 2)

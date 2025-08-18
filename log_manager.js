@@ -48,7 +48,8 @@ let config = {
     deleteOld: null,
     execute: false,
     dryRun: true,
-    docker: false
+    docker: false,
+    restartServices: false
 };
 
 function parseArgs() {
@@ -142,6 +143,9 @@ function parseArgs() {
                 config.execute = true;
                 config.dryRun = false;
                 break;
+            case '--restart-services':
+                config.restartServices = true;
+                break;
             case '--logs-dir':
                 config.logsDir = nextArg;
                 i++;
@@ -184,6 +188,7 @@ OPTIONS:
     --case-sensitive          Case sensitive search
     --delete-old DAYS         Delete logs older than N days
     --execute                 Execute delete operations (default is dry run)
+    --restart-services        Restart services after log deletion to fix file handles
     --logs-dir DIR            Logs directory path (default: ./logs)
     --docker                  Read logs from Docker containers (default: read from files)
     -h, --help               Show this help message
@@ -194,6 +199,7 @@ EXAMPLES:
     node log_manager.js --service onvif --brands axis dahua --analyze
     node log_manager.js --search "admin" --service web
     node log_manager.js --delete-old 7 --execute
+    node log_manager.js --delete-old 7 --execute --restart-services
 `);
 }
 
@@ -474,12 +480,41 @@ function deleteOldLogs(days, service = null) {
     const cutoffDateStr = cutoffDate.toISOString().split('T')[0];
     
     if (config.docker) {
-        // Delete from Docker containers
-        const containerMap = {
-            'web': 'web_service',
-            'rtsp': 'rtsp_main_service',
-            'onvif': 'onvif_service'
-        };
+        // Dynamically detect running containers
+        let containerMap = {};
+        try {
+            const runningContainers = execSync('docker ps --format "{{.Names}}"', { encoding: 'utf8' }).trim().split('\n');
+            
+            // Map service types to running containers - check most specific first
+            runningContainers.forEach(containerName => {
+                if (containerName.includes('rtsp')) {
+                    if (!containerMap.rtsp) containerMap.rtsp = containerName;
+                } else if (containerName.includes('onvif')) {
+                    if (!containerMap.onvif) containerMap.onvif = containerName;
+                } else if (containerName.includes('web')) {
+                    if (!containerMap.web) containerMap.web = containerName;
+                } else if (!containerName.includes('rtsp') && !containerName.includes('onvif') && 
+                    (containerName.includes('axis') || containerName.includes('dahua') || 
+                    containerName.includes('hikvision') || containerName.includes('mobotix') || 
+                    containerName.includes('reolink') || containerName.includes('vstarcam'))) {
+                    // These brand-specific services have web service logs mounted
+                    if (!containerMap.web) containerMap.web = containerName;
+                }
+            });
+            
+            // If no containers found for a service type, use defaults
+            if (!containerMap.web) containerMap.web = 'axis_service';
+            if (!containerMap.rtsp) containerMap.rtsp = 'rtsp_axis_service';
+            if (!containerMap.onvif) containerMap.onvif = 'onvif_axis_service';
+            
+        } catch (error) {
+            console.log(`${colors.yellow}[WARN] Error detecting running containers, using defaults: ${error.message}${colors.reset}`);
+            containerMap = {
+                'web': 'axis_service',
+                'rtsp': 'rtsp_axis_service',
+                'onvif': 'onvif_axis_service'
+            };
+        }
         
         const servicesToCheck = service ? [service] : Object.keys(containerMap);
         const filesToDelete = [];
@@ -489,33 +524,50 @@ function deleteOldLogs(days, service = null) {
             if (!containerName) continue;
             
             try {
-                // Find old log files in container
-                const result = execSync(`docker exec ${containerName} find /app/logs -name "*.log" -type f`, { encoding: 'utf8' });
-                const containerFiles = result.trim().split('\n').filter(file => file);
+                // Define which log directories to check for each service
+                const logDirectories = {
+                    'web': ['webservices'],
+                    'rtsp': [''],  // RTSP services mount logs directly to /app/logs
+                    'onvif': ['']   // ONVIF services mount logs directly to /app/logs
+                };
                 
-                for (const containerFile of containerFiles) {
+                const directoriesToCheck = logDirectories[serviceName] || ['webservices', 'rtspservices', 'onvifservices'];
+                
+                for (const logDir of directoriesToCheck) {
                     try {
-                        // Extract date from filename
-                        const filename = path.basename(containerFile);
-                        const dateMatch = filename.match(/(\d{4}-\d{2}-\d{2})/);
+                        // Find old log files in specific log directory
+                        const logPath = logDir ? `/app/logs/${logDir}` : '/app/logs';
+                        const result = execSync(`docker exec ${containerName} find ${logPath} -name "*.log" -type f 2>/dev/null`, { encoding: 'utf8' });
+                        const containerFiles = result.trim().split('\n').filter(file => file);
                         
-                        if (dateMatch) {
-                            const fileDate = dateMatch[1];
-                            if (fileDate < cutoffDateStr) {
-                                filesToDelete.push({ container: containerName, file: containerFile });
-                            }
-                        } else {
-                            // Check file modification time
-                            const stats = execSync(`docker exec ${containerName} stat -c %Y "${containerFile}"`, { encoding: 'utf8' });
-                            const mtime = new Date(parseInt(stats.trim()) * 1000);
-                            const mtimeStr = mtime.toISOString().split('T')[0];
-                            
-                            if (mtimeStr < cutoffDateStr) {
-                                filesToDelete.push({ container: containerName, file: containerFile });
+                        for (const containerFile of containerFiles) {
+                            try {
+                                // Extract date from filename
+                                const filename = path.basename(containerFile);
+                                const dateMatch = filename.match(/(\d{4}-\d{2}-\d{2})/);
+                                
+                                if (dateMatch) {
+                                    const fileDate = dateMatch[1];
+                                    if (fileDate < cutoffDateStr) {
+                                        filesToDelete.push({ container: containerName, file: containerFile });
+                                    }
+                                } else {
+                                    // Check file modification time
+                                    const stats = execSync(`docker exec ${containerName} stat -c %Y "${containerFile}"`, { encoding: 'utf8' });
+                                    const mtime = new Date(parseInt(stats.trim()) * 1000);
+                                    const mtimeStr = mtime.toISOString().split('T')[0];
+                                    
+                                    if (mtimeStr < cutoffDateStr) {
+                                        filesToDelete.push({ container: containerName, file: containerFile });
+                                    }
+                                }
+                            } catch (error) {
+                                console.log(`${colors.yellow}[WARN] Error checking file ${containerFile}: ${error.message}${colors.reset}`);
                             }
                         }
                     } catch (error) {
-                        console.log(`${colors.yellow}[WARN] Error checking file ${containerFile}: ${error.message}${colors.reset}`);
+                        // Directory might not exist, continue to next
+                        continue;
                     }
                 }
             } catch (error) {
@@ -546,6 +598,11 @@ function deleteOldLogs(days, service = null) {
         } else {
             console.log(`\n${colors.blue}[DRY-RUN] Dry run mode - no files were deleted.${colors.reset}`);
             console.log('   Use --execute to actually delete the files.');
+        }
+        
+        // Restart services after deletion to fix file handle issues
+        if (!config.dryRun && filesToDelete.length > 0 && config.restartServices) {
+            restartServicesAfterLogDeletion();
         }
     } else {
         // Original local file logic
@@ -602,6 +659,58 @@ function deleteOldLogs(days, service = null) {
             console.log('   Use --execute to actually delete the files.');
         }
     }
+}
+
+function restartServicesAfterLogDeletion() {
+    console.log(`\n${colors.blue}[RESTART] Restarting services to release file handles...${colors.reset}`);
+    
+    // Dynamically detect running containers to restart
+    let servicesToRestart = [];
+    try {
+        const runningContainers = execSync('docker ps --format "{{.Names}}"', { encoding: 'utf8' }).trim().split('\n');
+        
+        // Add web, rtsp, and onvif services
+        runningContainers.forEach(containerName => {
+            if (containerName.includes('web') || containerName.includes('axis') || containerName.includes('dahua') || 
+                containerName.includes('hikvision') || containerName.includes('mobotix') || containerName.includes('reolink') || 
+                containerName.includes('vstarcam')) {
+                servicesToRestart.push(containerName);
+            }
+            if (containerName.includes('rtsp')) {
+                servicesToRestart.push(containerName);
+            }
+            if (containerName.includes('onvif')) {
+                servicesToRestart.push(containerName);
+            }
+        });
+        
+        // Always add cowrie-services if it exists
+        if (runningContainers.includes('cowrie-services')) {
+            servicesToRestart.push('cowrie-services');
+        }
+        
+    } catch (error) {
+        console.log(`${colors.yellow}[WARN] Error detecting running containers, using defaults: ${error.message}${colors.reset}`);
+        servicesToRestart = [
+            'axis_service',
+            'rtsp_axis_service', 
+            'onvif_axis_service',
+            'cowrie-services'
+        ];
+    }
+    
+    servicesToRestart.forEach(serviceName => {
+        try {
+            console.log(`   Restarting ${serviceName}...`);
+            execSync(`docker restart ${serviceName}`, { encoding: 'utf8' });
+            console.log(`   ${colors.green}[OK] ${serviceName} restarted${colors.reset}`);
+        } catch (error) {
+            console.log(`   ${colors.red}[ERROR] Failed to restart ${serviceName}: ${error.message}${colors.reset}`);
+        }
+    });
+    
+    console.log(`\n${colors.green}[INFO] Services restarted. New log files should now receive logs properly.${colors.reset}`);
+    console.log(`${colors.yellow}[NOTE] Wait a few minutes for services to fully start up.${colors.reset}`);
 }
 
 function main() {
