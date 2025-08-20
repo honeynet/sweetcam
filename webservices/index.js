@@ -349,7 +349,7 @@ app.post('/login', async (req, res) => { //login endpoint
 
         //validate input
         if (!username || !password) {
-            honeypotLogger.logAuthFailure(
+            await honeypotLogger.logAuthFailure(
                 req.ip,
                 username || 'unknown',
                 'missing_credentials',
@@ -383,7 +383,7 @@ app.post('/login', async (req, res) => { //login endpoint
         } else {
             const passwordHashes = await userServices.findUserPasswordHashesByName(username);
             if (!passwordHashes || passwordHashes.length === 0) {
-                            honeypotLogger.logAuthFailure(
+                            await honeypotLogger.logAuthFailure(
                 req.ip,
                 username,
                 'user_not_found',
@@ -398,13 +398,13 @@ app.post('/login', async (req, res) => { //login endpoint
             );
                 return res.status(404).send({ error: "User not found" });
             } else {
-                honeypotLogger.logAuthFailure(
+                await honeypotLogger.logAuthFailure(
                     req.ip,
                     username,
                     'wrong_password',
                     req.get('User-Agent'),
                     cameraType,
-                    port,
+                port,
                     password,
                     req.sessionID,
                     req.method,
@@ -458,7 +458,7 @@ app.post('/admin/login', async (req, res) => { //admin login endpoint
 
         //validate input
         if (!username || !password) {
-            honeypotLogger.logAuthFailure(
+            await honeypotLogger.logAuthFailure(
                 req.ip,
                 username || 'unknown',
                 'admin_missing_credentials',
@@ -499,7 +499,7 @@ app.post('/admin/login', async (req, res) => { //admin login endpoint
                 try {
                     await adminServices.findAdminCredentialsByName(username);
                     //admin exists but password is wrong
-                    honeypotLogger.logAuthFailure(
+                    await honeypotLogger.logAuthFailure(
                         req.ip,
                         username,
                         'admin_wrong_password',
@@ -515,7 +515,7 @@ app.post('/admin/login', async (req, res) => { //admin login endpoint
                     return res.status(401).send({ error: "Wrong password" });
                 } catch (error) {
                     //admin doesn't exist
-                    honeypotLogger.logAuthFailure(
+                    await honeypotLogger.logAuthFailure(
                         req.ip,
                         username,
                         'admin_not_found',
@@ -534,7 +534,7 @@ app.post('/admin/login', async (req, res) => { //admin login endpoint
         } catch (error) {
             //handle any other errors from admin services
             console.error('Admin authentication error:', error);
-            honeypotLogger.logAuthFailure(
+            await honeypotLogger.logAuthFailure(
                 req.ip,
                 username,
                 'admin_authentication_error',

@@ -81,6 +81,8 @@ services:
         condition: service_healthy
       cowrie_service:
         condition: service_started
+      grafana:
+        condition: service_healthy
 
   #RTSP
   rtsp_main:
@@ -219,6 +221,8 @@ services:
     depends_on:
       mysql_service:
         condition: service_healthy
+      grafana:
+        condition: service_healthy
 
   
   rtsp_mobotix:
@@ -301,6 +305,8 @@ services:
     depends_on:
       mysql_service:
         condition: service_healthy
+      grafana:
+        condition: service_healthy
 
   dahua_service:
     build:
@@ -326,6 +332,8 @@ services:
       - ./logs:/app/logs
     depends_on:
       mysql_service:
+        condition: service_healthy
+      grafana:
         condition: service_healthy
 
   hikvision_service:
@@ -353,6 +361,8 @@ services:
     depends_on:
       mysql_service:
         condition: service_healthy
+      grafana:
+        condition: service_healthy
 
   mobotix_service:
     build:
@@ -378,6 +388,8 @@ services:
       - ./logs:/app/logs
     depends_on:
       mysql_service:
+        condition: service_healthy
+      grafana:
         condition: service_healthy
 
   reolink_service:
@@ -405,6 +417,8 @@ services:
     depends_on:
       mysql_service:
         condition: service_healthy
+      grafana:
+        condition: service_healthy
 
   vstarcam_service:
     build:
@@ -430,6 +444,8 @@ services:
       - ./logs:/app/logs
     depends_on:
       mysql_service:
+        condition: service_healthy
+      grafana:
         condition: service_healthy
 
   #ONVIF
@@ -602,6 +618,8 @@ services:
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_FEATURE_TOGGLES_ENABLE=publicDashboards
+      - GF_PUBLIC_DASHBOARDS_ENABLED=true
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
@@ -610,3 +628,9 @@ services:
     depends_on:
       mysql_service:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

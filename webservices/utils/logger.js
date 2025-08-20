@@ -369,7 +369,7 @@ const honeypotLogger = {
         }
     },
 
-    logAuthFailure: (ip, username, reason, userAgent, brand, port, password = null, sessionId = null, requestMethod = null, requestUrl = null, responseStatus = null) => {
+    logAuthFailure: async (ip, username, reason, userAgent, brand, port, password = null, sessionId = null, requestMethod = null, requestUrl = null, responseStatus = null) => {
         safeLogger.warn('Authentication failure', {
             service: 'webservice',
             event_type: 'auth_failure',
@@ -387,6 +387,29 @@ const honeypotLogger = {
             message: `Authentication failure for user: ${username}, reason: ${reason}`
         });
         
+        try {
+            await databaseLogger.logEvent({
+                service: 'web',
+                event_type: 'auth_failure',
+                log_level: 'warn',
+                ip_address: ip,
+                brand: brand,
+                port: port,
+                username: username,
+                password: password,
+                session_id: sessionId,
+                user_agent: userAgent,
+                message: `Authentication failure for user: ${username}, reason: ${reason}`,
+                raw_data: {
+                    reason: reason,
+                    request_method: requestMethod,
+                    request_path: requestUrl,
+                    response_code: responseStatus
+                }
+            });
+        } catch (error) {
+            console.error('Failed to log auth failure to database:', error.message);
+        }
     },
 
     logServiceAccess: async (ip, method, url, statusCode, userAgent, brand, port, sessionId = null) => {

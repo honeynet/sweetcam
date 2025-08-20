@@ -23,9 +23,11 @@
   "engines": {
     "node": ">=14.0.0"
   },
-  "dependencies": {},
-  "devDependencies": {},
+  "dependencies": {
+    "axios": "^1.11.0",
+    "mysql2": "^3.14.3"
+  },
   "bin": {
     "docker-manager": "./docker-manager.js"
   }
-} 
+}
