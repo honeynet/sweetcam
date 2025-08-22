@@ -109,28 +109,21 @@ docker compose down -v
 
 SweetCam includes a comprehensive **Docker Manager** tool that provides advanced Docker service management, health monitoring and flexible deployment options for the honeypot environment.
 
-### Features
-- **Camera Management**: Single camera, multi-camera, standard, and custom setup options
-- **Service Management**: Start, stop, restart, and remove individual services
-- **Health Monitoring**: Real-time container health checks and status overview
-- **Log Management**: View service logs with configurable line count (1-100)
-- **Protocol Support**: Full support for SSH, ONVIF, RTSP, and web interfaces across all camera brands
+For documentation on the Docker Manager, see the [Docker Manager README](./DOCKER_MANAGER_README.md).
 
-### Usage
+### Quick Usage
 
-#### Using the Docker Manager
 ```shell
+# Make executable and run
+chmod +x docker-manager.js
+./docker-manager.js
+
 # Run the Docker Manager
 ./docker-manager-js
 
 # Health check only
 ./docker-manager-js --health-check
 
-# Status overview only
-./docker-manager-js --status
-
-# Help
-./docker-manager-js --help
 ```
 ## Network access
 
@@ -138,21 +131,14 @@ SweetCam includes a comprehensive **Docker Manager** tool that provides advanced
 
 Refer to the [Service Configuration](#service-configuration) table above for complete port mapping information.
 
-## Port management
+## Port Management
 
 SweetCam includes a **Port Manager** CLI tool to easily manage port changes for Docker containers with automatic port availability checking and container restart functionality.
 
-### Features
-- Check if a port is available before changing
-- Update docker-compose.yml automatically
-- Ask for user confirmation before making changes
-- Automatically restart the specific container after port change
-- List current port configuration
-- Support for all SweetCam services
+For documentation on the Port Manager, see the [Port Manager README](./PORT_MANAGER_README.md).
 
-### Usage
+### Quick Usage
 
-#### Using Node.js directly
 ```shell
 # Show current port configuration
 node port-manager.js list
@@ -164,56 +150,6 @@ node port-manager.js change dahua_service 8080
 node port-manager.js help
 ```
 
-### Available services for port management
-
-Refer to the [Service Configuration](#service-configuration) table above for all available services and their default ports. The "Service Name" column shows the exact service identifier to use with the port manager.
-
-### Port management examples
-
-#### Change Dahua service from port 37777 to 8080
-```shell
-./port-manager change dahua_service 8080
-```
-
-**Output:**
-```
-Port Change Request:
-Service: dahua_service
-New Port: 8080
-
-Are you sure you want to change dahua_service from port 37777 to port 8080? (y/N): y
-
-Updating docker-compose.yml...
-Port updated in docker-compose.yml
-
-Restarting dahua_service...
-dahua_service
-dahua_service restarted successfully!
-
-Successfully changed dahua_service from port 37777 to port 8080!
-```
-
-#### List current port configuration
-```shell
-./port-manager list
-```
-
-**Output:**
-```
-Current Port Configuration:
-==================================================
-web_service              | Port 3000
-axis_service             | Port 10000
-dahua_service            | Port 37777
-hikvision_service        | Port 80
-mobotix_service          | Port 443
-reolink_service          | Port 8081
-vstarcam_service         | Port 81
-rtsp_streaming_service   | Port 554
-mysql_service            | Port 3306
-cowrie_service           | Uses environment variables
-==================================================
-```
 
 ### Network testing
 ```shell
@@ -318,3 +254,18 @@ If the dashboard does not appear, check the provisioning mounts in `docker-compo
 - **Recent all logs (unified)**: most recent entries from the `all_logs` view
 
 Use the Grafana time range selector (top-right) to adjust the period. Most panels honor the time filter.
+
+## Documentation
+
+- **[Main README](./README.md)** - This file, providing an overview and quick start guide
+- **[Port Manager README](./PORT_MANAGER_README.md)** - Complete guide to the Port Manager tool
+- **[Docker Manager README](./DOCKER_MANAGER_README.md)** - Complete guide to the Docker Manager tool
+- **[Log Manager README](./LOG_MANAGER_README.md)** - Guide to the Log Manager tool
+
+## Support
+
+For issues and questions:
+- Review the troubleshooting section above
+- Check the relevant component README files
+- Check Docker and Docker Compose documentation
+- Ensure all prerequisites are met
