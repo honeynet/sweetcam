@@ -23,10 +23,57 @@ class DatabaseLogger {
 
             this.pool = mysql.createPool(config);
             await this.pool.getConnection();
+            
+            await this.ensurePayloadFieldExists();
+            
             this.initialized = true;
         } catch (error) {
             console.error('[DATABASE] Failed to initialize database logger:', error.message);
             throw error;
+        }
+    }
+
+    async ensurePayloadFieldExists() {
+        try {
+            //check if payload field exists in service_logs table
+            const [columns] = await this.pool.execute(`
+                SELECT COLUMN_NAME 
+                FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_SCHEMA = ? 
+                AND TABLE_NAME = 'service_logs' 
+                AND COLUMN_NAME = 'payload'
+            `, [process.env.DB_NAME || 'sweetcam']);
+
+            if (columns.length === 0) {
+                console.log('[DATABASE] Adding payload field to service_logs table...');
+                await this.pool.execute(`
+                    ALTER TABLE service_logs 
+                    ADD COLUMN payload JSON DEFAULT NULL 
+                    COMMENT 'HTTP request and response payloads'
+                `);
+                console.log('[DATABASE] Payload field added successfully');
+            }
+
+            //check if payload field exists in web_service_logs table
+            const [webColumns] = await this.pool.execute(`
+                SELECT COLUMN_NAME 
+                FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_SCHEMA = ? 
+                AND TABLE_NAME = 'web_service_logs' 
+                AND COLUMN_NAME = 'payload'
+            `, [process.env.DB_NAME || 'sweetcam']);
+
+            if (webColumns.length === 0) {
+                console.log('[DATABASE] Adding payload field to web_service_logs table...');
+                await this.pool.execute(`
+                    ALTER TABLE web_service_logs 
+                    ADD COLUMN payload JSON DEFAULT NULL 
+                    COMMENT 'HTTP request and response payloads'
+                `);
+                console.log('[DATABASE] Payload field added to web_service_logs successfully');
+            }
+        } catch (error) {
+            console.error('[DATABASE] Error ensuring payload field exists:', error.message);
         }
     }
 
@@ -49,6 +96,7 @@ class DatabaseLogger {
                 session_id: logData.session_id || null,
                 user_agent: logData.user_agent || null,
                 message: logData.message || null,
+                payload: logData.payload ? JSON.stringify(logData.payload) : null,
                 raw_data: logData.raw_data ? JSON.stringify(logData.raw_data) : null
             };
 
@@ -57,8 +105,8 @@ class DatabaseLogger {
             const query = `
                 INSERT INTO service_logs 
                 (timestamp, service, event_type, log_level, ip_address, brand, port, 
-                 username, password, session_id, user_agent, message, raw_data)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 username, password, session_id, user_agent, message, payload, raw_data)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
 
             const params = [
@@ -74,6 +122,7 @@ class DatabaseLogger {
                 logEntry.session_id,
                 logEntry.user_agent,
                 logEntry.message,
+                logEntry.payload,
                 logEntry.raw_data
             ];
 

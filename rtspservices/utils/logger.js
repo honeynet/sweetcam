@@ -387,8 +387,84 @@ const rtspLogger = {
             port: port,
             message: `RTSP stream teardown: ${streamPath}`
         });
-        writeServiceLog({ service: 'rtsp', event_type: 'stream_teardown', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP stream teardown: ${streamPath}`, raw_data: { transportInfo } });
+        writeServiceLog({ service: 'rtsp', event_type: 'stream_teardown', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP stream teardown: ${streamPath}` });
         writeRTSPLog({ event_type: 'stream_teardown', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, stream_path: streamPath, message: `RTSP stream teardown: ${streamPath}` });
+    },
+
+    logRTSPSessionWithPayload: (ip, method, url, statusCode, sessionId, brand, port, requestPayload = null, responsePayload = null) => {
+        const payload = {
+            request: requestPayload ? {
+                method: method,
+                url: url,
+                headers: requestPayload.headers || null,
+                body: requestPayload.body || null,
+                transport: requestPayload.transport || null,
+                session: requestPayload.session || null
+            } : null,
+            response: responsePayload ? {
+                status: statusCode,
+                headers: responsePayload.headers || null,
+                body: responsePayload.body || null,
+                session: responsePayload.session || null
+            } : null
+        };
+
+        //only log basic info to file logs (without payload data)
+        safeLogger.info('RTSP request/response with payload', {
+            service: 'rtsp',
+            event_type: 'rtsp_request_response',
+            ip_address: ip,
+            rtsp_method: method,
+            rtsp_url: url,
+            response_status: statusCode,
+            session_id: sessionId,
+            brand: brand,
+            port: port,
+            payload: null, //don't include payload in file logs
+            message: `RTSP ${method} ${url} - ${statusCode}`
+        });
+        
+        //save complete payload data only to database
+        try {
+            writeServiceLog({
+                service: 'rtsp',
+                event_type: 'rtsp_request_response',
+                log_level: 'info',
+                ip_address: ip,
+                brand: brand,
+                port: port,
+                session_id: sessionId,
+                rtsp_method: method,
+                stream_path: url,
+                payload: payload, 
+                message: `RTSP ${method} ${url} - ${statusCode}`,
+                raw_data: {
+                    method: method,
+                    url: url,
+                    status_code: statusCode
+                }
+            });
+            
+            writeRTSPLog({
+                event_type: 'rtsp_request_response',
+                log_level: 'info',
+                ip_address: ip,
+                brand: brand,
+                port: port,
+                session_id: sessionId,
+                rtsp_method: method,
+                stream_path: url,
+                payload: payload, 
+                message: `RTSP ${method} ${url} - ${statusCode}`,
+                raw_data: {
+                    method: method,
+                    url: url,
+                    status_code: statusCode
+                }
+            });
+        } catch (error) {
+            console.error('Failed to log RTSP payload to database:', error.message);
+        }
     },
 
     logRTPStream: (ip, sessionId, event, details, brand, port) => {

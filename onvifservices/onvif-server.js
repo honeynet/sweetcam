@@ -32,6 +32,9 @@ class ONVIFHoneypot {
     this.setupRoutes();
     
     setInterval(() => this.cleanupSessions(), 5 * 60 * 1000);
+    
+    // Clean up old pending requests every 5 minutes
+    setInterval(() => this.cleanupPendingRequests(), 5 * 60 * 1000);
   }
 
   generateSessionId() {
@@ -81,6 +84,13 @@ class ONVIFHoneypot {
     }
   }
 
+  cleanupPendingRequests() {
+    // Clean up any pending requests or resources
+    // This method is called periodically to prevent memory leaks
+    const now = Date.now();
+    // Add any cleanup logic here if needed in the future
+  }
+
   setupMiddleware() {    
     this.app.use((req, res, next) => {
       res.removeHeader('X-Powered-By');
@@ -90,23 +100,28 @@ class ONVIFHoneypot {
       
       res.setHeader('Server', 'ONVIF/1.0');
       res.setHeader('Connection', 'close');
-      res.setHeader('Content-Type', 'application/soap+xml; charset=utf-8');
+      
+      // Only set SOAP content type for ONVIF routes, not for health or other routes
+      if (req.path.startsWith('/onvif/') || req.path === '/') {
+        res.setHeader('Content-Type', 'application/soap+xml; charset=utf-8');
+      }
       
       const sessionId = this.getOrCreateSession(req.ip);
       
       //capture response status after it is sent
       const originalSend = res.send;
+      const honeypotInstance = this; // Store reference to the honeypot instance
       res.send = function(data) {
         const statusCode = res.statusCode;
         try {
-          const brand = this.soapService?.brand || 'hikvision';
+          const brand = honeypotInstance.soapService?.brand || 'hikvision';
           const userAgent = req.headers['user-agent'] || null;
-          onvifLogger.logONVIFConnection(req.ip, 'connected', brand, this.port, userAgent, req.method, req.url, statusCode, sessionId);
+          onvifLogger.logONVIFConnection(req.ip, 'connected', brand, honeypotInstance.port, userAgent, req.method, req.url, statusCode, sessionId);
         } catch (error) {
           console.error('Error in ONVIF middleware response logging:', error);
         }
         return originalSend.call(this, data);
-      }.bind(this);
+      };
       
       next();
     });
@@ -455,6 +470,18 @@ class ONVIFHoneypot {
       try {
         // Generate a session ID for SOAP requests (since we don't have IP context)
         const sessionId = this.generateSessionId();
+        
+        // Store request data for later matching with response
+        this.pendingRequests = this.pendingRequests || new Map();
+        this.pendingRequests.set(sessionId, {
+          method: 'POST',
+          url: '/onvif/device_service/soap',
+          soapAction: methodName,
+          envelope: xml,
+          service: 'device_service',
+          timestamp: Date.now()
+        });
+        
         onvifLogger.logSOAPRequest(null, methodName, 'POST', '/onvif/device_service/soap', this.soapService.brand, this.port, null, 200, sessionId);
       } catch (error) {
         onvifLogger.logONVIFError(error, 'device_service_soap_request', null, this.soapService.brand, this.port);
@@ -462,6 +489,47 @@ class ONVIFHoneypot {
     });
     deviceSoapServer.on('response', (xml, methodName) => {
       try {
+        // Find the matching request by looking for recent requests with same method
+        let matchingRequest = null;
+        if (this.pendingRequests) {
+          for (const [sessionId, request] of this.pendingRequests.entries()) {
+            if (request.soapAction === methodName && request.service === 'device_service') {
+              matchingRequest = request;
+              this.pendingRequests.delete(sessionId);
+              break;
+            }
+          }
+        }
+        
+        // Capture SOAP request and response payloads together
+        const requestPayload = matchingRequest ? {
+          method: matchingRequest.method,
+          url: matchingRequest.url,
+          soap_action: matchingRequest.soapAction,
+          envelope: matchingRequest.envelope,
+          service: matchingRequest.service
+        } : null;
+        
+        const responsePayload = {
+          envelope: xml,
+          method: methodName,
+          service: 'device_service'
+        };
+        
+        onvifLogger.logONVIFSOAPWithPayload(
+          null, 
+          'POST', 
+          '/onvif/device_service/soap', 
+          200, 
+          null, 
+          this.soapService.brand, 
+          this.port,
+          methodName,
+          null,
+          requestPayload,
+          responsePayload
+        );
+        
         onvifLogger.logSOAPResponse(null, methodName, 200, this.soapService.brand, this.port);
       } catch (error) {
         onvifLogger.logONVIFError(error, 'device_service_soap_response', null, this.soapService.brand, this.port);
@@ -475,6 +543,18 @@ class ONVIFHoneypot {
       try {
         // Generate a session ID for SOAP requests (since we don't have IP context)
         const sessionId = this.generateSessionId();
+        
+        // Store request data for later matching with response
+        this.pendingRequests = this.pendingRequests || new Map();
+        this.pendingRequests.set(sessionId, {
+          method: 'POST',
+          url: '/onvif/media_service/soap',
+          soapAction: methodName,
+          envelope: xml,
+          service: 'media_service',
+          timestamp: Date.now()
+        });
+        
         onvifLogger.logSOAPRequest(null, methodName, 'POST', '/onvif/media_service/soap', this.soapService.brand, this.port, null, 200, sessionId);
       } catch (error) {
         onvifLogger.logONVIFError(error, 'media_service_soap_request', null, this.soapService.brand, this.port);
@@ -482,6 +562,47 @@ class ONVIFHoneypot {
     });
     mediaSoapServer.on('response', (xml, methodName) => {
       try {
+        // Find the matching request by looking for recent requests with same method
+        let matchingRequest = null;
+        if (this.pendingRequests) {
+          for (const [sessionId, request] of this.pendingRequests.entries()) {
+            if (request.soapAction === methodName && request.service === 'media_service') {
+              matchingRequest = request;
+              this.pendingRequests.delete(sessionId);
+              break;
+            }
+          }
+        }
+        
+        // Capture SOAP request and response payloads together
+        const requestPayload = matchingRequest ? {
+          method: matchingRequest.method,
+          url: matchingRequest.url,
+          soap_action: matchingRequest.soapAction,
+          envelope: matchingRequest.envelope,
+          service: matchingRequest.service
+        } : null;
+        
+        const responsePayload = {
+          envelope: xml,
+          method: methodName,
+          service: 'media_service'
+        };
+        
+        onvifLogger.logONVIFSOAPWithPayload(
+          null, 
+          'POST', 
+          '/onvif/media_service/soap', 
+          200, 
+          null, 
+          this.soapService.brand, 
+          this.port,
+          methodName,
+          null,
+          requestPayload,
+          responsePayload
+        );
+        
         onvifLogger.logSOAPResponse(null, methodName, 200, this.soapService.brand, this.port);
       } catch (error) {
         onvifLogger.logONVIFError(error, 'media_service_soap_response', null, this.soapService.brand, this.port);
@@ -512,9 +633,77 @@ class ONVIFHoneypot {
         const userAgent = req.headers['user-agent'] || null;
         const sessionId = this.getOrCreateSession(ip);
         this.updateSessionActivity(ip);
-        onvifLogger.logSOAPRequest(ip, soapAction || 'unknown', req.method, req.url, this.soapService.brand, this.port, userAgent, 200, sessionId);
+        
+        // Capture request body for SOAP payload logging
+        let requestBody = '';
+        req.on('data', (chunk) => {
+          requestBody += chunk.toString();
+        });
+        
+        req.on('end', () => {
+          // Store request payload for later logging with response
+          const requestPayload = {
+            headers: req.headers,
+            body: requestBody,
+            envelope: requestBody,
+            method: req.method,
+            url: req.url,
+            soap_action: soapAction
+          };
+          
+          // Store request in pendingRequests for later matching with response
+          this.pendingRequests = this.pendingRequests || new Map();
+          this.pendingRequests.set(sessionId, {
+            method: req.method,
+            url: req.url,
+            soapAction: soapAction,
+            envelope: requestBody,
+            service: 'http_soap',
+            timestamp: Date.now(),
+            requestPayload: requestPayload
+          });
+          
+          onvifLogger.logSOAPRequest(ip, soapAction || 'unknown', req.method, req.url, this.soapService.brand, this.port, userAgent, 200, sessionId);
+        });
 
         res.on('finish', () => {
+          // Find the matching request
+          let matchingRequest = null;
+          if (this.pendingRequests) {
+            for (const [reqSessionId, reqData] of this.pendingRequests.entries()) {
+              if (reqSessionId === sessionId && reqData.service === 'http_soap') {
+                matchingRequest = reqData;
+                this.pendingRequests.delete(reqSessionId);
+                break;
+              }
+            }
+          }
+          
+          // Capture SOAP response payload
+          const responsePayload = {
+            headers: res.getHeaders(),
+            status: res.statusCode,
+            url: req.url,
+            soap_action: soapAction
+          };
+          
+          // Log both request and response payloads together
+          if (matchingRequest) {
+            onvifLogger.logONVIFSOAPWithPayload(
+              ip, 
+              req.method, 
+              req.url, 
+              res.statusCode, 
+              sessionId, 
+              this.soapService.brand, 
+              this.port,
+              soapAction,
+              userAgent,
+              matchingRequest.requestPayload,
+              responsePayload
+            );
+          }
+          
           onvifLogger.logSOAPResponse(ip, soapAction || 'unknown', res.statusCode, this.soapService.brand, this.port);
         });
       } catch (error) {

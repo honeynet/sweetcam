@@ -184,7 +184,8 @@ const securityFormat = format.combine(
             request_url: info.request_url || null,
             response_status: info.response_status || null,
             brand: info.brand || null,
-            port: info.port || null
+            port: info.port || null,
+            payload: info.payload || null
         };
         return JSON.stringify(logEntry);
     })
@@ -306,7 +307,8 @@ function fallbackLog(level, message, meta) {
             request_url: meta?.request_url || null,
             response_status: meta?.response_status || null,
             brand: meta?.brand || null,
-            port: meta?.port || null
+            port: meta?.port || null,
+            payload: meta?.payload || null
         };
         
         const logLine = JSON.stringify(logEntry) + '\n';
@@ -346,7 +348,7 @@ const honeypotLogger = {
         
         try {
             await databaseLogger.logEvent({
-                service: 'web',
+                service: brand.toLowerCase(), // Use brand as service name (e.g., 'dahua', 'hikvision')
                 event_type: success ? 'login_success' : 'login_attempt',
                 log_level: success ? 'info' : 'warn',
                 ip_address: ip,
@@ -389,7 +391,7 @@ const honeypotLogger = {
         
         try {
             await databaseLogger.logEvent({
-                service: 'web',
+                service: brand.toLowerCase(), // Use brand as service name (e.g., 'dahua', 'hikvision')
                 event_type: 'auth_failure',
                 log_level: 'warn',
                 ip_address: ip,
@@ -429,7 +431,7 @@ const honeypotLogger = {
         
         try {
             await databaseLogger.logEvent({
-                service: 'web',
+                service: brand.toLowerCase(), // Use brand as service name (e.g., 'dahua', 'hikvision')
                 event_type: 'service_access',
                 log_level: 'info',
                 ip_address: ip,
@@ -547,6 +549,67 @@ const honeypotLogger = {
             session_id: sessionId,
             message: `ONVIF service ${action}: ${serviceName} from ${previousStatus} to ${newStatus}`
         });
+    },
+
+    logHTTPRequest: (ip, method, url, statusCode, userAgent, brand, port, sessionId = null, requestPayload = null, responsePayload = null) => {
+        const payload = {
+            request: requestPayload ? {
+                method: method,
+                url: url,
+                headers: {
+                    'user-agent': userAgent,
+                    'content-type': requestPayload.contentType || null,
+                    'content-length': requestPayload.contentLength || null
+                },
+                body: requestPayload.body || null,
+                query: requestPayload.query || null,
+                params: requestPayload.params || null
+            } : null,
+            response: responsePayload ? {
+                status: statusCode,
+                headers: responsePayload.headers || null,
+                body: responsePayload.body || null
+            } : null
+        };
+
+        // Only log basic info to file logs (without payload data)
+        safeLogger.info('HTTP request/response', {
+            service: 'webservice',
+            event_type: 'http_request',
+            ip_address: ip,
+            request_method: method,
+            request_url: url,
+            response_status: statusCode,
+            user_agent: userAgent,
+            brand: brand,
+            port: port,
+            session_id: sessionId,
+            payload: null, // Don't include payload in file logs
+            message: `${method} ${url} - ${statusCode}`
+        });
+        
+        // Save complete payload data only to database
+        try {
+            databaseLogger.logEvent({
+                service: brand.toLowerCase(), // Use brand as service name (e.g., 'dahua', 'hikvision')
+                event_type: 'http_request',
+                log_level: 'info',
+                ip_address: ip,
+                brand: brand,
+                port: port,
+                session_id: sessionId,
+                user_agent: userAgent,
+                payload: payload, // Include full payload in database
+                message: `${method} ${url} - ${statusCode}`,
+                raw_data: {
+                    request_method: method,
+                    request_path: url,
+                    response_code: statusCode
+                }
+            });
+        } catch (error) {
+            console.error('Failed to log HTTP request to database:', error.message);
+        }
     }
 };
 

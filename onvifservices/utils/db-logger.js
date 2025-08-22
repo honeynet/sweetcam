@@ -70,8 +70,8 @@ ensureColumnsExist();
 
 async function writeServiceLog(entry) {
   const sql = `INSERT INTO service_logs 
-    (timestamp, service, event_type, log_level, ip_address, brand, port, username, password, session_id, user_agent, message, raw_data) 
-    VALUES (COALESCE(?, CURRENT_TIMESTAMP), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    (timestamp, service, event_type, log_level, ip_address, brand, port, username, password, session_id, user_agent, message, payload, raw_data) 
+    VALUES (COALESCE(?, CURRENT_TIMESTAMP), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
   const params = [
     entry.timestamp || null,
     'onvif',
@@ -85,6 +85,7 @@ async function writeServiceLog(entry) {
     entry.session_id || null,
     entry.user_agent || null,
     entry.message || null,
+    entry.payload ? JSON.stringify(entry.payload) : null,
     entry.raw_data ? JSON.stringify(entry.raw_data) : null
   ];
   try {
@@ -94,8 +95,8 @@ async function writeServiceLog(entry) {
 
 async function writeONVIFLog(entry) {
   let sql = `INSERT INTO onvif_service_logs 
-    (timestamp, event_type, log_level, ip_address, brand, port, username, password, session_id, soap_action, user_agent, request_method, request_url, response_status, device_info, discovery_type, message, raw_data) 
-    VALUES (COALESCE(?, CURRENT_TIMESTAMP), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    (timestamp, event_type, log_level, ip_address, brand, port, username, password, session_id, soap_action, user_agent, request_method, request_url, response_status, device_info, discovery_type, message, payload, raw_data) 
+    VALUES (COALESCE(?, CURRENT_TIMESTAMP), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
   
   let params = [
     entry.timestamp || null,
@@ -115,6 +116,7 @@ async function writeONVIFLog(entry) {
     entry.device_info ? JSON.stringify(entry.device_info) : null,
     entry.discovery_type || null,
     entry.message || null,
+    entry.payload ? JSON.stringify(entry.payload) : null,
     entry.raw_data ? JSON.stringify(entry.raw_data) : null
   ];
   

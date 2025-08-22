@@ -231,6 +231,14 @@ a=control:trackID=1\r
             
             const brandConfig = this.brandDetector.getBrandConfig(brand);
             
+            // Capture request payload for logging
+            const requestPayload = {
+                headers: headers,
+                body: dataStr,
+                transport: headers.Transport || null,
+                session: sessionId
+            };
+            
             //log RTSP method request
             rtspLogger.logRTSPMethod(socket.remoteAddress, method, url, sessionId, brand, RTSP_PORT);
             
@@ -274,6 +282,20 @@ a=control:trackID=1\r
                     if (!credentials) {
                         const nonce = this.brandDetector.generateNonce();
                         const response = brandConfig.patterns.unauthorized(nonce);
+                        
+                        // Log the request/response with payloads
+                        rtspLogger.logRTSPSessionWithPayload(
+                            socket.remoteAddress, 
+                            method, 
+                            url, 
+                            401, 
+                            sessionId, 
+                            brand, 
+                            RTSP_PORT,
+                            requestPayload,
+                            { status: 401, headers: response.split('\r\n'), body: response }
+                        );
+                        
                         socket.write(response);
                         return;
                     }
@@ -283,6 +305,20 @@ a=control:trackID=1\r
                         if (!isValid) {
                             const nonce = this.brandDetector.generateNonce();
                             const response = brandConfig.patterns.unauthorized(nonce);
+                            
+                            // Log the request/response with payloads
+                            rtspLogger.logRTSPSessionWithPayload(
+                                socket.remoteAddress, 
+                                method, 
+                                url, 
+                                401, 
+                                sessionId, 
+                                brand, 
+                                RTSP_PORT,
+                                requestPayload,
+                                { status: 401, headers: response.split('\r\n'), body: response }
+                            );
+                            
                             socket.write(response);
                             return;
                         }
@@ -296,7 +332,22 @@ a=control:trackID=1\r
                         }
                     } catch (err) {
                         console.error('Authentication error:', err.message);
-                        socket.write(`RTSP/1.0 500 Internal Server Error\r\nCSeq: ${cseq}\r\n\r\n`);
+                        const errorResponse = `RTSP/1.0 500 Internal Server Error\r\nCSeq: ${cseq}\r\n\r\n`;
+                        
+                        // Log the request/response with payloads
+                        rtspLogger.logRTSPSessionWithPayload(
+                            socket.remoteAddress, 
+                            method, 
+                            url, 
+                            500, 
+                            sessionId, 
+                            brand, 
+                            RTSP_PORT,
+                            requestPayload,
+                            { status: 500, headers: errorResponse.split('\r\n'), body: errorResponse }
+                        );
+                        
+                        socket.write(errorResponse);
                         return;
                     }
                 }
@@ -314,6 +365,19 @@ a=control:trackID=1\r
                 } else {
                     response = brandConfig.patterns.options.pattern1;
                 }
+                
+                // Log the request/response with payloads
+                rtspLogger.logRTSPSessionWithPayload(
+                    socket.remoteAddress, 
+                    method, 
+                    url, 
+                    200, 
+                    sessionId, 
+                    brand, 
+                    RTSP_PORT,
+                    requestPayload,
+                    { status: 200, headers: response.split('\r\n'), body: response }
+                );
                 
                 rtspLogger.logRTSPSOptions(socket.remoteAddress, headers['User-Agent'], brand, RTSP_PORT);
                 rtspLogger.logRTSPResponse(socket.remoteAddress, method, 200, sessionId, brand, RTSP_PORT);
@@ -339,21 +403,64 @@ a=control:trackID=1\r
             }
 
             if (!stream && method !== 'DESCRIBE') {
-                socket.write(`RTSP/1.0 404 Not Found\r\nCSeq: ${cseq}\r\n\r\n`);
+                const notFoundResponse = `RTSP/1.0 404 Not Found\r\nCSeq: ${cseq}\r\n\r\n`;
+                
+                // Log the request/response with payloads
+                rtspLogger.logRTSPSessionWithPayload(
+                    socket.remoteAddress, 
+                    method, 
+                    url, 
+                    404, 
+                    sessionId, 
+                    brand, 
+                    RTSP_PORT,
+                    requestPayload,
+                    { status: 404, headers: notFoundResponse.split('\r\n'), body: notFoundResponse }
+                );
+                
+                socket.write(notFoundResponse);
                 return;
             }
 
             switch (method) {
                 case 'DESCRIBE':
                     if (!stream) {
+                        const notFoundResponse = `RTSP/1.0 404 Not Found\r\nCSeq: ${cseq}\r\n\r\n`;
+                        
+                        // Log the request/response with payloads
+                        rtspLogger.logRTSPSessionWithPayload(
+                            socket.remoteAddress, 
+                            method, 
+                            url, 
+                            404, 
+                            sessionId, 
+                            brand, 
+                            RTSP_PORT,
+                            requestPayload,
+                            { status: 404, headers: notFoundResponse.split('\r\n'), body: notFoundResponse }
+                        );
+                        
                         rtspLogger.logRTSPResponse(socket.remoteAddress, method, 404, sessionId, brand, RTSP_PORT);
-                        socket.write(`RTSP/1.0 404 Not Found\r\nCSeq: ${cseq}\r\n\r\n`);
+                        socket.write(notFoundResponse);
                         return;
                     }
                     const serverAddress = socket.localAddress || '127.0.0.1';
                     const sdp = this.generateSDP(stream.name, serverAddress, stream.brand);
                     const baseURL = `rtsp://${serverAddress}:${RTSP_PORT}${path}/`;
                     const sdpResponse = `RTSP/1.0 200 OK\r\nCSeq: ${cseq}\r\nContent-Type: application/sdp\r\nContent-Base: ${baseURL}\r\nContent-Length: ${Buffer.byteLength(sdp)}\r\n\r\n${sdp}`;
+                    
+                    // Log the request/response with payloads
+                    rtspLogger.logRTSPSessionWithPayload(
+                        socket.remoteAddress, 
+                        method, 
+                        url, 
+                        200, 
+                        sessionId, 
+                        brand, 
+                        RTSP_PORT,
+                        requestPayload,
+                        { status: 200, headers: sdpResponse.split('\r\n'), body: sdpResponse }
+                    );
                     
                     rtspLogger.logRTSPDescribe(socket.remoteAddress, url, headers['User-Agent'], brand, RTSP_PORT);
                     rtspLogger.logRTSPResponse(socket.remoteAddress, method, 200, sessionId, brand, RTSP_PORT);
@@ -382,6 +489,19 @@ a=control:trackID=1\r
 
                     const setupResponse = `RTSP/1.0 200 OK\r\nCSeq: ${cseq}\r\nTransport: RTP/AVP;unicast;client_port=${transport.rtpPort}-${transport.rtcpPort};server_port=${serverRtpPort}-${serverRtcpPort}\r\nSession: ${sessionId2}\r\n\r\n`;
                     
+                    // Log the request/response with payloads
+                    rtspLogger.logRTSPSessionWithPayload(
+                        socket.remoteAddress, 
+                        method, 
+                        url, 
+                        200, 
+                        sessionId2, 
+                        brand, 
+                        RTSP_PORT,
+                        requestPayload,
+                        { status: 200, headers: setupResponse.split('\r\n'), body: setupResponse, session: sessionId2 }
+                    );
+                    
                     rtspLogger.logRTSPStreamSetup(socket.remoteAddress, sessionId2, stream ? stream.name : '/stream', transport, brand, RTSP_PORT);
                     rtspLogger.logRTSPSession(socket.remoteAddress, sessionId2, 'created', stream ? stream.name : '/stream', brand, RTSP_PORT);
                     rtspLogger.logRTSPResponse(socket.remoteAddress, method, 200, sessionId2, brand, RTSP_PORT);
@@ -392,8 +512,23 @@ a=control:trackID=1\r
                     const sessionId3 = headers.Session;
                     const session = this.sessions.get(sessionId3);
                     if (!session) {
+                        const sessionNotFoundResponse = `RTSP/1.0 454 session not found\r\nCSeq: ${cseq}\r\n\r\n`;
+                        
+                        // Log the request/response with payloads
+                        rtspLogger.logRTSPSessionWithPayload(
+                            socket.remoteAddress, 
+                            method, 
+                            url, 
+                            454, 
+                            sessionId3, 
+                            brand, 
+                            RTSP_PORT,
+                            requestPayload,
+                            { status: 454, headers: sessionNotFoundResponse.split('\r\n'), body: sessionNotFoundResponse }
+                        );
+                        
                         rtspLogger.logRTSPResponse(socket.remoteAddress, method, 454, sessionId3, brand, RTSP_PORT);
-                        socket.write(`RTSP/1.0 454 session not found\r\nCSeq: ${cseq}\r\n\r\n`);
+                        socket.write(sessionNotFoundResponse);
                         return;
                     }
                     
@@ -415,6 +550,19 @@ a=control:trackID=1\r
                     const nptStart = 0.0;
                     const playResponse = `RTSP/1.0 200 OK\r\nCSeq: ${cseq}\r\nSession: ${sessionId3}\r\nRange: npt=${nptStart.toFixed(3)}-\r\nRTP-Info: url=rtsp://127.0.0.1:${RTSP_PORT}${session.path}/trackID=1;seq=${session.lastSeq};rtptime=${rtpStart}\r\n\r\n`;
                     
+                    // Log the request/response with payloads
+                    rtspLogger.logRTSPSessionWithPayload(
+                        socket.remoteAddress, 
+                        method, 
+                        url, 
+                        200, 
+                        sessionId3, 
+                        brand, 
+                        RTSP_PORT,
+                        requestPayload,
+                        { status: 200, headers: playResponse.split('\r\n'), body: playResponse, session: sessionId3 }
+                    );
+                    
                     rtspLogger.logRTSPStreamPlay(socket.remoteAddress, sessionId3, session.path, brand, RTSP_PORT);
                     rtspLogger.logRTSPSession(socket.remoteAddress, sessionId3, 'playing', session.path, brand, RTSP_PORT);
                     rtspLogger.logRTSPResponse(socket.remoteAddress, method, 200, sessionId3, brand, RTSP_PORT);
@@ -427,7 +575,23 @@ a=control:trackID=1\r
                     const sessionIdPause = headers.Session;
                     const sessionPause = this.sessions.get(sessionIdPause);
                     if (!sessionPause) {
-                        socket.write(`RTSP/1.0 454 session not found\r\nCSeq: ${cseq}\r\n\r\n`);
+                        const sessionNotFoundResponse = `RTSP/1.0 454 session not found\r\nCSeq: ${cseq}\r\n\r\n`;
+                        
+                        // Log the request/response with payloads
+                        rtspLogger.logRTSPSessionWithPayload(
+                            socket.remoteAddress, 
+                            method, 
+                            url, 
+                            454, 
+                            sessionIdPause, 
+                            brand, 
+                            RTSP_PORT,
+                            requestPayload,
+                            { status: 454, headers: sessionNotFoundResponse.split('\r\n'), body: sessionNotFoundResponse }
+                        );
+                        
+                        rtspLogger.logRTSPResponse(socket.remoteAddress, method, 454, sessionIdPause, brand, RTSP_PORT);
+                        socket.write(sessionNotFoundResponse);
                         return;
                     }
                     
@@ -442,28 +606,81 @@ a=control:trackID=1\r
                             clearInterval(sessionPause.rtcpInterval);
                             sessionPause.rtcpInterval = null;
                         }
-                        
                     }
                     
                     const pauseResponse = `RTSP/1.0 200 OK\r\nCSeq: ${cseq}\r\nSession: ${sessionIdPause}\r\n\r\n`;
+                    
+                    // Log the request/response with payloads
+                    rtspLogger.logRTSPSessionWithPayload(
+                        socket.remoteAddress, 
+                        method, 
+                        url, 
+                        200, 
+                        sessionIdPause, 
+                        brand, 
+                        RTSP_PORT,
+                        requestPayload,
+                        { status: 200, headers: pauseResponse.split('\r\n'), body: pauseResponse, session: sessionIdPause }
+                    );
+                    
+                    rtspLogger.logRTSPStreamPause(socket.remoteAddress, sessionIdPause, sessionPause.path, brand, RTSP_PORT);
+                    rtspLogger.logRTSPSession(socket.remoteAddress, sessionIdPause, 'paused', sessionPause.path, brand, RTSP_PORT);
+                    rtspLogger.logRTSPResponse(socket.remoteAddress, method, 200, sessionIdPause, brand, RTSP_PORT);
                     socket.write(pauseResponse);
                     break;
                     
                 case 'TEARDOWN':
                     const sessionId4 = headers.Session;
-                    if (sessionId4 && this.sessions.has(sessionId4)) {
                         const sess = this.sessions.get(sessionId4);
-                        if (sess.rtpSocket) sess.rtpSocket.close();
-                        if (sess.rtcpSocket) sess.rtcpSocket.close();
-                        if (sess.rtpInterval) clearInterval(sess.rtpInterval);
-                        if (sess.rtcpInterval) clearInterval(sess.rtcpInterval);
+                    if (!sess) {
+                        const sessionNotFoundResponse = `RTSP/1.0 454 session not found\r\nCSeq: ${cseq}\r\n\r\n`;
                         
-                        rtspLogger.logRTSPStreamTeardown(socket.remoteAddress, sessionId4, sess.path, brand, RTSP_PORT);
-                        rtspLogger.logRTSPSession(socket.remoteAddress, sessionId4, 'destroyed', sess.path, brand, RTSP_PORT);
-                        this.sessions.delete(sessionId4);
+                        // Log the request/response with payloads
+                        rtspLogger.logRTSPSessionWithPayload(
+                            socket.remoteAddress, 
+                            method, 
+                            url, 
+                            454, 
+                            sessionId4, 
+                            brand, 
+                            RTSP_PORT,
+                            requestPayload,
+                            { status: 454, headers: sessionNotFoundResponse.split('\r\n'), body: sessionNotFoundResponse }
+                        );
+                        
+                        rtspLogger.logRTSPResponse(socket.remoteAddress, method, 454, sessionId4, brand, RTSP_PORT);
+                        socket.write(sessionNotFoundResponse);
+                        return;
                     }
+                    
+                    if (sess.rtpInterval) {
+                        clearInterval(sess.rtpInterval);
+                    }
+                    if (sess.rtcpInterval) {
+                        clearInterval(sess.rtcpInterval);
+                    }
+                    
+                    this.sessions.delete(sessionId4);
+                    
+                    const teardownResponse = `RTSP/1.0 200 OK\r\nCSeq: ${cseq}\r\nSession: ${sessionId4}\r\n\r\n`;
+                    
+                    // Log the request/response with payloads
+                    rtspLogger.logRTSPSessionWithPayload(
+                        socket.remoteAddress, 
+                        method, 
+                        url, 
+                        200, 
+                        sessionId4, 
+                        brand, 
+                        RTSP_PORT,
+                        requestPayload,
+                        { status: 200, headers: teardownResponse.split('\r\n'), body: teardownResponse, session: sessionId4 }
+                    );
+                    
+                    rtspLogger.logRTSPStreamTeardown(socket.remoteAddress, sessionId4, sess.path, brand, RTSP_PORT);
+                        rtspLogger.logRTSPSession(socket.remoteAddress, sessionId4, 'destroyed', sess.path, brand, RTSP_PORT);
                     rtspLogger.logRTSPResponse(socket.remoteAddress, method, 200, sessionId4, brand, RTSP_PORT);
-                    socket.write(`RTSP/1.0 200 OK\r\nCSeq: ${cseq}\r\n\r\n`);
+                    socket.write(teardownResponse);
                     break;
                     
                 default:

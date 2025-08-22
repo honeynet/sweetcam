@@ -38,6 +38,8 @@ app.use(session({
     name: 'sweetcam_session'
 }));
 
+
+
 // i18n middleware
 app.use(i18n.init);
 
@@ -61,6 +63,88 @@ app.set('view engine', 'pug');
 app.set('views', path.join(__dirname, 'views'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.use((req, res, next) => {
+    const originalSend = res.send;
+    const originalJson = res.json;
+    
+    let requestPayload = null;
+    if (req.body && Object.keys(req.body).length > 0) {
+        requestPayload = {
+            body: req.body,
+            query: req.query,
+            params: req.params,
+            contentType: req.get('Content-Type'),
+            contentLength: req.get('Content-Length')
+        };
+    }
+    
+    
+    res.send = function(data) {
+        const responsePayload = {
+            headers: res.getHeaders(),
+            body: data
+        };
+        
+        setTimeout(() => {
+            try {
+                const cameraType = typeof getCameraType === 'function' ? getCameraType(req) : 'unknown';
+                const port = process.env.PORT || (req.connection && req.connection.server ? req.connection.server.address().port : 80);
+                
+                honeypotLogger.logHTTPRequest(
+                    req.ip,
+                    req.method,
+                    req.url,
+                    res.statusCode,
+                    req.get('User-Agent'),
+                    cameraType,
+                    port,
+                    req.sessionID,
+                    requestPayload,
+                    responsePayload
+                );
+            } catch (error) {
+                console.error('Error in payload logging middleware:', error.message);
+            }
+        }, 0);
+        
+        return originalSend.call(this, data);
+    };
+    
+    res.json = function(data) {
+        const responsePayload = {
+            headers: res.getHeaders(),
+            body: data
+        };
+        
+        setTimeout(() => {
+            try {
+                const cameraType = typeof getCameraType === 'function' ? getCameraType(req) : 'unknown';
+                const port = process.env.PORT || (req.connection && req.connection.server ? req.connection.server.address().port : 80);
+                
+                honeypotLogger.logHTTPRequest(
+                    req.ip,
+                    req.method,
+                    req.url,
+                    res.statusCode,
+                    req.get('User-Agent'),
+                    cameraType,
+                    port,
+                    req.sessionID,
+                    requestPayload,
+                    responsePayload
+                );
+            } catch (error) {
+                console.error('Error in payload logging middleware:', error.message);
+            }
+        }, 0);
+        
+        return originalJson.call(this, data);
+    };
+    
+    next();
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/config', express.static(path.join(__dirname, 'config')));
 
@@ -154,13 +238,11 @@ function getCameraTypeByPort(port) {
 
 //helper function to get camera type from environment or request
 function getCameraType(req) {
-    // Try to get port from environment first (more reliable in Docker)
     const envPort = process.env.PORT;
     if (envPort) {
         return getCameraTypeByPort(parseInt(envPort));
     }
     
-    // Fallback to request port detection
     const port = req.connection.server.address().port;
     return getCameraTypeByPort(port);
 }

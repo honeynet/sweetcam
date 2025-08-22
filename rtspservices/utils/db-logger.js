@@ -14,8 +14,8 @@ const pool = mysql.createPool({
 
 async function writeServiceLog(entry) {
   const sql = `INSERT INTO service_logs 
-    (timestamp, service, event_type, log_level, ip_address, brand, port, username, password, session_id, user_agent, message, raw_data) 
-    VALUES (COALESCE(?, CURRENT_TIMESTAMP), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    (timestamp, service, event_type, log_level, ip_address, brand, port, username, password, session_id, user_agent, message, payload, raw_data) 
+    VALUES (COALESCE(?, CURRENT_TIMESTAMP), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
   const params = [
     entry.timestamp || null,
     'rtsp',
@@ -29,6 +29,7 @@ async function writeServiceLog(entry) {
     entry.session_id || null,
     entry.user_agent || null,
     entry.message || null,
+    entry.payload ? JSON.stringify(entry.payload) : null,
     entry.raw_data ? JSON.stringify(entry.raw_data) : null
   ];
   try {
@@ -38,8 +39,8 @@ async function writeServiceLog(entry) {
 
 async function writeRTSPLog(entry) {
   const sql = `INSERT INTO rtsp_service_logs 
-    (timestamp, event_type, log_level, ip_address, brand, port, username, password, session_id, rtsp_method, stream_path, connection_id, message, raw_data) 
-    VALUES (COALESCE(?, CURRENT_TIMESTAMP), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    (timestamp, event_type, log_level, ip_address, brand, port, username, password, session_id, rtsp_method, stream_path, connection_id, message, payload, raw_data) 
+    VALUES (COALESCE(?, CURRENT_TIMESTAMP), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
   const params = [
     entry.timestamp || null,
     entry.event_type,
@@ -54,6 +55,7 @@ async function writeRTSPLog(entry) {
     entry.stream_path || null,
     entry.connection_id || null,
     entry.message || null,
+    entry.payload ? JSON.stringify(entry.payload) : null,
     entry.raw_data ? JSON.stringify(entry.raw_data) : null
   ];
   try {
