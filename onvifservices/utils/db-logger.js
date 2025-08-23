@@ -1,12 +1,12 @@
 const mysql = require('mysql2/promise');
-const { pool: existingPool } = require('../config/db-config');
+const dbConfig = require('../config/db-config');
 
-const pool = existingPool || mysql.createPool({
-  host: process.env.DB_HOST || 'mysql_service',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || 'password',
-  database: process.env.DB_NAME || 'sweetcam',
-  port: process.env.DB_PORT || 3306,
+const pool = mysql.createPool({
+  host: dbConfig.HOST,
+  user: dbConfig.USER,
+  password: dbConfig.PASSWORD,
+  database: dbConfig.DB,
+  port: dbConfig.PORT || dbConfig.port || 3306,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
@@ -68,7 +68,23 @@ async function ensureColumnsExist() {
 
 ensureColumnsExist();
 
+// Test database connection
+async function testConnection() {
+  try {
+    const [rows] = await pool.execute('SELECT 1 as test');
+    console.log('[DB-LOGGER] Database connection test successful');
+    return true;
+  } catch (error) {
+    console.error('[DB-LOGGER] Database connection test failed:', error.message);
+    return false;
+  }
+}
+
+testConnection();
+
 async function writeServiceLog(entry) {
+  console.log('[DB-LOGGER] Attempting to write service log:', JSON.stringify(entry, null, 2));
+  
   const sql = `INSERT INTO service_logs 
     (timestamp, service, event_type, log_level, ip_address, brand, port, username, password, session_id, user_agent, message, payload, raw_data) 
     VALUES (COALESCE(?, CURRENT_TIMESTAMP), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
@@ -88,12 +104,26 @@ async function writeServiceLog(entry) {
     entry.payload ? JSON.stringify(entry.payload) : null,
     entry.raw_data ? JSON.stringify(entry.raw_data) : null
   ];
+  
+  console.log('[DB-LOGGER] SQL Query:', sql);
+  console.log('[DB-LOGGER] Parameters:', JSON.stringify(params, null, 2));
+  
   try {
-    await pool.execute(sql, params);
-  } catch (_) {}
+    const result = await pool.execute(sql, params);
+    console.log('[DB-LOGGER] Service log written successfully. Insert ID:', result[0].insertId);
+  } catch (error) {
+    console.error('[DB-LOGGER] Failed to write service log:', error.message);
+    console.error('[DB-LOGGER] Error code:', error.code);
+    console.error('[DB-LOGGER] Error SQL state:', error.sqlState);
+    console.error('[DB-LOGGER] SQL:', sql);
+    console.error('[DB-LOGGER] Params:', JSON.stringify(params));
+    console.error('[DB-LOGGER] Full error:', error);
+  }
 }
 
 async function writeONVIFLog(entry) {
+  console.log('[DB-LOGGER] Attempting to write ONVIF log:', JSON.stringify(entry, null, 2));
+  
   let sql = `INSERT INTO onvif_service_logs 
     (timestamp, event_type, log_level, ip_address, brand, port, username, password, session_id, soap_action, user_agent, request_method, request_url, response_status, device_info, discovery_type, message, payload, raw_data) 
     VALUES (COALESCE(?, CURRENT_TIMESTAMP), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
@@ -120,9 +150,20 @@ async function writeONVIFLog(entry) {
     entry.raw_data ? JSON.stringify(entry.raw_data) : null
   ];
   
+  console.log('[DB-LOGGER] ONVIF SQL Query:', sql);
+  console.log('[DB-LOGGER] ONVIF Parameters:', JSON.stringify(params, null, 2));
+  
   try {
-    await pool.execute(sql, params);
+    const result = await pool.execute(sql, params);
+    console.log('[DB-LOGGER] ONVIF log written successfully. Insert ID:', result[0].insertId);
   } catch (error) {
+    console.error('[DB-LOGGER] Failed to write ONVIF log (primary):', error.message);
+    console.error('[DB-LOGGER] Error code:', error.code);
+    console.error('[DB-LOGGER] Error SQL state:', error.sqlState);
+    console.error('[DB-LOGGER] SQL:', sql);
+    console.error('[DB-LOGGER] Params:', JSON.stringify(params));
+    console.error('[DB-LOGGER] Full error:', error);
+    
     try {
       sql = `INSERT INTO onvif_service_logs 
         (timestamp, event_type, log_level, ip_address, brand, port, username, password, session_id, soap_action, device_info, discovery_type, message, raw_data) 
@@ -145,9 +186,18 @@ async function writeONVIFLog(entry) {
         entry.raw_data ? JSON.stringify(entry.raw_data) : null
       ];
       
-      await pool.execute(sql, params);
+      console.log('[DB-LOGGER] Attempting fallback ONVIF query:', sql);
+      console.log('[DB-LOGGER] Fallback parameters:', JSON.stringify(params, null, 2));
+      
+      const fallbackResult = await pool.execute(sql, params);
+      console.log('[DB-LOGGER] ONVIF log written with fallback query. Insert ID:', fallbackResult[0].insertId);
     } catch (fallbackError) {
-      console.error('[DB-LOGGER] Failed to write ONVIF log:', fallbackError.message);
+      console.error('[DB-LOGGER] Failed to write ONVIF log (fallback):', fallbackError.message);
+      console.error('[DB-LOGGER] Fallback error code:', fallbackError.code);
+      console.error('[DB-LOGGER] Fallback error SQL state:', fallbackError.sqlState);
+      console.error('[DB-LOGGER] Fallback SQL:', sql);
+      console.error('[DB-LOGGER] Fallback Params:', JSON.stringify(params));
+      console.error('[DB-LOGGER] Full fallback error:', fallbackError);
     }
   }
 }

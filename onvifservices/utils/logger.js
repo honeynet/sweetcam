@@ -514,6 +514,82 @@ const onvifLogger = {
         } catch (error) {
             console.error('Failed to log ONVIF SOAP payload to database:', error.message);
         }
+    },
+
+    logHTTPRequestResponse: (ip, method, url, statusCode, brand, port, userAgent = null, sessionId = null, requestHeaders = null, requestBody = null, responseHeaders = null, responseBody = null) => {
+        const payload = {
+            request: {
+                method: method,
+                url: url,
+                headers: requestHeaders || null,
+                body: requestBody || null,
+                ip_address: ip,
+                user_agent: userAgent,
+                session_id: sessionId
+            },
+            response: {
+                status: statusCode,
+                headers: responseHeaders || null,
+                body: responseBody || null
+            }
+        };
+
+        safeLogger.info('HTTP request/response with payload', {
+            service: 'onvif',
+            event_type: 'http_request_response',
+            ip_address: ip,
+            request_method: method,
+            request_url: url,
+            response_status: statusCode,
+            session_id: sessionId,
+            brand: brand,
+            port: port,
+            user_agent: userAgent,
+            payload: payload,
+            message: `HTTP ${method} ${url} - ${statusCode}`
+        });
+        
+        writeServiceLog({
+            service: 'onvif',
+            event_type: 'http_request_response',
+            log_level: 'info',
+            ip_address: ip,
+            brand: brand,
+            port: port,
+            session_id: sessionId,
+            user_agent: userAgent,
+            payload: payload,
+            message: `HTTP ${method} ${url} - ${statusCode}`,
+            raw_data: {
+                method: method,
+                url: url,
+                status_code: statusCode,
+                request_headers: requestHeaders,
+                response_headers: responseHeaders
+            }
+        });
+        
+        writeONVIFLog({
+            event_type: 'http_request_response',
+            log_level: 'info',
+            ip_address: ip,
+            brand: brand,
+            port: port,
+            session_id: sessionId,
+            user_agent: userAgent,
+            request_method: method,
+            request_url: url,
+            response_status: statusCode,
+            payload: payload,
+            message: `HTTP ${method} ${url} - ${statusCode}`,
+            raw_data: {
+                method: method,
+                url: url,
+                status_code: statusCode,
+                request_headers: requestHeaders,
+                response_headers: responseHeaders
+            }
+        });
     }
 };
 

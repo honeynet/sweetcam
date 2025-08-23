@@ -1,7 +1,7 @@
 module.exports = {
     HOST: process.env.DB_HOST || "mysql_service",
     USER: process.env.DB_USER || "root",
-    PASSWORD: process.env.DB_PASSWORD || "123456",
+    PASSWORD: process.env.DB_PASSWORD || "rootpassword",
     DB: process.env.DB_NAME || "sweetcam",
     port: process.env.DB_PORT || 3306,
     dialect: "mysql",

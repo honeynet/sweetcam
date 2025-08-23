@@ -182,8 +182,22 @@ class PortManager {
         console.log('-'.repeat(70));
         
         for (const [serviceName, serviceConfig] of Object.entries(this.services)) {
-            const currentPort = this.getCurrentPort(serviceName);
-            const internalPort = serviceConfig.internalPort;
+            let currentPort = this.getCurrentPort(serviceName);
+            let internalPort = serviceConfig.internalPort;
+            
+            // Special handling for cowrie_service that uses environment variables
+            if (serviceName === 'cowrie_service') {
+                try {
+                    const envContent = fs.readFileSync('.env', 'utf8');
+                    const cowriePortMatch = envContent.match(/COWRIE_LOCAL_PORT=(\d+)/);
+                    if (cowriePortMatch) {
+                        currentPort = parseInt(cowriePortMatch[1]);
+                        internalPort = parseInt(cowriePortMatch[1]);
+                    }
+                } catch (error) {
+                    // If .env file can't be read, keep as null
+                }
+            }
             
             let status = 'Unknown';
             if (currentPort === null) {

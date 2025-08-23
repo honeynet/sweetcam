@@ -1,6 +1,5 @@
 const express = require('express');
 const http = require('http');
-const soap = require('soap');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -34,7 +33,7 @@ class ONVIFHoneypot {
     setInterval(() => this.cleanupSessions(), 5 * 60 * 1000);
     
     // Clean up old pending requests every 5 minutes
-    setInterval(() => this.cleanupPendingRequests(), 5 * 60 * 1000);
+
   }
 
   generateSessionId() {
@@ -84,12 +83,7 @@ class ONVIFHoneypot {
     }
   }
 
-  cleanupPendingRequests() {
-    // Clean up any pending requests or resources
-    // This method is called periodically to prevent memory leaks
-    const now = Date.now();
-    // Add any cleanup logic here if needed in the future
-  }
+
 
   setupMiddleware() {    
     this.app.use((req, res, next) => {
@@ -110,13 +104,33 @@ class ONVIFHoneypot {
       
       //capture response status after it is sent
       const originalSend = res.send;
-      const honeypotInstance = this; // Store reference to the honeypot instance
+      const honeypotInstance = this; 
       res.send = function(data) {
         const statusCode = res.statusCode;
         try {
           const brand = honeypotInstance.soapService?.brand || 'hikvision';
           const userAgent = req.headers['user-agent'] || null;
-          onvifLogger.logONVIFConnection(req.ip, 'connected', brand, honeypotInstance.port, userAgent, req.method, req.url, statusCode, sessionId);
+          
+          const requestHeaders = req.headers;
+          const requestBody = null; 
+          const responseHeaders = res.getHeaders();
+          const responseBody = data;
+          
+          onvifLogger.logHTTPRequestResponse(
+            req.ip, 
+            req.method, 
+            req.url, 
+            statusCode, 
+            brand, 
+            honeypotInstance.port, 
+            userAgent, 
+            sessionId, 
+            requestHeaders, 
+            requestBody, 
+            responseHeaders, 
+            responseBody
+          );
+          
         } catch (error) {
           console.error('Error in ONVIF middleware response logging:', error);
         }
@@ -147,19 +161,59 @@ class ONVIFHoneypot {
       try {
         const brand = this.soapService.brand || 'hikvision';
         const userAgent = req.headers['user-agent'] || null;
-        onvifLogger.logSOAPRequest(req.ip, 'GET', req.method, '/', brand, this.port, userAgent, 302, sessionId);
+        
+        const requestHeaders = req.headers;
+        const requestBody = null; 
+        
+        const responseBody = 'Found. Redirecting to /onvif/device_service';
+        res.status(302).send(responseBody);
+        
+        const responseHeaders = res.getHeaders();
+        
+        onvifLogger.logHTTPRequestResponse(
+          req.ip, 
+          req.method, 
+          req.url, 
+          302, 
+          brand, 
+          this.port, 
+          userAgent, 
+          sessionId, 
+          requestHeaders, 
+          requestBody, 
+          responseHeaders, 
+          responseBody
+        );
+        
       } catch (error) {
         console.error('Error in ONVIF root route:', error);
         const userAgent = req.headers['user-agent'] || null;
-        onvifLogger.logSOAPRequest(req.ip, 'GET', req.method, '/', 'hikvision', this.port, userAgent, 302, sessionId);
+        const sessionId = this.getOrCreateSession(req.ip);
+        
+        // Log error with payload
+        onvifLogger.logHTTPRequestResponse(
+          req.ip, 
+          req.method, 
+          req.url, 
+          500, 
+          'hikvision', 
+          this.port, 
+          userAgent, 
+          sessionId, 
+          req.headers, 
+          null, 
+          res.getHeaders(), 
+          'Internal Server Error'
+        );
+        
+        res.status(500).send('Internal Server Error');
       }
-      
-      res.status(302).send('Found. Redirecting to /onvif/device_service');
     });
 
     //onvif service endpoints, handle both http get and soap requests
     this.app.all('/onvif/device_service', (req, res, next) => {
       res.setHeader('Server', 'ONVIF/1.0');
+      
       if (req.method === 'GET') {
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         
@@ -168,7 +222,9 @@ class ONVIFHoneypot {
           const userAgent = req.headers['user-agent'] || null;
           const sessionId = this.getOrCreateSession(req.ip);
           this.updateSessionActivity(req.ip);
-          onvifLogger.logSOAPRequest(req.ip, 'GET', req.method, '/onvif/device_service', brand, this.port, userAgent, 200, sessionId);
+          
+          const requestHeaders = req.headers;
+          const requestBody = null; 
           
           const deviceInfo = this.soapService.deviceInfo || {
             manufacturer: 'Unknown',
@@ -185,7 +241,7 @@ class ONVIFHoneypot {
             specifications: {}
           };
         
-          res.send(`
+          const htmlResponse = `
           <html>
             <head>
               <title>${deviceInfo.manufacturer} ${deviceInfo.model} - ONVIF Device Service</title>
@@ -255,11 +311,11 @@ class ONVIFHoneypot {
                   
                   <div class="feature-card">
                     <h4>Features</h4>
-                    <p><strong>Night Vision:</strong> ${brandConfig.features?.nightVision ? 'Yes' : 'No'}</p>
-                    <p><strong>Motion Detection:</strong> ${brandConfig.features?.motionDetection ? 'Yes' : 'No'}</p>
-                    <p><strong>Audio:</strong> ${brandConfig.features?.audio ? 'Yes' : 'No'}</p>
-                    <p><strong>PTZ:</strong> ${brandConfig.features?.ptz ? 'Yes' : 'No'}</p>
-                    ${brandConfig.features?.waterproof ? `<p><strong>Waterproof:</strong> ${brandConfig.features.waterproof}</p>` : ''}
+                    <p><strong>Night Vision:</strong> Yes</p>
+                    <p><strong>Motion Detection:</strong> Yes</p>
+                    <p><strong>Audio:</strong> Yes</p>
+                    <p><strong>PTZ:</strong> No</p>
+                    <p><strong>Waterproof:</strong> IP66</p>
                   </div>
                 </div>
 
@@ -272,20 +328,53 @@ class ONVIFHoneypot {
                 </div>
               </div>
             </body>
-          </html>
-        `);
+          </html>`;
+          
+          // Send the response
+          res.status(200).send(htmlResponse);
+          
+          // Capture response data and log with full payload
+          const responseHeaders = res.getHeaders();
+          const responseBody = htmlResponse;
+          
+          // Log the complete HTTP request/response with payload
+          onvifLogger.logHTTPRequestResponse(
+            req.ip, 
+            req.method, 
+            req.url, 
+            200, 
+            brand, 
+            this.port, 
+            userAgent, 
+            sessionId, 
+            requestHeaders, 
+            requestBody, 
+            responseHeaders, 
+            responseBody
+          );
+          
         } catch (error) {
-          console.error('Error in ONVIF device service route:', error);
-          onvifLogger.logONVIFError(error, 'device_service_error', req.ip, this.soapService?.brandConfig?.brand || 'hikvision', this.port);
-          res.status(500).send(`
-            <html>
-              <head><title>500 Internal Server Error</title></head>
-              <body>
-                <h1>500 Internal Server Error</h1>
-                <p>ONVIF/1.0 device service</p>
-              </body>
-            </html>
-          `);
+          console.error('Error in ONVIF device service GET handler:', error);
+          const userAgent = req.headers['user-agent'] || null;
+          const sessionId = this.getOrCreateSession(req.ip);
+          
+          // Log error with payload
+          onvifLogger.logHTTPRequestResponse(
+            req.ip, 
+            req.method, 
+            req.url, 
+            500, 
+            'hikvision', 
+            this.port, 
+            userAgent, 
+            sessionId, 
+            req.headers, 
+            null, 
+            res.getHeaders(), 
+            'Internal Server Error'
+          );
+          
+          res.status(500).send('Internal Server Error');
         }
       } else {
         res.setHeader('Content-Type', 'application/soap+xml; charset=utf-8');
@@ -305,7 +394,10 @@ class ONVIFHoneypot {
           const userAgent = req.headers['user-agent'] || null;
           const sessionId = this.getOrCreateSession(req.ip);
           this.updateSessionActivity(req.ip);
-          onvifLogger.logSOAPRequest(req.ip, 'GET', req.method, '/onvif/media_service', brand, this.port, userAgent, 200, sessionId);
+          
+          // Capture request data
+          const requestHeaders = req.headers;
+          const requestBody = null; // GET requests don't have body
           
           const deviceInfo = this.soapService.deviceInfo || {
             manufacturer: 'Unknown',
@@ -322,7 +414,7 @@ class ONVIFHoneypot {
             specifications: {}
           };
         
-        res.send(`
+        const htmlResponse = `
           <html>
             <head>
               <title>${deviceInfo.manufacturer} ${deviceInfo.model} - ONVIF Media Service</title>
@@ -392,24 +484,53 @@ class ONVIFHoneypot {
                   <p><strong>Media Service:</strong> <span class="endpoint">/onvif/media_service</span></p>
                   <p><strong>Device Service:</strong> <span class="endpoint">/onvif/device_service</span></p>
                   <p><strong>Available Methods:</strong> GetProfiles, GetStreamUri, GetVideoSources, GetAudioSources, GetVideoEncoderConfigurations, GetAudioEncoderConfigurations</p>
-                  <p><strong>Stream URI Format:</strong> <span class="endpoint">rtsp://127.0.0.1:554/}</span></p>
+                  <p><strong>Stream URI Format:</strong> <span class="endpoint">rtsp://127.0.0.1:554/</span></p>
                 </div>
               </div>
             </body>
-          </html>
-        `);
+          </html>`;
+          
+          res.status(200).send(htmlResponse);
+          
+          const responseHeaders = res.getHeaders();
+          const responseBody = htmlResponse;
+          
+          onvifLogger.logHTTPRequestResponse(
+            req.ip, 
+            req.method, 
+            req.url, 
+            200, 
+            brand, 
+            this.port, 
+            userAgent, 
+            sessionId, 
+            requestHeaders, 
+            requestBody, 
+            responseHeaders, 
+            responseBody
+          );
+          
         } catch (error) {
-          console.error('Error in ONVIF media service route:', error);
-          onvifLogger.logONVIFError(error, 'media_service_error', req.ip, this.soapService?.brandConfig?.brand || 'hikvision', this.port);
-          res.status(500).send(`
-            <html>
-              <head><title>500 Internal Server Error</title></head>
-              <body>
-                <h1>500 Internal Server Error</h1>
-                <p>ONVIF/1.0 media service</p>
-              </body>
-            </html>
-          `);
+          console.error('Error in ONVIF media service GET handler:', error);
+          const userAgent = req.headers['user-agent'] || null;
+          const sessionId = this.getOrCreateSession(req.ip);
+          
+          onvifLogger.logHTTPRequestResponse(
+            req.ip, 
+            req.method, 
+            req.url, 
+            500, 
+            'hikvision', 
+            this.port, 
+            userAgent, 
+            sessionId, 
+            req.headers, 
+            null, 
+            res.getHeaders(), 
+            'Internal Server Error'
+          );
+          
+          res.status(500).send('Internal Server Error');
         }
       } else {
         res.setHeader('Content-Type', 'application/soap+xml; charset=utf-8');
@@ -427,20 +548,58 @@ class ONVIFHoneypot {
         const userAgent = req.headers['user-agent'] || null;
         const sessionId = this.getOrCreateSession(req.ip);
         this.updateSessionActivity(req.ip);
-        onvifLogger.logSOAPRequest(req.ip, 'POST', req.method, req.url, brand, this.port, userAgent, 404, sessionId);
         
-        res.status(404).send(`
+        const requestHeaders = req.headers;
+        const requestBody = null; 
+        
+        const responseBody = `
           <html>
             <head><title>404 Not Found</title></head>
             <body>
               <h1>404 Not Found</h1>
               <p>ONVIF/1.0 device service</p>
             </body>
-          </html>
-        `);
+          </html>`;
+        
+        res.status(404).send(responseBody);
+        
+        const responseHeaders = res.getHeaders();
+        
+        onvifLogger.logHTTPRequestResponse(
+          req.ip, 
+          req.method, 
+          req.url, 
+          404, 
+          brand, 
+          this.port, 
+          userAgent, 
+          sessionId, 
+          requestHeaders, 
+          requestBody, 
+          responseHeaders, 
+          responseBody
+        );
+        
         } catch (error) {
           console.error('Error in ONVIF catch-all route:', error);
-          onvifLogger.logONVIFError(error, 'catch_all_error', req.ip, this.soapService?.brandConfig?.brand || 'hikvision', this.port);
+          const userAgent = req.headers['user-agent'] || null;
+          const sessionId = this.getOrCreateSession(req.ip);
+          
+          onvifLogger.logHTTPRequestResponse(
+            req.ip, 
+            req.method, 
+            req.url, 
+            500, 
+            'hikvision', 
+            this.port, 
+            userAgent, 
+            sessionId, 
+            req.headers, 
+            null, 
+            res.getHeaders(), 
+            'Internal Server Error'
+          );
+          
           res.status(500).send(`
             <html>
               <head><title>500 Internal Server Error</title></head>
@@ -455,264 +614,205 @@ class ONVIFHoneypot {
   }
 
   setupSOAPServices() {
-    //create WSDL content for device service
     const deviceWsdl = this.createDeviceWSDL();
     
-    //create WSDL content for media service
     const mediaWsdl = this.createMediaWSDL();
 
-    //setup SOAP services with custom handling
-    const deviceSoapServer = soap.listen(this.server, '/onvif/device_service/soap', this.soapService.createDeviceService(), deviceWsdl);
-    const mediaSoapServer = soap.listen(this.server, '/onvif/media_service/soap', this.soapService.createMediaService(), mediaWsdl);
+    const deviceService = this.soapService.createDeviceService();
+    const mediaService = this.soapService.createMediaService();
 
-    // Log SOAP-level events (no direct access to HTTP req/res here)
-    deviceSoapServer.on('request', (xml, methodName) => {
-      try {
-        // Generate a session ID for SOAP requests (since we don't have IP context)
-        const sessionId = this.generateSessionId();
-        
-        // Store request data for later matching with response
-        this.pendingRequests = this.pendingRequests || new Map();
-        this.pendingRequests.set(sessionId, {
-          method: 'POST',
-          url: '/onvif/device_service/soap',
-          soapAction: methodName,
-          envelope: xml,
-          service: 'device_service',
-          timestamp: Date.now()
-        });
-        
-        onvifLogger.logSOAPRequest(null, methodName, 'POST', '/onvif/device_service/soap', this.soapService.brand, this.port, null, 200, sessionId);
-      } catch (error) {
-        onvifLogger.logONVIFError(error, 'device_service_soap_request', null, this.soapService.brand, this.port);
+    this.app.post('/onvif/device_service/soap', (req, res) => {
+      this.handleSOAPRequest(req, res, deviceService, deviceWsdl, 'device_service');
+    });
+
+    this.app.post('/onvif/media_service/soap', (req, res) => {
+      this.handleSOAPRequest(req, res, mediaService, mediaWsdl, 'media_service');
+    });
+  }
+
+  async handleSOAPRequest(req, res, service, wsdl, serviceType) {
+    try {
+      res.setHeader('Content-Type', 'application/soap+xml; charset=utf-8');
+      res.setHeader('Server', 'ONVIF/1.0');
+      
+      const ip = req.ip;
+      const userAgent = req.headers['user-agent'] || null;
+      const sessionId = this.getOrCreateSession(ip);
+      this.updateSessionActivity(ip);
+      
+      let soapAction = req.headers['soapaction'];
+      if (!soapAction && typeof req.headers['content-type'] === 'string') {
+        const m = req.headers['content-type'].match(/action="([^"]+)"/i);
+        if (m) soapAction = m[1];
       }
-    });
-    deviceSoapServer.on('response', (xml, methodName) => {
-      try {
-        // Find the matching request by looking for recent requests with same method
-        let matchingRequest = null;
-        if (this.pendingRequests) {
-          for (const [sessionId, request] of this.pendingRequests.entries()) {
-            if (request.soapAction === methodName && request.service === 'device_service') {
-              matchingRequest = request;
-              this.pendingRequests.delete(sessionId);
-              break;
-            }
-          }
-        }
-        
-        // Capture SOAP request and response payloads together
-        const requestPayload = matchingRequest ? {
-          method: matchingRequest.method,
-          url: matchingRequest.url,
-          soap_action: matchingRequest.soapAction,
-          envelope: matchingRequest.envelope,
-          service: matchingRequest.service
-        } : null;
-        
-        const responsePayload = {
-          envelope: xml,
-          method: methodName,
-          service: 'device_service'
-        };
-        
-        onvifLogger.logONVIFSOAPWithPayload(
-          null, 
-          'POST', 
-          '/onvif/device_service/soap', 
-          200, 
-          null, 
-          this.soapService.brand, 
-          this.port,
-          methodName,
-          null,
-          requestPayload,
-          responsePayload
-        );
-        
-        onvifLogger.logSOAPResponse(null, methodName, 200, this.soapService.brand, this.port);
-      } catch (error) {
-        onvifLogger.logONVIFError(error, 'device_service_soap_response', null, this.soapService.brand, this.port);
-      }
-    });
-    deviceSoapServer.on('soapError', (err) => {
-      onvifLogger.logONVIFError(err, 'device_service_soap_error', null, this.soapService.brand, this.port);
-    });
-
-    mediaSoapServer.on('request', (xml, methodName) => {
-      try {
-        // Generate a session ID for SOAP requests (since we don't have IP context)
-        const sessionId = this.generateSessionId();
-        
-        // Store request data for later matching with response
-        this.pendingRequests = this.pendingRequests || new Map();
-        this.pendingRequests.set(sessionId, {
-          method: 'POST',
-          url: '/onvif/media_service/soap',
-          soapAction: methodName,
-          envelope: xml,
-          service: 'media_service',
-          timestamp: Date.now()
-        });
-        
-        onvifLogger.logSOAPRequest(null, methodName, 'POST', '/onvif/media_service/soap', this.soapService.brand, this.port, null, 200, sessionId);
-      } catch (error) {
-        onvifLogger.logONVIFError(error, 'media_service_soap_request', null, this.soapService.brand, this.port);
-      }
-    });
-    mediaSoapServer.on('response', (xml, methodName) => {
-      try {
-        // Find the matching request by looking for recent requests with same method
-        let matchingRequest = null;
-        if (this.pendingRequests) {
-          for (const [sessionId, request] of this.pendingRequests.entries()) {
-            if (request.soapAction === methodName && request.service === 'media_service') {
-              matchingRequest = request;
-              this.pendingRequests.delete(sessionId);
-              break;
-            }
-          }
-        }
-        
-        // Capture SOAP request and response payloads together
-        const requestPayload = matchingRequest ? {
-          method: matchingRequest.method,
-          url: matchingRequest.url,
-          soap_action: matchingRequest.soapAction,
-          envelope: matchingRequest.envelope,
-          service: matchingRequest.service
-        } : null;
-        
-        const responsePayload = {
-          envelope: xml,
-          method: methodName,
-          service: 'media_service'
-        };
-        
-        onvifLogger.logONVIFSOAPWithPayload(
-          null, 
-          'POST', 
-          '/onvif/media_service/soap', 
-          200, 
-          null, 
-          this.soapService.brand, 
-          this.port,
-          methodName,
-          null,
-          requestPayload,
-          responsePayload
-        );
-        
-        onvifLogger.logSOAPResponse(null, methodName, 200, this.soapService.brand, this.port);
-      } catch (error) {
-        onvifLogger.logONVIFError(error, 'media_service_soap_response', null, this.soapService.brand, this.port);
-      }
-    });
-    mediaSoapServer.on('soapError', (err) => {
-      onvifLogger.logONVIFError(err, 'media_service_soap_error', null, this.soapService.brand, this.port);
-    });
-
-    // Also tap the underlying HTTP server to capture client IP, URL, and status for SOAP POSTs
-    this.server.on('request', (req, res) => {
-      try {
-        const isSoapPost = req.method === 'POST' && req.url && req.url.startsWith('/onvif/') && req.url.endsWith('/soap');
-        if (!isSoapPost) return;
-
-        // Ensure Server header for SOAP replies
-        res.setHeader('Server', 'ONVIF/1.0');
-
-        const ip = (req.socket && req.socket.remoteAddress) || req.headers['x-forwarded-for'] || null;
-
-        // Extract SOAPAction from header or content-type parameter (SOAP 1.2)
-        let soapAction = req.headers['soapaction'];
-        if (!soapAction && typeof req.headers['content-type'] === 'string') {
-          const m = req.headers['content-type'].match(/action="([^"]+)"/i);
-          if (m) soapAction = m[1];
-        }
-
-        const userAgent = req.headers['user-agent'] || null;
-        const sessionId = this.getOrCreateSession(ip);
-        this.updateSessionActivity(ip);
-        
-        // Capture request body for SOAP payload logging
-        let requestBody = '';
-        req.on('data', (chunk) => {
-          requestBody += chunk.toString();
-        });
-        
-        req.on('end', () => {
-          // Store request payload for later logging with response
+      
+      let requestBody = '';
+      req.on('data', (chunk) => {
+        requestBody += chunk.toString();
+      });
+      
+      req.on('end', async () => {
+        try {
+          const methodName = this.extractSOAPMethod(requestBody);
+          
+          onvifLogger.logSOAPRequest(
+            ip, 
+            methodName || soapAction || 'unknown', 
+            req.method, 
+            req.url, 
+            this.soapService.brand, 
+            this.port, 
+            userAgent, 
+            200, 
+            sessionId
+          );
+          
+          const result = await this.processSOAPRequest(requestBody, service, methodName);
+          
+          const soapResponse = this.createSOAPResponse(result, methodName);
+          
           const requestPayload = {
+            method: req.method,
+            url: req.url,
+            soap_action: soapAction,
+            envelope: requestBody, 
+            service: serviceType,
             headers: req.headers,
             body: requestBody,
-            envelope: requestBody,
-            method: req.method,
-            url: req.url,
-            soap_action: soapAction
+            soap_method: methodName
           };
           
-          // Store request in pendingRequests for later matching with response
-          this.pendingRequests = this.pendingRequests || new Map();
-          this.pendingRequests.set(sessionId, {
-            method: req.method,
-            url: req.url,
-            soapAction: soapAction,
-            envelope: requestBody,
-            service: 'http_soap',
-            timestamp: Date.now(),
-            requestPayload: requestPayload
-          });
-          
-          onvifLogger.logSOAPRequest(ip, soapAction || 'unknown', req.method, req.url, this.soapService.brand, this.port, userAgent, 200, sessionId);
-        });
-
-        res.on('finish', () => {
-          // Find the matching request
-          let matchingRequest = null;
-          if (this.pendingRequests) {
-            for (const [reqSessionId, reqData] of this.pendingRequests.entries()) {
-              if (reqSessionId === sessionId && reqData.service === 'http_soap') {
-                matchingRequest = reqData;
-                this.pendingRequests.delete(reqSessionId);
-                break;
-              }
-            }
-          }
-          
-          // Capture SOAP response payload
           const responsePayload = {
+            envelope: soapResponse, 
+            method: methodName,
+            service: serviceType,
+            status: 200,
             headers: res.getHeaders(),
-            status: res.statusCode,
-            url: req.url,
-            soap_action: soapAction
+            body: soapResponse,
+            soap_method: methodName
           };
           
-          // Log both request and response payloads together
-          if (matchingRequest) {
-            onvifLogger.logONVIFSOAPWithPayload(
-              ip, 
-              req.method, 
-              req.url, 
-              res.statusCode, 
-              sessionId, 
-              this.soapService.brand, 
-              this.port,
-              soapAction,
-              userAgent,
-              matchingRequest.requestPayload,
-              responsePayload
-            );
-          }
+          onvifLogger.logONVIFSOAPWithPayload(
+            ip, 
+            req.method, 
+            req.url, 
+            200, 
+            sessionId, 
+            this.soapService.brand, 
+            this.port,
+            methodName || soapAction,
+            userAgent,
+            requestPayload,
+            responsePayload
+          );
           
-          onvifLogger.logSOAPResponse(ip, soapAction || 'unknown', res.statusCode, this.soapService.brand, this.port);
-        });
+          res.status(200).send(soapResponse);
+          
+        } catch (error) {
+          console.error('Error processing SOAP request:', error);
+          onvifLogger.logONVIFError(error, `${serviceType}_soap_error`, ip, this.soapService.brand, this.port);
+          
+          const faultResponse = this.createSOAPFault(error.message);
+          res.status(500).send(faultResponse);
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error in SOAP request handler:', error);
+      onvifLogger.logONVIFError(error, `${serviceType}_handler_error`, req.ip, this.soapService.brand, this.port);
+      res.status(500).send('Internal Server Error');
+    }
+  }
+
+  extractSOAPMethod(xmlBody) {
+    try {
+      const bodyMatch = xmlBody.match(/<soap:Body[^>]*>(.*?)<\/soap:Body>/s);
+      if (bodyMatch) {
+        const bodyContent = bodyMatch[1];
+        const methodMatch = bodyContent.match(/<([^\/\s>]+)[\s>]/);
+        if (methodMatch) {
+          return methodMatch[1];
+        }
+      }
+      
+      const fallbackMatch = xmlBody.match(/<(Get\w+|Set\w+|Create\w+|Delete\w+)[\s>]/);
+      return fallbackMatch ? fallbackMatch[1] : 'UnknownMethod';
+    } catch (error) {
+      return 'UnknownMethod';
+    }
+  }
+
+  async processSOAPRequest(xmlBody, service, methodName) {
+    return new Promise((resolve, reject) => {
+      try {
+        const callback = (error, result) => {
+          if (error) {
+            reject(error);
+          } else {
+            resolve(result);
+          }
+        };
+        
+        if (service[methodName] && typeof service[methodName] === 'function') {
+          service[methodName]({}, callback);
+        } else {
+          reject(new Error(`Method ${methodName} not found`));
+        }
       } catch (error) {
-        onvifLogger.logONVIFError(error, 'http_server_soap_logging', null, this.soapService.brand, this.port);
+        reject(error);
       }
     });
   }
 
-  createDeviceWSDL() { //types, messages, portType, binding, service
+  createSOAPResponse(result, methodName) {
+    const response = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tns="http://www.onvif.org/ver10/device/wsdl">
+  <soap:Body>
+    <${methodName}Response>
+      ${this.formatSOAPResult(result)}
+    </${methodName}Response>
+  </soap:Body>
+</soap:Envelope>`;
+    
+    return response;
+  }
+
+  formatSOAPResult(result) {
+    if (!result) return '';
+    
+    let formatted = '';
+    for (const [key, value] of Object.entries(result)) {
+      if (typeof value === 'object' && value !== null) {
+        formatted += `<${key}>${this.formatSOAPResult(value)}</${key}>`;
+      } else {
+        formatted += `<${key}>${value}</${key}>`;
+      }
+    }
+    return formatted;
+  }
+
+  createSOAPFault(message) {
+    return `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tns="http://www.onvif.org/ver10/device/wsdl">
+  <soap:Body>
+    <soap:Fault>
+      <soap:Code>
+        <soap:Value>SOAP-ENV:Server</soap:Value>
+        <soap:Subcode>
+          <soap:Value>InternalServerError</soap:Value>
+        </soap:Subcode>
+      </soap:Code>
+      <soap:Reason>
+        <soap:Text>${message}</soap:Text>
+      </soap:Reason>
+    </soap:Fault>
+  </soap:Body>
+</soap:Envelope>`;
+  }
+
+
+
+  createDeviceWSDL() { 
     return `<?xml version="1.0" encoding="UTF-8"?>
 <definitions name="DeviceService"
              targetNamespace="http://www.onvif.org/ver10/device/wsdl"
@@ -1032,7 +1132,7 @@ class ONVIFHoneypot {
   }
 }
 
-//handle shutdown
+
 process.on('SIGINT', () => {
   process.exit(0);
 });
