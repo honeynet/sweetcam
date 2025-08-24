@@ -68,16 +68,18 @@ app.use((req, res, next) => {
     const originalSend = res.send;
     const originalJson = res.json;
     
-    let requestPayload = null;
-    if (req.body && Object.keys(req.body).length > 0) {
-        requestPayload = {
-            body: req.body,
-            query: req.query,
-            params: req.params,
-            contentType: req.get('Content-Type'),
-            contentLength: req.get('Content-Length')
-        };
-    }
+    // Always capture request data, even if no body exists
+    let requestPayload = {
+        body: req.body && Object.keys(req.body).length > 0 ? req.body : null,
+        query: req.query && Object.keys(req.query).length > 0 ? req.query : null,
+        params: req.params && Object.keys(req.params).length > 0 ? req.params : null,
+        contentType: req.get('Content-Type'),
+        contentLength: req.get('Content-Length'),
+        url: req.url,
+        originalUrl: req.originalUrl,
+        method: req.method,
+        headers: req.headers
+    };
     
     
     res.send = function(data) {
@@ -195,6 +197,29 @@ app.get('/health', async (req, res) => {
         res.status(503).json({ 
             status: 'unhealthy',
             database: 'disconnected',
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+//database status endpoint
+app.get('/db-status', async (req, res) => {
+    try {
+        const databaseLogger = require('./utils/database-logger');
+        const poolStatus = databaseLogger.getPoolStatus();
+        const healthCheck = await databaseLogger.healthCheck();
+        
+        res.status(200).json({
+            status: 'success',
+            pool_status: poolStatus,
+            health_check: healthCheck,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('Database status check failed:', error);
+        res.status(500).json({
+            status: 'error',
             error: error.message,
             timestamp: new Date().toISOString()
         });
@@ -345,7 +370,8 @@ app.get('/', requireAuth, (req, res) => {
         brand: config.brand,
         brandImagePath: config.brandImagePath,
         brandImageWidth: config.brandImageWidth,
-        locale: req.session.locale || 'en'
+        locale: req.session.locale || 'en',
+        isAdmin: req.session.isAdmin || false
     });
 });
 
@@ -669,7 +695,7 @@ app.use('/', adminRouter);
 
 //start server on configurable port
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Web service listening on port ${PORT}`);
   honeypotLogger.logServiceEvent('started', `Web service started on port ${PORT}`, null);
   // Start Cowrie ingestor (non-blocking)
@@ -682,5 +708,64 @@ app.listen(PORT, '0.0.0.0', () => {
     }
   } catch (e) {
     console.error('[COWRIE_INGESTOR] Failed to start:', e.message);
+  }
+});
+
+// Graceful shutdown handlers
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received, shutting down gracefully...');
+  
+  try {
+    // Close database connections
+    const sequelize = require('./database/database');
+    const databaseLogger = require('./utils/database-logger');
+    
+    await sequelize.close();
+    await databaseLogger.close();
+    
+    // Close server
+    server.close(() => {
+      console.log('Server closed');
+      process.exit(0);
+    });
+    
+    // Force close after 10 seconds
+    setTimeout(() => {
+      console.error('Could not close connections in time, forcefully shutting down');
+      process.exit(1);
+    }, 10000);
+    
+  } catch (error) {
+    console.error('Error during graceful shutdown:', error);
+    process.exit(1);
+  }
+});
+
+process.on('SIGINT', async () => {
+  console.log('SIGINT received, shutting down gracefully...');
+  
+  try {
+    // Close database connections
+    const sequelize = require('./database/database');
+    const databaseLogger = require('./utils/database-logger');
+    
+    await sequelize.close();
+    await databaseLogger.close();
+    
+    // Close server
+    server.close(() => {
+      console.log('Server closed');
+      process.exit(0);
+    });
+    
+    // Force close after 10 seconds
+    setTimeout(() => {
+      console.error('Could not close connections in time, forcefully shutting down');
+      process.exit(1);
+    }, 10000);
+    
+  } catch (error) {
+    console.error('Error during graceful shutdown:', error);
+    process.exit(1);
   }
 });

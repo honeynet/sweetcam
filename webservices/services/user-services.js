@@ -17,7 +17,7 @@ const addUser = async (name, password) => {
 
 const findUserPasswordHashByName = async (name) => {
     try {
-        await sequelize.authenticate();
+        // Remove unnecessary authenticate call - Sequelize manages connections
         await User.sync()
         const result = await User.findOne({where: {name: name}})
         return result === null ? null : result.passwordHash
@@ -29,7 +29,7 @@ const findUserPasswordHashByName = async (name) => {
 
 const findUserPasswordHashesByName = async (name) => {
     try {
-        await sequelize.authenticate();
+        // Remove unnecessary authenticate call - Sequelize manages connections
         await User.sync()
         const results = await User.findAll({where: {name: name}})
         return results.map(result => result.passwordHash)
@@ -60,7 +60,7 @@ const validateUserPassword = async (username, password) => {
 
 const getNumberOfUsers = async () => {
     try {
-        await sequelize.authenticate();
+        // Remove unnecessary authenticate call - Sequelize manages connections
         return await User.count()
     } catch (error) {
         console.error('Database connection error in getNumberOfUsers:', error);

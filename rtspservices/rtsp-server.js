@@ -131,6 +131,10 @@ class RTSPServer {
         });
     }
 
+    generateSessionId() {
+        return `session_${++this.sessionCounter}`;
+    }
+
     generateSDP(name = 'Video stream', serverAddress = '127.0.0.1', brand = 'hikvision') { 
         const brandConfig = this.brandDetector.getBrandConfig(brand);
         return `v=0\r
@@ -323,12 +327,29 @@ a=control:trackID=1\r
                             return;
                         }
                         
-                        //mark session as authenticated if this is a setup request
-                        if (method === 'SETUP' && sessionId) {
+                        //mark session as authenticated for any authenticated request
+                        if (sessionId) {
                             if (this.sessions.has(sessionId)) {
                                 this.sessions.get(sessionId).authenticated = true;
                                 this.sessions.get(sessionId).username = credentials.username;
+                            } else {
+                                // Create new session if it doesn't exist
+                                this.sessions.set(sessionId, {
+                                    authenticated: true,
+                                    username: credentials.username,
+                                    socket: socket,
+                                    state: 'new'
+                                });
                             }
+                        } else {
+                            // Create new session ID if none provided
+                            const newSessionId = this.generateSessionId();
+                            this.sessions.set(newSessionId, {
+                                authenticated: true,
+                                username: credentials.username,
+                                socket: socket,
+                                state: 'new'
+                            });
                         }
                     } catch (err) {
                         console.error('Authentication error:', err.message);
@@ -692,6 +713,80 @@ a=control:trackID=1\r
         }
     }
 
+    createFallbackFrame() {
+        // Create a simple 160x120 colored JPEG frame as fallback
+        // This is a minimal JPEG header + a simple colored frame
+        const width = 160;
+        const height = 120;
+        
+        // Create a simple colored frame (blue background with white text)
+        const frameData = Buffer.alloc(width * height * 3);
+        let offset = 0;
+        
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                // Create a simple pattern
+                if (y < height / 2) {
+                    // Top half: blue
+                    frameData[offset++] = 0;     // R
+                    frameData[offset++] = 0;     // G
+                    frameData[offset++] = 255;   // B
+                } else {
+                    // Bottom half: darker blue
+                    frameData[offset++] = 0;     // R
+                    frameData[offset++] = 0;     // G
+                    frameData[offset++] = 128;   // B
+                }
+            }
+        }
+        
+        // For now, return a minimal valid JPEG structure
+        // In a real implementation, you'd want to properly encode this as JPEG
+        // For simplicity, we'll create a basic structure that can be processed
+        const jpegHeader = Buffer.from([
+            0xFF, 0xD8, // SOI marker
+            0xFF, 0xE0, // APP0 marker
+            0x00, 0x10, // Length
+            0x4A, 0x46, 0x49, 0x46, 0x00, // "JFIF\0"
+            0x01, 0x01, // Version 1.1
+            0x00, // Units: none
+            0x00, 0x01, // Density: 1x1
+            0x00, 0x01, // Density: 1x1
+            0x00, 0x00  // No thumbnail
+        ]);
+        
+        // Create a simple frame marker
+        const frameMarker = Buffer.from([
+            0xFF, 0xC0, // SOF0 marker
+            0x00, 0x11, // Length
+            0x08, // Precision
+            0x00, 0x78, // Height (120)
+            0x00, 0xA0, // Width (160)
+            0x03, // Components
+            0x01, 0x11, 0x00, // Y component
+            0x02, 0x11, 0x01, // Cb component
+            0x03, 0x11, 0x01  // Cr component
+        ]);
+        
+        // Create a simple scan marker
+        const scanMarker = Buffer.from([
+            0xFF, 0xDA, // SOS marker
+            0x00, 0x0C, // Length
+            0x03, // Components
+            0x01, 0x00, // Y component
+            0x02, 0x11, // Cb component
+            0x03, 0x11, // Cr component
+            0x00, 0x3F, // Ss
+            0x00  // Se
+        ]);
+        
+        // Create EOI marker
+        const eoiMarker = Buffer.from([0xFF, 0xD9]);
+        
+        // Combine all parts
+        return Buffer.concat([jpegHeader, frameMarker, scanMarker, frameData, eoiMarker]);
+    }
+
     startRTPStream(session) {
         const rtp = dgram.createSocket('udp4');
         const rtcp = dgram.createSocket('udp4');
@@ -704,16 +799,35 @@ a=control:trackID=1\r
         
         let jpeg;
         try {
+            // Try to load the default image
             const imagePath = path.join(__dirname, 'img.jpg');
             jpeg = fs.readFileSync(imagePath);
         } catch (e) {
-            console.error(`Could not load the image: ${e.message}`);
-    
-            rtp.close();
-            rtcp.close();
-            return;
+            console.error(`Could not load the default image: ${e.message}`);
+            
+            // Try alternative image files
+            const alternativeImages = ['img.png', 'test.jpg', 'mini.jpg'];
+            let imageFound = false;
+            
+            for (const altImage of alternativeImages) {
+                try {
+                    const altImagePath = path.join(__dirname, altImage);
+                    jpeg = fs.readFileSync(altImagePath);
+                    console.log(`Using alternative image: ${altImage}`);
+                    imageFound = true;
+                    break;
+                } catch (altError) {
+                    // Continue trying other alternatives
+                    continue;
+                }
+            }
+            
+            // If no images found, create a simple colored frame as fallback
+            if (!imageFound) {
+                console.log('No image files found, creating fallback frame');
+                jpeg = this.createFallbackFrame();
+            }
         }
-
 
 
         session.rtpSocket = rtp;
@@ -742,40 +856,65 @@ a=control:trackID=1\r
             const now = Date.now();
             const elapsedMs = now - streamStartTime;
             
-            const rtpHeader = Buffer.alloc(12);
-            rtpHeader[0] = 0x80;
-            rtpHeader[1] = 0x9A;
-            rtpHeader.writeUInt16BE(seq & 0xFFFF, 2);
-            rtpHeader.writeUInt32BE(rtpTimestamp & 0xFFFFFFFF, 4);
-            rtpHeader.writeUInt32BE(ssrc, 8);
-
-            const jpegHeader = Buffer.alloc(8);
-            jpegHeader[0] = 0;
-            jpegHeader[1] = 0;
-            jpegHeader[2] = 0;
-            jpegHeader[3] = 0;
-            jpegHeader[4] = 0;
-            jpegHeader[5] = 80;
-            jpegHeader[6] = 160 / 8;
-            jpegHeader[7] = 160 / 8;
-
-            const rtpPacket = Buffer.concat([rtpHeader, jpegHeader, jpeg]);
-
-            rtp.send(rtpPacket, 0, rtpPacket.length, session.clientRtpPort, session.clientAddress || '127.0.0.1', (err) => {
-                if (err) {
-                    console.error('RTP send error:', err.message);
-                } else {
-                    packetsSent++;
-                    octetsSent += rtpPacket.length;
+            // Fragment large images into smaller RTP packets
+            const maxPacketSize = 1400; // Safe UDP packet size
+            const jpegHeaderSize = 8;
+            const rtpHeaderSize = 12;
+            const maxPayloadSize = maxPacketSize - rtpHeaderSize - jpegHeaderSize;
+            
+            // Calculate how many fragments we need
+            const totalFragments = Math.ceil(jpeg.length / maxPayloadSize);
+            
+            for (let fragmentIndex = 0; fragmentIndex < totalFragments; fragmentIndex++) {
+                const start = fragmentIndex * maxPayloadSize;
+                const end = Math.min(start + maxPayloadSize, jpeg.length);
+                const fragmentData = jpeg.slice(start, end);
+                
+                const rtpHeader = Buffer.alloc(12);
+                rtpHeader[0] = 0x80;
+                rtpHeader[1] = 0x9A;
+                
+                // Set fragmentation flags
+                if (fragmentIndex === 0) {
+                    rtpHeader[1] |= 0x80; // Set start bit
                 }
-            });
+                if (fragmentIndex === totalFragments - 1) {
+                    rtpHeader[1] |= 0x40; // Set end bit
+                }
+                
+                rtpHeader.writeUInt16BE(seq & 0xFFFF, 2);
+                rtpHeader.writeUInt32BE(rtpTimestamp & 0xFFFFFFFF, 4);
+                rtpHeader.writeUInt32BE(ssrc, 8);
 
-            seq++;
+                const jpegHeader = Buffer.alloc(8);
+                jpegHeader[0] = 0;
+                jpegHeader[1] = 0;
+                jpegHeader[2] = 0;
+                jpegHeader[3] = 0;
+                jpegHeader[4] = 0;
+                jpegHeader[5] = 80;
+                jpegHeader[6] = 160 / 8;
+                jpegHeader[7] = 160 / 8;
+
+                const rtpPacket = Buffer.concat([rtpHeader, jpegHeader, fragmentData]);
+
+                rtp.send(rtpPacket, 0, rtpPacket.length, session.clientRtpPort, session.clientAddress || '127.0.0.1', (err) => {
+                    if (err) {
+                        console.error('RTP send error:', err.message);
+                    } else {
+                        packetsSent++;
+                        octetsSent += rtpPacket.length;
+                    }
+                });
+                
+                seq++;
+            }
+
             session.frameNumber = seq;
             session.lastSeq = seq;
             session.lastTimestamp = rtpTimestamp;
             session.packetsSent = packetsSent;
-            session.octetsSent = octetsSent;
+            session.lastOctetsSent = octetsSent;
             session.streamStartTime = streamStartTime;
             
             rtpTimestamp += timestampIncrement;
@@ -819,6 +958,9 @@ a=control:trackID=1\r
         session.rtcpInterval = setInterval(sendRTCP, 1000);
     }
 }
+
+// Export the RTSPServer class for testing
+module.exports = { RTSPServer };
 
 const rtsp = new RTSPServer();
 const server = net.createServer(socket => {

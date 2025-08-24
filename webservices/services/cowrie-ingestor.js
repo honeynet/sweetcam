@@ -25,30 +25,104 @@ function mapCowrieToLogEvent(event) {
 
   switch (eventId) {
     case 'cowrie.session.connect':
-      return { ...base, event_type: 'session_start', message: `Session started from ${base.ip_address}:${base.port}` };
+      return { 
+        ...base, 
+        event_type: 'session_start', 
+        message: `Session started from ${base.ip_address}:${base.port}`,
+        payload: event // Full event data including connection details
+      };
     case 'cowrie.session.closed':
-      return { ...base, event_type: 'session_end', message: `Session closed for ${base.ip_address}` };
+      return { 
+        ...base, 
+        event_type: 'session_end', 
+        message: `Session closed for ${base.ip_address}`,
+        payload: event // Full event data including session duration, tty info
+      };
     case 'cowrie.login.failed':
-      return { ...base, event_type: 'auth_failure', log_level: 'warn', message: `Login failed for user ${base.username || 'unknown'}` };
+      return { 
+        ...base, 
+        event_type: 'auth_failure', 
+        log_level: 'warn', 
+        message: `Login failed for user ${base.username || 'unknown'}`,
+        payload: event // Full event data including failed credentials
+      };
     case 'cowrie.login.success':
-      return { ...base, event_type: 'login_success', message: `Login success for user ${base.username || 'unknown'}` };
+      return { 
+        ...base, 
+        event_type: 'login_success', 
+        message: `Login success for user ${base.username || 'unknown'}`,
+        payload: event // Full event data including successful credentials
+      };
     case 'cowrie.command.input':
-      return { ...base, event_type: 'command_execution', message: event.input ? `Command: ${event.input}` : 'Command input', raw_data: { ...event, command: event.input } };
+      return { 
+        ...base, 
+        event_type: 'command_execution', 
+        message: event.input ? `Command: ${event.input}` : 'Command input', 
+        payload: event, // Full event data including command, input, session
+        raw_data: { ...event, command: event.input } 
+      };
     case 'cowrie.command.failed':
-      return { ...base, event_type: 'command_execution', log_level: 'error', message: event.input ? `Command failed: ${event.input}` : 'Command failed', raw_data: { ...event, command: event.input } };
+      return { 
+        ...base, 
+        event_type: 'command_execution', 
+        log_level: 'error', 
+        message: event.input ? `Command failed: ${event.input}` : 'Command failed',
+        payload: event, // Full event data including failed command details
+        raw_data: { ...event, command: event.input } 
+      };
     case 'cowrie.session.file_download':
-      return { ...base, event_type: 'download_attempt', message: event.url ? `Download from ${event.url}` : 'File download', raw_data: { ...event, file_path: event.outfile, file_size: event.size } };
+      return { 
+        ...base, 
+        event_type: 'download_attempt', 
+        message: event.url ? `Download from ${event.url}` : 'File download',
+        payload: event, // Full event data including URL, file path, size
+        raw_data: { ...event, file_path: event.outfile, file_size: event.size } 
+      };
     case 'cowrie.session.file_upload':
-      return { ...base, event_type: 'upload_attempt', message: event.filename ? `Upload ${event.filename}` : 'File upload', raw_data: { ...event, file_path: event.filename, file_size: event.size } };
+      return { 
+        ...base, 
+        event_type: 'upload_attempt', 
+        message: event.filename ? `Upload ${event.filename}` : 'File upload',
+        payload: event, // Full event data including filename, size, content
+        raw_data: { ...event, file_path: event.filename, file_size: event.size } 
+      };
     case 'cowrie.client.version':
+      return { 
+        ...base, 
+        event_type: 'service_event', 
+        message: `Client version: ${event.version || ''}`,
+        payload: event // Full event data including client version info
+      };
     case 'cowrie.client.fingerprint':
-      return { ...base, event_type: 'service_event', message: eventId === 'cowrie.client.version' ? `Client version: ${event.version || ''}` : `Client fingerprint: ${event.kexAlgs || ''}` };
+      return { 
+        ...base, 
+        event_type: 'service_event', 
+        message: `Client fingerprint: ${event.kexAlgs || ''}`,
+        payload: event // Full event data including fingerprint details
+      };
     case 'cowrie.direct-tcpip.request':
-      return { ...base, event_type: 'service_event', log_level: 'info', message: `Direct TCPIP request to ${event.dst_ip || ''}:${event.dst_port || ''}` };
+      return { 
+        ...base, 
+        event_type: 'service_event', 
+        log_level: 'info', 
+        message: `Direct TCPIP request to ${event.dst_ip || ''}:${event.dst_port || ''}`,
+        payload: event // Full event data including destination IP/port
+      };
     case 'cowrie.alert':
-      return { ...base, event_type: 'service_event', log_level: 'info', message: event.message || 'Cowrie event' };
+      return { 
+        ...base, 
+        event_type: 'service_event', 
+        log_level: 'info', 
+        message: event.message || 'Cowrie event',
+        payload: event // Full event data including alert details
+      };
     default:
-      return { ...base, event_type: 'service_event', message: eventId || 'cowrie_event' };
+      return { 
+        ...base, 
+        event_type: 'service_event', 
+        message: eventId || 'cowrie_event',
+        payload: event // Full event data for unknown event types
+      };
   }
 }
 
@@ -69,7 +143,17 @@ if not p:
     print('[COWRIE_INGESTOR] No log file found, exiting')
     sys.exit(1)
 print('[COWRIE_INGESTOR] Using log path:', p)
+
+# First, process existing content
 f = open(p, 'r', encoding='utf-8', errors='ignore')
+existing_lines = f.readlines()
+print(f'[COWRIE_INGESTOR] Processing {len(existing_lines)} existing lines')
+for line in existing_lines:
+    if line.strip():
+        sys.stdout.write(line)
+        sys.stdout.flush()
+
+# Then follow new content
 f.seek(0, 2)
 while True:
     line = f.readline()

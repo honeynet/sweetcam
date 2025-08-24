@@ -41,27 +41,27 @@ adminRouter.patch(`/${prefix}/password`, async (req, res) => {
     return res.status(200).send({message: "password update succeed"}).end()
 })
 
-adminRouter.get(`/${prefix}/picture`, (req, res) => {
+adminRouter.get(`/${prefix}/picture`, requireAdminAuth, (req, res) => {
     const config = {
         ...sweetcamServices.getCamPictureConfig(),
         ...sweetcamServices.getBrandConfig(),
-        userName: "admin"
+        userName: req.adminUser ? req.adminUser.name : "admin"
     }
     res.render("picture", config);
 })
 
 
-adminRouter.get(`/${prefix}/video`, (req, res) => {
+adminRouter.get(`/${prefix}/video`, requireAdminAuth, (req, res) => {
     const config = {
         ...sweetcamServices.getCamVideoConfig(),
         ...sweetcamServices.getBrandConfig(),
-        userName: "admin"
+        userName: req.adminUser ? req.adminUser.name : "admin"
     }
     res.render("video", config)
 })
 
 
-adminRouter.post(`/${prefix}/user`, async (req, res) => {
+adminRouter.post(`/${prefix}/user`, requireAdminAuth, async (req, res) => {
     const userInfo = req.body
     const savedUser = await userServices.addUser(userInfo.name, userInfo.password)
     res.status(201).json(savedUser)
@@ -69,40 +69,40 @@ adminRouter.post(`/${prefix}/user`, async (req, res) => {
 
 
 
-adminRouter.patch(`/${prefix}/config/cam-picture`, (req, res) => {
+adminRouter.patch(`/${prefix}/config/cam-picture`, requireAdminAuth, (req, res) => {
     const {name, value} = req.body
     adminServices.configCamPicture(name, value)
     res.status(200).send({ message: `${name} has been updated to ${value}` })
 })
 
-adminRouter.get(`/${prefix}/config/cam-picture`, (req, res) => {
+adminRouter.get(`/${prefix}/config/cam-picture`, requireAdminAuth, (req, res) => {
     const camPictureConfig = sweetcamServices.getCamPictureConfig()
     res.json(camPictureConfig)
 })
 
 
-adminRouter.patch(`/${prefix}/cam-video`, (req, res) => {
+adminRouter.patch(`/${prefix}/cam-video`, requireAdminAuth, (req, res) => {
     const {name, value} = req.body
     adminServices.configCamVideo(name, value)
     res.status(200).send({ message: `${name} has been updated to ${value}` })
 })
 
-adminRouter.get(`/${prefix}/cam-video`, (req, res) => {
+adminRouter.get(`/${prefix}/cam-video`, requireAdminAuth, (req, res) => {
     const camVideoConfig = sweetcamServices.getCamVideoConfig()
     res.json(camVideoConfig)
 })
 
 
-adminRouter.post(`/${prefix}/brands`, adminServices.uploadBrands, (req, res) => {
+adminRouter.post(`/${prefix}/brands`, requireAdminAuth, adminServices.uploadBrands, (req, res) => {
     res.status(200).send({ message: "Brand uploaded successfully" })
 })
 
 
-adminRouter.post(`/${prefix}/images`, adminServices.uploadImages, (req, res) => {
+adminRouter.post(`/${prefix}/images`, requireAdminAuth, adminServices.uploadImages, (req, res) => {
     res.status(200).send({ message: "Image uploaded successfully" })
 })
 
-adminRouter.post(`/${prefix}/videos`, adminServices.uploadVideos, (req, res) => {
+adminRouter.post(`/${prefix}/videos`, requireAdminAuth, adminServices.uploadVideos, (req, res) => {
     res.status(200).send({ message: "Video uploaded successfully" })
 })
 

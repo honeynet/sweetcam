@@ -639,6 +639,11 @@ html
             
             
             async function loadRTSPStatus() {
+                // Only load RTSP status if user is an admin
+                if (!#{isAdmin}) {
+                    return;
+                }
+                
                 try {
                     
                     const portsResponse = await fetch('/admin/rtsp/ports');
@@ -683,6 +688,12 @@ html
             }
             
             async function toggleRTSPService() {
+                // Only allow RTSP toggle if user is an admin
+                if (!#{isAdmin}) {
+                    showNotification('Admin access required. Please log in as admin.', 'error');
+                    return;
+                }
+                
                 const toggle = document.getElementById('rtsp-toggle');
                 const statusText = document.getElementById('rtsp-status-text');
                 
@@ -753,6 +764,11 @@ html
 
             
             async function loadONVIFStatus() {
+                // Only load ONVIF status if user is an admin
+                if (!#{isAdmin}) {
+                    return;
+                }
+                
                 try {
                     
                     const response = await fetch('/admin/onvif/service/8080');
@@ -786,6 +802,12 @@ html
 
             
             async function toggleONVIFService() {
+                // Only allow ONVIF toggle if user is an admin
+                if (!#{isAdmin}) {
+                    showNotification('Admin access required. Please log in as admin.', 'error');
+                    return;
+                }
+                
                 const toggle = document.getElementById('onvif-toggle');
                 const statusText = document.getElementById('onvif-status-text');
                 
@@ -902,6 +924,15 @@ html
             
             
             async function checkAdminStatus() {
+                // Only check admin status if user is an admin
+                if (!#{isAdmin}) {
+                    const rtspControlItem = document.getElementById('rtsp-control-item');
+                    if (rtspControlItem) {
+                        rtspControlItem.style.display = 'none';
+                    }
+                    return;
+                }
+                
                 try {
                     const response = await fetch('/admin/rtsp/status');
                     if (response.ok) {
@@ -931,6 +962,15 @@ html
 
             
             async function checkONVIFAdminStatus() {
+                // Only check ONVIF admin status if user is an admin
+                if (!#{isAdmin}) {
+                    const onvifControlItem = document.getElementById('onvif-control-item');
+                    if (onvifControlItem) {
+                        onvifControlItem.style.display = 'none';
+                    }
+                    return;
+                }
+                
                 try {
                     const response = await fetch('/admin/onvif/status');
                     

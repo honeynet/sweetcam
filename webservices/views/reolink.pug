@@ -448,8 +448,7 @@ html(lang="en")
             .onvif-toggle-container
               label.onvif-toggle
                 input.onvif-toggle-input(type="checkbox" id="onvif-toggle")
-                span.onvif-toggle-slider
-              span.onvif-status-text#onvif-status-text= __('main.onvifDisabled')
+                span.onvif-status-text#onvif-status-text= __('main.onvifDisabled')
     script.
       let currentImage = null;
       let currentX = 0;
@@ -634,6 +633,11 @@ html(lang="en")
 
       
       async function loadRTSPStatus() {
+        // Only load RTSP status if user is an admin
+        if (!#{isAdmin}) {
+          return;
+        }
+        
         try {
           const response = await fetch('/admin/rtsp/service/8557');
           if (response.ok) {
@@ -661,6 +665,12 @@ html(lang="en")
       }
 
       async function toggleRTSPService() {
+        // Only allow RTSP toggle if user is an admin
+        if (!#{isAdmin}) {
+          showNotification('Admin access required. Please log in as admin.', 'error');
+          return;
+        }
+        
         const toggle = document.getElementById('rtsp-toggle');
         const statusText = document.getElementById('rtsp-status-text');
         
@@ -731,19 +741,24 @@ html(lang="en")
 
       
       async function loadONVIFStatus() { 
-          try { 
-              const response = await fetch("/admin/onvif/service/8088"); 
-              if (response.ok) { 
-                  const data = await response.json(); 
-                  updateONVIFToggle(data.running); 
-              } else { 
-                  console.error("Failed to load ONVIF status"); 
-                  updateONVIFToggle(false); 
-              } 
-          } catch (error) { 
-              console.error("Error loading ONVIF status:", error); 
-              updateONVIFToggle(false); 
+        // Only load ONVIF status if user is an admin
+        if (!#{isAdmin}) {
+          return;
+        }
+        
+        try { 
+          const response = await fetch("/admin/onvif/service/8088"); 
+          if (response.ok) { 
+            const data = await response.json(); 
+            updateONVIFToggle(data.running); 
+          } else { 
+            console.error("Failed to load ONVIF status"); 
+            updateONVIFToggle(false); 
           } 
+      } catch (error) { 
+          console.error("Error loading ONVIF status:", error); 
+          updateONVIFToggle(false); 
+      } 
       } 
       
       function updateONVIFToggle(isEnabled) { 
@@ -758,36 +773,42 @@ html(lang="en")
       } 
       
       async function toggleONVIFService() { 
-          const toggle = document.getElementById("onvif-toggle"); 
-          const statusText = document.getElementById("onvif-status-text"); 
+        // Only allow ONVIF toggle if user is an admin
+        if (!#{isAdmin}) {
+          showNotification('Admin access required. Please log in as admin.', 'error');
+          return;
+        }
+        
+        const toggle = document.getElementById("onvif-toggle"); 
+        const statusText = document.getElementById("onvif-status-text"); 
+        
+        if (!toggle || !statusText) return; 
+        
+        
+        const currentState = toggle.checked;
+        const newState = !currentState;
+        
+        
+        toggle.checked = newState;
+        statusText.textContent = newState ? "!{__("main.onvifEnabled")}" : "!{__("main.onvifDisabled")}";
+        statusText.className = `onvif-status-text ${newState ? "enabled" : "disabled"}`;
+        
+        
+        toggle.disabled = true; 
+        
+        try { 
+          const response = await fetch("/admin/onvif/toggle/onvif_reolink_service", { 
+            method: "POST", 
+            headers: { 
+              "Content-Type": "application/json" 
+            } 
+          }); 
           
-          if (!toggle || !statusText) return; 
-          
-          
-          const currentState = toggle.checked;
-          const newState = !currentState;
-          
-          
-          toggle.checked = newState;
-          statusText.textContent = newState ? "!{__("main.onvifEnabled")}" : "!{__("main.onvifDisabled")}";
-          statusText.className = `onvif-status-text ${newState ? "enabled" : "disabled"}`;
-          
-          
-          toggle.disabled = true; 
-          
-          try { 
-              const response = await fetch("/admin/onvif/toggle/onvif_reolink_service", { 
-                  method: "POST", 
-                  headers: { 
-                      "Content-Type": "application/json" 
-                  } 
-              }); 
-              
-              if (response.ok) { 
-                  const result = await response.json(); 
+          if (response.ok) { 
+            const result = await response.json(); 
                                           if (result.success) { 
                             
-                            showNotification("!{__("main.onvifToggleSuccess")}", "success");
+                            showNotification("ONVIF service toggled successfully", "success");
                             
                             await loadONVIFStatus();
                         } else { 
@@ -828,27 +849,36 @@ html(lang="en")
       
       
       async function checkONVIFAdminStatus() { 
-          try { 
-              const response = await fetch("/admin/onvif/status"); 
-              if (response.ok) { 
-                  const onvifControlItem = document.getElementById("onvif-control-item"); 
-                  if (onvifControlItem) { 
-                      onvifControlItem.style.display = "block"; 
-                  } 
-                  loadONVIFStatus(); 
-              } else if (response.status === 403) { 
-                  const onvifControlItem = document.getElementById("onvif-control-item"); 
-                  if (onvifControlItem) { 
-                      onvifControlItem.style.display = "none"; 
-                  } 
-              } 
-          } catch (error) { 
-              console.error("Error checking ONVIF admin status:", error); 
-              const onvifControlItem = document.getElementById("onvif-control-item"); 
-              if (onvifControlItem) { 
-                  onvifControlItem.style.display = "none"; 
-              } 
+        // Only check ONVIF admin status if user is an admin
+        if (!#{isAdmin}) {
+          const onvifControlItem = document.getElementById("onvif-control-item"); 
+          if (onvifControlItem) { 
+            onvifControlItem.style.display = "none"; 
           } 
+          return;
+        }
+        
+        try { 
+          const response = await fetch("/admin/onvif/status"); 
+          if (response.ok) { 
+            const onvifControlItem = document.getElementById("onvif-control-item"); 
+            if (onvifControlItem) { 
+              onvifControlItem.style.display = "block"; 
+            } 
+            loadONVIFStatus(); 
+          } else if (response.status === 403) { 
+            const onvifControlItem = document.getElementById("onvif-control-item"); 
+            if (onvifControlItem) { 
+              onvifControlItem.style.display = "none"; 
+            } 
+          } 
+        } catch (error) { 
+          console.error("Error checking ONVIF admin status:", error); 
+          const onvifControlItem = document.getElementById("onvif-control-item"); 
+          if (onvifControlItem) { 
+            onvifControlItem.style.display = "none"; 
+          } 
+        } 
       }
 
       function showNotification(message, type) {
@@ -876,6 +906,15 @@ html(lang="en")
       }
 
       async function checkAdminStatus() {
+        // Only check admin status if user is an admin
+        if (!#{isAdmin}) {
+          const rtspControlItem = document.getElementById('rtsp-control-item');
+          if (rtspControlItem) {
+            rtspControlItem.style.display = 'none';
+          }
+          return;
+        }
+        
         try {
           const response = await fetch('/admin/rtsp/status');
           if (response.ok) {

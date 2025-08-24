@@ -16,9 +16,6 @@ module.exports = {
         timeout: 10000
     },
     dialectOptions: {
-        connectTimeout: 60000,
-        acquireTimeout: 60000,
-        timeout: 60000,
-        reconnect: true
+        connectTimeout: 60000
     }
 }

@@ -53,7 +53,7 @@
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "SELECT NOW() AS time, service AS metric, COUNT(*) AS value FROM service_logs WHERE $__timeFilter(timestamp) GROUP BY service;",
+          "rawSql": "SELECT NOW() AS time, 'Web Service' AS metric, COUNT(*) AS value FROM service_logs WHERE (event_type LIKE '%http%' OR event_type LIKE '%login%' OR event_type LIKE '%auth%' OR event_type LIKE '%web%' OR event_type = 'http_request') AND $__timeFilter(timestamp)\nUNION ALL\nSELECT NOW() AS time, 'RTSP Service' AS metric, COUNT(*) AS value FROM service_logs WHERE (event_type LIKE '%rtsp%' OR event_type LIKE '%stream%' OR event_type LIKE '%setup%' OR event_type LIKE '%play%') AND $__timeFilter(timestamp)\nUNION ALL\nSELECT NOW() AS time, 'ONVIF Service' AS metric, COUNT(*) AS value FROM service_logs WHERE (event_type LIKE '%onvif%' OR event_type LIKE '%soap%' OR event_type LIKE '%ws_discovery%' OR event_type LIKE '%device%') AND $__timeFilter(timestamp)\nUNION ALL\nSELECT NOW() AS time, 'Cowrie Service' AS metric, COUNT(*) AS value FROM service_logs WHERE (event_type LIKE '%ssh%' OR event_type LIKE '%session%' OR event_type LIKE '%command%' OR event_type LIKE '%cowrie%') AND $__timeFilter(timestamp);",
           "refId": "A"
         }
       ]
@@ -203,13 +203,13 @@
     },
     {
       "type": "table",
-      "title": "Daily Service Activity Summary",
-      "gridPos": {"x": 0, "y": 36, "w": 24, "h": 8},
+      "title": "Web Service Payloads - HTTP Requests & Responses",
+      "gridPos": {"x": 0, "y": 84, "w": 24, "h": 8},
       "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT \n  DATE(timestamp) as Date,\n  SUM(CASE WHEN service = 'web' THEN 1 ELSE 0 END) as Web_Events,\n  SUM(CASE WHEN service = 'rtsp' THEN 1 ELSE 0 END) as RTSP_Events,\n  SUM(CASE WHEN service = 'onvif' THEN 1 ELSE 0 END) as ONVIF_Events,\n  SUM(CASE WHEN service = 'cowrie' THEN 1 ELSE 0 END) as Cowrie_Events,\n  COUNT(DISTINCT ip_address) as Unique_IPs,\n  COUNT(*) as Total_Events\nFROM service_logs \nWHERE $__timeFilter(timestamp)\nGROUP BY DATE(timestamp)\nORDER BY Date DESC\nLIMIT 30;",
+          "rawSql": "SELECT \n  timestamp,\n  event_type,\n  ip_address,\n  brand,\n  username,\n  COALESCE(JSON_EXTRACT(payload, '$.request_path'), 'No path') as request_path,\n  COALESCE(JSON_EXTRACT(payload, '$.request_method'), 'No method') as request_method,\n  COALESCE(JSON_EXTRACT(payload, '$.response_code'), 'No code') as response_code,\n  CASE \n    WHEN JSON_EXTRACT(payload, '$.request') IS NOT NULL THEN JSON_EXTRACT(payload, '$.request')\n    ELSE 'No request data' \n  END as request_data,\n  CASE \n    WHEN JSON_EXTRACT(payload, '$.response') IS NOT NULL THEN LEFT(JSON_EXTRACT(payload, '$.response'), 200) \n    ELSE 'No response data' \n  END as response_data,\n  message\nFROM service_logs \nWHERE payload IS NOT NULL AND $__timeFilter(timestamp)\nORDER BY timestamp DESC \nLIMIT 100;",
           "refId": "A"
         }
       ],
@@ -236,30 +236,87 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "request_data"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 300
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "json"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "response_data"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 300
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "json"
+                }
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "cellHeight": "sm",
         "footer": {
           "countRows": false,
           "fields": "",
-          "reducer": [
-            "sum"
-          ],
+          "reducer": ["sum"],
           "show": false
         },
         "showHeader": true
-      }
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {
+              "timestamp": "Timestamp",
+              "event_type": "Event Type",
+              "ip_address": "IP Address",
+              "brand": "Brand",
+              "username": "Username",
+              "request_path": "Request Path",
+              "request_method": "Method",
+              "response_code": "Response Code",
+              "payload_status": "Payload Status",
+              "raw_data_status": "Raw Data Status",
+              "message": "Message"
+            }
+          }
+        }
+      ]
     },
     {
       "type": "table",
-      "title": "Monthly Service Activity Summary",
-      "gridPos": {"x": 0, "y": 44, "w": 24, "h": 8},
+      "title": "RTSP Service Payloads - Stream & Connection Data",
+      "gridPos": {"x": 0, "y": 92, "w": 24, "h": 8},
       "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT \n  DATE_FORMAT(timestamp, '%Y-%m') as Month,\n  SUM(CASE WHEN service = 'web' THEN 1 ELSE 0 END) as Web_Events,\n  SUM(CASE WHEN service = 'rtsp' THEN 1 ELSE 0 END) as RTSP_Events,\n  SUM(CASE WHEN service = 'onvif' THEN 1 ELSE 0 END) as ONVIF_Events,\n  SUM(CASE WHEN service = 'cowrie' THEN 1 ELSE 0 END) as Cowrie_Events,\n  COUNT(DISTINCT ip_address) as Unique_IPs,\n  COUNT(*) as Total_Events\nFROM service_logs \nWHERE $__timeFilter(timestamp)\nGROUP BY DATE_FORMAT(timestamp, '%Y-%m')\nORDER BY Month DESC\nLIMIT 12;",
+          "rawSql": "SELECT \n  timestamp,\n  event_type,\n  ip_address,\n  brand,\n  username,\n  COALESCE(JSON_EXTRACT(payload, '$.rtsp_method'), 'No method') as rtsp_method,\n  COALESCE(JSON_EXTRACT(payload, '$.stream_path'), 'No path') as stream_path,\n  COALESCE(JSON_EXTRACT(payload, '$.connection_id'), 'No ID') as connection_id,\n  CASE \n    WHEN JSON_EXTRACT(payload, '$.request') IS NOT NULL THEN JSON_EXTRACT(payload, '$.request')\n    ELSE 'No request data' \n  END as request_data,\n  CASE \n    WHEN JSON_EXTRACT(payload, '$.response') IS NOT NULL THEN LEFT(JSON_EXTRACT(payload, '$.response'), 200) \n    ELSE 'No response data' \n  END as response_data,\n  message\nFROM service_logs \nWHERE payload IS NOT NULL AND (event_type LIKE '%rtsp%' OR event_type LIKE '%stream%' OR event_type LIKE '%setup%' OR event_type LIKE '%play%') AND $__timeFilter(timestamp)\nORDER BY timestamp DESC \nLIMIT 100;",
           "refId": "A"
         }
       ],
@@ -286,20 +343,414 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "request_data"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 300
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "json"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "response_data"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 300
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "json"
+                }
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "cellHeight": "sm",
         "footer": {
           "countRows": false,
           "fields": "",
-          "reducer": [
-            "sum"
-          ],
+          "reducer": ["sum"],
           "show": false
         },
         "showHeader": true
-      }
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {
+              "timestamp": "Timestamp",
+              "event_type": "Event Type",
+              "ip_address": "IP Address",
+              "brand": "Brand",
+              "username": "Username",
+              "rtsp_method": "RTSP Method",
+              "stream_path": "Stream Path",
+              "connection_id": "Connection ID",
+              "request_data": "Request Data",
+              "response_data": "Response Data",
+              "message": "Message"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "ONVIF Service Payloads - SOAP & Device Data",
+      "gridPos": {"x": 0, "y": 100, "w": 24, "h": 8},
+      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT \n  timestamp,\n  event_type,\n  ip_address,\n  brand,\n  username,\n  COALESCE(JSON_EXTRACT(payload, '$.soap_action'), 'No action') as soap_action,\n  COALESCE(JSON_EXTRACT(payload, '$.request_method'), 'No method') as request_method,\n  COALESCE(JSON_EXTRACT(payload, '$.request_url'), 'No URL') as request_url,\n  COALESCE(JSON_EXTRACT(payload, '$.response_status'), 'No status') as response_status,\n  CASE \n    WHEN JSON_EXTRACT(payload, '$.request') IS NOT NULL THEN JSON_EXTRACT(payload, '$.request')\n    ELSE 'No request data' \n  END as request_data,\n  CASE \n    WHEN JSON_EXTRACT(payload, '$.response') IS NOT NULL THEN LEFT(JSON_EXTRACT(payload, '$.response'), 200) \n    ELSE 'No response data' \n  END as response_data,\n  message\nFROM service_logs \nWHERE payload IS NOT NULL AND (event_type LIKE '%onvif%' OR event_type LIKE '%soap%' OR event_type LIKE '%ws_discovery%' OR event_type LIKE '%device%') AND $__timeFilter(timestamp)\nORDER BY timestamp DESC \nLIMIT 100;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "request_data"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 300
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "json"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "response_data"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 300
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "json"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {
+              "timestamp": "Timestamp",
+              "event_type": "Event Type",
+              "ip_address": "IP Address",
+              "brand": "Brand",
+              "username": "Username",
+              "soap_action": "SOAP Action",
+              "request_method": "Method",
+              "request_url": "Request URL",
+              "response_status": "Response Status",
+              "request_data": "Request Data",
+              "response_data": "Response Data",
+              "message": "message"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "Cowrie Service Detailed Payloads - Filtered by Event Type",
+      "gridPos": {"x": 0, "y": 114, "w": 24, "h": 8},
+      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT \n  timestamp,\n  event_type,\n  ip_address,\n  brand,\n  username,\n  COALESCE(JSON_EXTRACT(payload, '$.input'), JSON_EXTRACT(payload, '$.command'), 'No command') as command,\n  COALESCE(JSON_EXTRACT(payload, '$.outfile'), JSON_EXTRACT(payload, '$.filename'), JSON_EXTRACT(payload, '$.file_path'), 'No path') as file_path,\n  COALESCE(JSON_EXTRACT(payload, '$.size'), JSON_EXTRACT(payload, '$.file_size'), 'No size') as file_size,\n  COALESCE(JSON_EXTRACT(payload, '$.geoip_country'), 'No country') as geoip_country,\n  COALESCE(JSON_EXTRACT(payload, '$.geoip_city'), 'No city') as geoip_city,\n  CASE \n    WHEN JSON_EXTRACT(payload, '$.session') IS NOT NULL THEN JSON_OBJECT('session_id', JSON_EXTRACT(payload, '$.session'), 'duration', JSON_EXTRACT(payload, '$.duration'), 'ttylog', JSON_EXTRACT(payload, '$.ttylog'), 'sensor', JSON_EXTRACT(payload, '$.sensor'))\n    WHEN JSON_EXTRACT(payload, '$.session_data') IS NOT NULL THEN JSON_EXTRACT(payload, '$.session_data')\n    ELSE 'No session data' \n  END as session_data,\n  CASE \n    WHEN JSON_EXTRACT(payload, '$.ttylog') IS NOT NULL THEN CONCAT('TTY Log: ', JSON_EXTRACT(payload, '$.ttylog'), ' (', COALESCE(JSON_EXTRACT(payload, '$.size'), 'unknown'), ' bytes)')\n    WHEN JSON_EXTRACT(payload, '$.command_output') IS NOT NULL THEN LEFT(JSON_EXTRACT(payload, '$.command_output'), 200)\n    ELSE 'No command output' \n  END as command_output,\n  message\nFROM service_logs \nWHERE payload IS NOT NULL AND (event_type LIKE '%ssh%' OR event_type LIKE '%session%' OR event_type LIKE '%command%' OR event_type LIKE '%login%' OR event_type LIKE '%cowrie%') AND $__timeFilter(timestamp)\nORDER BY timestamp DESC \nLIMIT 100;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "session_data"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 300
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "json"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "command_output"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 300
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "json"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {
+              "timestamp": "Timestamp",
+              "event_type": "Event Type",
+              "ip_address": "IP Address",
+              "brand": "Brand",
+              "username": "Username",
+              "command": "Command",
+              "file_path": "File Path",
+              "file_size": "File Size",
+              "geoip_country": "Country",
+              "geoip_city": "City",
+              "session_data": "Session Data",
+              "command_output": "Command Output",
+              "message": "Message"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "Recent All Logs (Unified)",
+      "gridPos": {"x": 0, "y": 84, "w": 24, "h": 8},
+      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT timestamp, service, event_type, COALESCE(ip_address, 'No IP') as ip_address, brand, message FROM all_logs WHERE $__timeFilter(timestamp) ORDER BY timestamp DESC LIMIT 100;",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "All Service Payloads - Detailed View",
+      "gridPos": {"x": 0, "y": 128, "w": 24, "h": 8},
+      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT \n  timestamp,\n  event_type,\n  ip_address,\n  brand,\n  username,\n  COALESCE(JSON_EXTRACT(payload, '$.request_path'), 'No path') as request_path,\n  COALESCE(JSON_EXTRACT(payload, '$.request_method'), 'No method') as request_method,\n  COALESCE(JSON_EXTRACT(payload, '$.response_code'), 'No code') as response_code,\n  CASE \n    WHEN JSON_EXTRACT(payload, '$.request') IS NOT NULL THEN JSON_EXTRACT(payload, '$.request')\n    ELSE 'No request data' \n  END as request_data,\n  CASE \n    WHEN JSON_EXTRACT(payload, '$.response') IS NOT NULL THEN LEFT(JSON_EXTRACT(payload, '$.response'), 200) \n    ELSE 'No response data' \n  END as response_data,\n  message\nFROM service_logs \nWHERE payload IS NOT NULL AND $__timeFilter(timestamp)\nORDER BY timestamp DESC \nLIMIT 100;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "request_data"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 300
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "json"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "response_data"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 300
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "json"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {
+              "timestamp": "Timestamp",
+              "event_type": "Event Type",
+              "ip_address": "IP Address",
+              "brand": "Brand",
+              "username": "Username",
+              "request_path": "Request Path",
+              "request_method": "Method",
+              "response_code": "Response Code",
+              "request_data": "Request Data",
+              "response_data": "Response Data",
+              "message": "Message"
+            }
+          }
+        }
+      ]
     },
     {
       "type": "barchart",
@@ -331,52 +782,13 @@
     },
     {
       "type": "barchart",
-      "title": "Top Overall Payloads by Event Type",
-      "gridPos": {"x": 0, "y": 68, "w": 12, "h": 8},
-      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
-      "targets": [
-        {
-          "format": "table",
-          "rawSql": "SELECT event_type AS metric, COUNT(*) AS value FROM service_logs WHERE event_type IS NOT NULL AND event_type <> '' AND $__timeFilter(timestamp) GROUP BY event_type ORDER BY value DESC LIMIT 15;",
-          "refId": "A"
-        }
-      ],
-      "options": {"orientation": "auto"},
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "vis": false
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "barchart",
       "title": "Top Payloads by Service",
-      "gridPos": {"x": 12, "y": 68, "w": 12, "h": 8},
+      "gridPos": {"x": 0, "y": 68, "w": 24, "h": 8},
       "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT service AS metric, COUNT(*) AS value FROM service_logs WHERE service IS NOT NULL AND service <> '' AND $__timeFilter(timestamp) GROUP BY service ORDER BY value DESC LIMIT 10;",
+          "rawSql": "SELECT 'Web Service' AS metric, COUNT(*) AS value FROM service_logs WHERE (event_type LIKE '%http%' OR event_type LIKE '%login%' OR event_type LIKE '%auth%' OR event_type LIKE '%web%' OR event_type = 'http_request') AND $__timeFilter(timestamp)\nUNION ALL\nSELECT 'RTSP Service' AS metric, COUNT(*) AS value FROM service_logs WHERE (event_type LIKE '%rtsp%' OR event_type LIKE '%stream%' OR event_type LIKE '%setup%' OR event_type LIKE '%play%') AND $__timeFilter(timestamp)\nUNION ALL\nSELECT 'ONVIF Service' AS metric, COUNT(*) AS value FROM service_logs WHERE (event_type LIKE '%onvif%' OR event_type LIKE '%soap%' OR event_type LIKE '%ws_discovery%' OR event_type LIKE '%device%') AND $__timeFilter(timestamp)\nUNION ALL\nSELECT 'Cowrie Service' AS metric, COUNT(*) AS value FROM service_logs WHERE (event_type LIKE '%ssh%' OR event_type LIKE '%session%' OR event_type LIKE '%command%' OR event_type LIKE '%cowrie%') AND $__timeFilter(timestamp);",
           "refId": "A"
         }
       ],
@@ -410,12 +822,12 @@
     {
       "type": "table",
       "title": "Top Web Service Payloads",
-      "gridPos": {"x": 0, "y": 68, "w": 12, "h": 8},
+      "gridPos": {"x": 0, "y": 76, "w": 12, "h": 8},
       "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT event_type, COUNT(*) as count, MAX(timestamp) as last_seen FROM service_logs WHERE service = 'web' AND $__timeFilter(timestamp) GROUP BY event_type ORDER BY count DESC LIMIT 10;",
+          "rawSql": "SELECT event_type, COUNT(*) as count, MAX(timestamp) as last_seen FROM service_logs WHERE (event_type = 'http_request' OR event_type LIKE '%login%' OR event_type LIKE '%auth%' OR event_type LIKE '%web%' OR event_type LIKE '%http%') AND $__timeFilter(timestamp) GROUP BY event_type ORDER BY count DESC LIMIT 10;",
           "refId": "A"
         }
       ],
@@ -460,7 +872,7 @@
     {
       "type": "table",
       "title": "Top RTSP Service Payloads",
-      "gridPos": {"x": 12, "y": 68, "w": 12, "h": 8},
+      "gridPos": {"x": 12, "y": 76, "w": 12, "h": 8},
       "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
       "targets": [
         {
@@ -510,7 +922,7 @@
     {
       "type": "table",
       "title": "Top ONVIF Service Payloads",
-      "gridPos": {"x": 0, "y": 76, "w": 12, "h": 8},
+      "gridPos": {"x": 0, "y": 92, "w": 12, "h": 8},
       "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
       "targets": [
         {
@@ -560,7 +972,7 @@
     {
       "type": "table",
       "title": "Top Cowrie Service Payloads",
-      "gridPos": {"x": 12, "y": 76, "w": 12, "h": 8},
+      "gridPos": {"x": 12, "y": 92, "w": 12, "h": 8},
       "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
       "targets": [
         {
@@ -606,30 +1018,19 @@
         },
         "showHeader": true
       }
-    },
-    {
-      "type": "table",
-      "title": "Recent All Logs (Unified)",
-      "gridPos": {"x": 0, "y": 84, "w": 24, "h": 8},
-      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
-      "targets": [
-        {
-          "format": "table",
-          "rawSql": "SELECT timestamp, service, event_type, COALESCE(ip_address, 'No IP') as ip_address, brand, message FROM all_logs WHERE $__timeFilter(timestamp) ORDER BY timestamp DESC LIMIT 100;",
-          "refId": "A"
-        }
-      ]
     }
   ],
   "schemaVersion": 38,
   "style": "dark",
   "tags": ["sweetcam", "honeypot"],
-  "templating": {"list": []},
+  "templating": {
+    "list": []
+  },
   "time": {"from": "now-24h", "to": "now"},
   "timepicker": {},
   "timezone": "",
   "title": "Sweetcam Overview",
   "uid": "sweetcam-overview",
-  "version": 18,
-  "description": "SweetCam Honeypot Dashboard with Payload Trend Analysis"
+  "version": 33,
+  "description": "SweetCam Honeypot Dashboard - Fixed Top Payloads by Service Chart to Show Actual Services, Clean Layout"
 } 

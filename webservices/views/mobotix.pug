@@ -664,6 +664,11 @@ html(lang="en")
             document.addEventListener('DOMContentLoaded', loadImage);
 
             async function loadRTSPStatus() {
+                // Only load RTSP status if user is an admin
+                if (!#{isAdmin}) {
+                    return;
+                }
+                
                 try {
                     const response = await fetch('/admin/rtsp/service/8558');
                     if (response.ok) {
@@ -691,6 +696,12 @@ html(lang="en")
             }
 
             async function toggleRTSPService() {
+                // Only allow RTSP toggle if user is an admin
+                if (!#{isAdmin}) {
+                    showNotification('Admin access required. Please log in as admin.', 'error');
+                    return;
+                }
+                
                 const toggle = document.getElementById('rtsp-toggle');
                 const statusText = document.getElementById('rtsp-status-text');
                 
@@ -761,6 +772,11 @@ html(lang="en")
 
             
             async function loadONVIFStatus() { 
+                // Only load ONVIF status if user is an admin
+                if (!#{isAdmin}) {
+                    return;
+                }
+                
                 try { 
                     const response = await fetch("/admin/onvif/service/8089"); 
                     if (response.ok) { 
@@ -788,10 +804,16 @@ html(lang="en")
             } 
             
             async function toggleONVIFService() { 
+                // Only allow ONVIF toggle if user is an admin
+                if (!#{isAdmin}) {
+                    showNotification('Admin access required. Please log in as admin.', 'error');
+                    return;
+                }
+                
                 const toggle = document.getElementById("onvif-toggle"); 
                 const statusText = document.getElementById("onvif-status-text"); 
                 
-                if (!toggle || !statusText) return; 
+                if (!toggle || !statusText) return;
                 
                 
                 const currentState = toggle.checked;
@@ -858,6 +880,15 @@ html(lang="en")
             
             
             async function checkONVIFAdminStatus() { 
+                // Only check ONVIF admin status if user is an admin
+                if (!#{isAdmin}) {
+                    const onvifControlItem = document.getElementById("onvif-control-item"); 
+                    if (onvifControlItem) { 
+                        onvifControlItem.style.display = "none"; 
+                    } 
+                    return;
+                }
+                
                 try { 
                     const response = await fetch("/admin/onvif/status"); 
                     if (response.ok) { 
@@ -907,6 +938,15 @@ html(lang="en")
             }
 
             async function checkAdminStatus() {
+                // Only check admin status if user is an admin
+                if (!#{isAdmin}) {
+                    const rtspControlItem = document.getElementById('rtsp-control-item');
+                    if (rtspControlItem) {
+                        rtspControlItem.style.display = 'none';
+                    }
+                    return;
+                }
+                
                 try {
                     const response = await fetch('/admin/rtsp/status');
                     if (response.ok) {
