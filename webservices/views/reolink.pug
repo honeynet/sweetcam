@@ -448,7 +448,8 @@ html(lang="en")
             .onvif-toggle-container
               label.onvif-toggle
                 input.onvif-toggle-input(type="checkbox" id="onvif-toggle")
-                span.onvif-status-text#onvif-status-text= __('main.onvifDisabled')
+                span.onvif-toggle-slider
+              span.onvif-status-text#onvif-status-text= __('main.onvifDisabled')
     script.
       let currentImage = null;
       let currentX = 0;
@@ -461,6 +462,7 @@ html(lang="en")
 
       
       function loadImage() {
+          
           const xhr = new XMLHttpRequest();
           xhr.open('GET', '/api/images', true);
           xhr.withCredentials = true;

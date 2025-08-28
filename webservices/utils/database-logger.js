@@ -118,8 +118,17 @@ class DatabaseLogger {
             
             for (const item of items) {
                 try {
-                    if (item.data.event_type === 'http_request') {
+                    // Check if this is a web service log that should go to web_service_logs table
+                    if (item.data.event_type === 'http_request' || 
+                        item.data.event_type === 'http_request_response' ||
+                        item.data.event_type === 'auth_failure' ||
+                        item.data.event_type === 'login_attempt' ||
+                        item.data.event_type === 'login_success' ||
+                        item.data.isWebLog === true) {
                         await this.writeWebLogDirect(connection, item.data);
+                    } else if (item.data.service === 'cowrie' || 
+                               item.data.isCowrieLog === true) {
+                        await this.writeCowrieLogDirect(connection, item.data);
                     } else {
                         await this.logEventDirect(connection, item.data);
                     }
@@ -183,6 +192,61 @@ class DatabaseLogger {
                 logEntry.payload,
                 logEntry.raw_data
             ];
+
+        const [result] = await connection.execute(query, params);
+        return result.insertId;
+    }
+
+    async writeCowrieLogDirect(connection, logData) {
+        const logEntry = {
+            timestamp: logData.timestamp || new Date(),
+            event_type: logData.event_type || 'unknown',
+            log_level: logData.log_level || 'info',
+            ip_address: logData.ip_address || null,
+            brand: logData.brand || null,
+            port: logData.port || null,
+            username: logData.username || null,
+            password: logData.password || null,
+            session_id: logData.session_id || null,
+            command: logData.command || null,
+            file_path: logData.file_path || null,
+            file_size: logData.file_size || null,
+            geoip_country: logData.geoip_country || null,
+            geoip_city: logData.geoip_city || null,
+            threat_level: logData.threat_level || null,
+            alert_type: logData.alert_type || null,
+            message: logData.message || null,
+            raw_data: logData.raw_data ? JSON.stringify(logData.raw_data) : null
+        };
+
+        const query = `
+            INSERT INTO cowrie_service_logs 
+            (timestamp, event_type, log_level, ip_address, brand, port, username, 
+             password, session_id, command, file_path, file_size, geoip_country, 
+             geoip_city, threat_level, alert_type, message, raw_data)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        const params = [
+            logEntry.timestamp,
+            logEntry.event_type,
+            logEntry.log_level,
+            logEntry.ip_address,
+            logEntry.brand,
+            logEntry.port,
+            logEntry.username,
+            logEntry.password,
+            logEntry.session_id,
+            logEntry.command,
+            logEntry.file_path,
+            logEntry.file_size,
+            logEntry.geoip_country,
+            logEntry.geoip_city,
+            logEntry.threat_level,
+            logEntry.alert_type,
+            logEntry.message,
+            logEntry.raw_data
+        ];
 
         const [result] = await connection.execute(query, params);
         return result.insertId;
@@ -369,6 +433,23 @@ class DatabaseLogger {
             console.log('[DATABASE] Initializing database logger...');
             await this.initialize();
         }
+
+        // Add flag to indicate this is a web service log
+        logData.isWebLog = true;
+
+        // Use queue system instead of direct writes
+        this.addToQueue(logData, 'normal');
+        return 'queued';
+    }
+
+    async writeCowrieLog(logData) {
+        if (!this.initialized) {
+            console.log('[DATABASE] Initializing database logger...');
+            await this.initialize();
+        }
+
+        // Add flag to indicate this is a cowrie service log
+        logData.isCowrieLog = true;
 
         // Use queue system instead of direct writes
         this.addToQueue(logData, 'normal');

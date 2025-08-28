@@ -261,7 +261,7 @@ const rtspLogger = {
             session_id: sessionId,
             message: `RTSP connection ${event}: ${ip}`
         });
-        writeServiceLog({ service: 'rtsp', event_type: 'connection_event', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP connection ${event}: ${ip}`, raw_data: { event } });
+        // Only log to RTSP service logs to prevent duplicates in Grafana dashboard
         writeRTSPLog({ event_type: 'connection_event', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP connection ${event}: ${ip}`, raw_data: { event } });
     },
 
@@ -278,11 +278,18 @@ const rtspLogger = {
             session_id: sessionId,
             message: `RTSP auth ${success ? 'successful' : 'failed'} for user: ${username}`
         });
-        writeServiceLog({ service: 'rtsp', event_type: 'auth_attempt', log_level: 'info', ip_address: ip, brand, port, username, session_id: sessionId, message: `RTSP auth ${success ? 'successful' : 'failed'} for user: ${username}`, raw_data: { success, reason } });
+        // Only log to RTSP service logs to prevent duplicates in Grafana dashboard
         writeRTSPLog({ event_type: 'auth_attempt', log_level: 'info', ip_address: ip, brand, port, username, session_id: sessionId, message: `RTSP auth ${success ? 'successful' : 'failed'} for user: ${username}`, raw_data: { success, reason } });
     },
 
-    logRTSPMethod: (ip, method, url, sessionId, brand, port) => {
+    logRTSPMethod: (ip, method, url, sessionId, brand, port, username = null, password = null) => {
+        const payload = {
+            method: method,
+            url: url,
+            timestamp: new Date().toISOString(),
+            session_id: sessionId
+        };
+        
         safeLogger.info('RTSP method request', {
             service: 'rtsp',
             event_type: 'rtsp_method',
@@ -294,11 +301,18 @@ const rtspLogger = {
             port: port,
             message: `RTSP ${method} request from ${ip}: ${url}`
         });
-        writeServiceLog({ service: 'rtsp', event_type: 'rtsp_method', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP ${method} request from ${ip}: ${url}`, raw_data: { method, url } });
-        writeRTSPLog({ event_type: 'rtsp_method', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, rtsp_method: method, stream_path: url, message: `RTSP ${method} request from ${ip}: ${url}` });
+        // Only log to RTSP service logs to prevent duplicates in Grafana dashboard
+        writeRTSPLog({ event_type: 'rtsp_method', log_level: 'info', ip_address: ip, brand, port, username, password, session_id: sessionId, rtsp_method: method, stream_path: url, payload: payload, message: `RTSP ${method} request from ${ip}: ${url}` });
     },
 
-    logRTSPResponse: (ip, method, statusCode, sessionId, brand, port) => {
+    logRTSPResponse: (ip, method, statusCode, sessionId, brand, port, username = null, password = null) => {
+        const payload = {
+            method: method,
+            status_code: statusCode,
+            timestamp: new Date().toISOString(),
+            session_id: sessionId
+        };
+        
         safeLogger.info('RTSP response', {
             service: 'rtsp',
             event_type: 'rtsp_response',
@@ -310,11 +324,18 @@ const rtspLogger = {
             port: port,
             message: `RTSP ${method} response: ${statusCode}`
         });
-        writeServiceLog({ service: 'rtsp', event_type: 'rtsp_response', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP ${method} response: ${statusCode}`, raw_data: { method, statusCode } });
-        writeRTSPLog({ event_type: 'rtsp_response', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, rtsp_method: method, message: `RTSP ${method} response: ${statusCode}` });
+        // Only log to RTSP service logs to prevent duplicates in Grafana dashboard
+        writeRTSPLog({ event_type: 'rtsp_response', log_level: 'info', ip_address: ip, brand, port, username, password, session_id: sessionId, rtsp_method: method, payload: payload, message: `RTSP ${method} response: ${statusCode}` });
     },
 
-    logRTSPSession: (ip, sessionId, event, streamPath, brand, port) => {
+    logRTSPSession: (ip, sessionId, event, streamPath, brand, port, username = null, password = null) => {
+        const payload = {
+            event: event,
+            stream_path: streamPath,
+            timestamp: new Date().toISOString(),
+            session_id: sessionId
+        };
+        
         safeLogger.info('RTSP session event', {
             service: 'rtsp',
             event_type: 'session_event',
@@ -326,11 +347,11 @@ const rtspLogger = {
             port: port,
             message: `RTSP session ${event}: ${sessionId}`
         });
-        writeServiceLog({ service: 'rtsp', event_type: 'session_event', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP session ${event}: ${sessionId}`, raw_data: { streamPath } });
-        writeRTSPLog({ event_type: 'session_event', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, stream_path: streamPath, message: `RTSP session ${event}: ${sessionId}` });
+        // Only log to RTSP service logs to prevent duplicates in Grafana dashboard
+        writeRTSPLog({ event_type: 'session_event', log_level: 'info', ip_address: ip, brand, port, username, password, session_id: sessionId, stream_path: streamPath, payload: payload, message: `RTSP session ${event}: ${sessionId}` });
     },
 
-    logRTSPStreamSetup: (ip, sessionId, streamPath, transportInfo, brand, port) => {
+    logRTSPStreamSetup: (ip, sessionId, streamPath, transportInfo, brand, port, username = null, password = null) => {
         safeLogger.info('RTSP stream setup', {
             service: 'rtsp',
             event_type: 'stream_setup',
@@ -342,11 +363,11 @@ const rtspLogger = {
             port: port,
             message: `RTSP stream setup: ${streamPath}`
         });
-        writeServiceLog({ service: 'rtsp', event_type: 'stream_setup', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP stream setup: ${streamPath}`, raw_data: { transportInfo } });
-        writeRTSPLog({ event_type: 'stream_setup', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, stream_path: streamPath, message: `RTSP stream setup: ${streamPath}` });
+        // Only log to RTSP service logs to prevent duplicates in Grafana dashboard
+        writeRTSPLog({ event_type: 'stream_setup', log_level: 'info', ip_address: ip, brand, port, username, password, session_id: sessionId, stream_path: streamPath, message: `RTSP stream setup: ${streamPath}` });
     },
 
-    logRTSPStreamPlay: (ip, sessionId, streamPath, brand, port) => {
+    logRTSPStreamPlay: (ip, sessionId, streamPath, brand, port, username = null, password = null) => {
         safeLogger.info('RTSP stream play', {
             service: 'rtsp',
             event_type: 'stream_play',
@@ -357,11 +378,11 @@ const rtspLogger = {
             port: port,
             message: `RTSP stream play: ${streamPath}`
         });
-        writeServiceLog({ service: 'rtsp', event_type: 'stream_play', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP stream play: ${streamPath}` });
-        writeRTSPLog({ event_type: 'stream_play', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, stream_path: streamPath, message: `RTSP stream play: ${streamPath}` });
+        // Only log to RTSP service logs to prevent duplicates in Grafana dashboard
+        writeRTSPLog({ event_type: 'stream_play', log_level: 'info', ip_address: ip, brand, port, username, password, session_id: sessionId, stream_path: streamPath, message: `RTSP stream play: ${streamPath}` });
     },
 
-    logRTSPStreamPause: (ip, sessionId, streamPath, brand, port) => {
+    logRTSPStreamPause: (ip, sessionId, streamPath, brand, port, username = null, password = null) => {
         safeLogger.info('RTSP stream pause', {
             service: 'rtsp',
             event_type: 'stream_pause',
@@ -372,11 +393,11 @@ const rtspLogger = {
             port: port,
             message: `RTSP stream pause: ${streamPath}`
         });
-        writeServiceLog({ service: 'rtsp', event_type: 'stream_pause', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP stream pause: ${streamPath}`, raw_data: { transportInfo } });
-        writeRTSPLog({ event_type: 'stream_pause', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, stream_path: streamPath, message: `RTSP stream pause: ${streamPath}` });
+        // Only log to RTSP service logs to prevent duplicates in Grafana dashboard
+        writeRTSPLog({ event_type: 'stream_pause', log_level: 'info', ip_address: ip, brand, port, username, password, session_id: sessionId, stream_path: streamPath, message: `RTSP stream pause: ${streamPath}` });
     },
 
-    logRTSPStreamTeardown: (ip, sessionId, streamPath, brand, port) => {
+    logRTSPStreamTeardown: (ip, sessionId, streamPath, brand, port, username = null, password = null) => {
         safeLogger.info('RTSP stream teardown', {
             service: 'rtsp',
             event_type: 'stream_teardown',
@@ -387,11 +408,11 @@ const rtspLogger = {
             port: port,
             message: `RTSP stream teardown: ${streamPath}`
         });
-        writeServiceLog({ service: 'rtsp', event_type: 'stream_teardown', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP stream teardown: ${streamPath}` });
-        writeRTSPLog({ event_type: 'stream_teardown', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, stream_path: streamPath, message: `RTSP stream teardown: ${streamPath}` });
+        // Only log to RTSP service logs to prevent duplicates in Grafana dashboard
+        writeRTSPLog({ event_type: 'stream_teardown', log_level: 'info', ip_address: ip, brand, port, username, password, session_id: sessionId, stream_path: streamPath, message: `RTSP stream teardown: ${streamPath}` });
     },
 
-    logRTSPSessionWithPayload: (ip, method, url, statusCode, sessionId, brand, port, requestPayload = null, responsePayload = null) => {
+    logRTSPSessionWithPayload: (ip, method, url, statusCode, sessionId, brand, port, requestPayload = null, responsePayload = null, username = null, password = null) => {
         const payload = {
             request: requestPayload ? {
                 method: method,
@@ -426,31 +447,15 @@ const rtspLogger = {
         
         //save complete payload data only to database
         try {
-            writeServiceLog({
-                service: 'rtsp',
-                event_type: 'rtsp_request_response',
-                log_level: 'info',
-                ip_address: ip,
-                brand: brand,
-                port: port,
-                session_id: sessionId,
-                rtsp_method: method,
-                stream_path: url,
-                payload: payload, 
-                message: `RTSP ${method} ${url} - ${statusCode}`,
-                raw_data: {
-                    method: method,
-                    url: url,
-                    status_code: statusCode
-                }
-            });
-            
+            // Only log to RTSP service logs to prevent duplicates in Grafana dashboard
             writeRTSPLog({
                 event_type: 'rtsp_request_response',
                 log_level: 'info',
                 ip_address: ip,
                 brand: brand,
                 port: port,
+                username: username,
+                password: password,
                 session_id: sessionId,
                 rtsp_method: method,
                 stream_path: url,
@@ -479,7 +484,7 @@ const rtspLogger = {
             port: port,
             message: `RTP stream ${event}: ${details}`
         });
-        writeServiceLog({ service: 'rtsp', event_type: 'rtp_stream', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `RTP stream ${event}: ${details}` });
+        // Only log to RTSP service logs to prevent duplicates in Grafana dashboard
         writeRTSPLog({ event_type: 'rtp_stream', log_level: 'info', ip_address: ip, brand, port, session_id: sessionId, message: `RTP stream ${event}: ${details}`, raw_data: { details } });
     },
 
@@ -494,7 +499,7 @@ const rtspLogger = {
             session_id: sessionId,
             message: `RTSP options request from ${ip}`
         });
-        writeServiceLog({ service: 'rtsp', event_type: 'options_request', log_level: 'info', ip_address: ip, brand, port, user_agent: userAgent, session_id: sessionId, message: `RTSP options request from ${ip}` });
+        // Only log to RTSP service logs to prevent duplicates in Grafana dashboard
         writeRTSPLog({ event_type: 'options_request', log_level: 'info', ip_address: ip, brand, port, user_agent: userAgent, session_id: sessionId, message: `RTSP options request from ${ip}` });
     },
 
@@ -510,11 +515,19 @@ const rtspLogger = {
             session_id: sessionId,
             message: `RTSP describe request: ${url}`
         });
-        writeServiceLog({ service: 'rtsp', event_type: 'describe_request', log_level: 'info', ip_address: ip, brand, port, user_agent: userAgent, session_id: sessionId, message: `RTSP describe request: ${url}`, raw_data: { url } });
-        writeRTSPLog({ event_type: 'describe_request', log_level: 'info', ip_address: ip, brand, port, user_agent: userAgent, session_id: sessionId, stream_path: url, message: `RTSP describe request: ${url}` });
+        // Only log to RTSP service logs to prevent duplicates in Grafana dashboard
+        writeRTSPLog({ event_type: 'describe_request', log_level: 'info', ip_address: ip, brand, port, user_agent: userAgent, session_id: sessionId, message: `RTSP describe request: ${url}` });
     },
 
     logRTSPServiceEvent: (event, details, brand, port, sessionId = null) => {
+        const payload = {
+            event: event,
+            details: details,
+            timestamp: new Date().toISOString(),
+            service_type: 'rtsp',
+            port: port
+        };
+        
         safeLogger.info('RTSP service event', {
             service: 'rtsp',
             event_type: 'service_event',
@@ -525,11 +538,19 @@ const rtspLogger = {
             session_id: sessionId,
             message: `RTSP service ${event}: ${details}`
         });
-        writeServiceLog({ service: 'rtsp', event_type: 'service_event', log_level: 'info', message: `RTSP service ${event}: ${details}`, raw_data: { details }, brand, port, session_id: sessionId });
-        writeRTSPLog({ event_type: 'service_event', log_level: 'info', message: `RTSP service ${event}: ${details}`, raw_data: { details }, brand, port, session_id: sessionId });
+        // Only log to RTSP service logs to prevent duplicates in Grafana dashboard
+        writeRTSPLog({ event_type: 'service_event', log_level: 'info', message: `RTSP service ${event}: ${details}`, payload: payload, raw_data: { details }, brand, port, session_id: sessionId });
     },
 
     logRTSPDatabaseAuth: (ip, username, success, error, brand, port, sessionId = null) => {
+        const payload = {
+            username: username,
+            success: success,
+            error: error,
+            timestamp: new Date().toISOString(),
+            auth_type: 'database'
+        };
+        
         safeLogger.info('RTSP database authentication', {
             service: 'rtsp',
             event_type: 'database_auth',
@@ -542,8 +563,54 @@ const rtspLogger = {
             session_id: sessionId,
             message: `RTSP database auth ${success ? 'successful' : 'failed'} for user: ${username}`
         });
-        writeServiceLog({ service: 'rtsp', event_type: 'database_auth', log_level: 'info', ip_address: ip, brand, port, username, sessionId, message: `RTSP database auth ${success ? 'successful' : 'failed'} for user: ${username}`, raw_data: { error, success } });
-        writeRTSPLog({ event_type: 'database_auth', log_level: 'info', ip_address: ip, brand, port, username, sessionId, message: `RTSP database auth ${success ? 'successful' : 'failed'} for user: ${username}`, raw_data: { error, success } });
+        // Only log to RTSP service logs to prevent duplicates in Grafana dashboard
+        writeRTSPLog({ event_type: 'database_auth', log_level: 'info', ip_address: ip, brand, port, username, sessionId, message: `RTSP database auth ${success ? 'successful' : 'failed'} for user: ${username}`, payload: payload, raw_data: { error, success } });
+    },
+
+    logRTSPCombinedAuth: (ip, method, url, statusCode, sessionId, brand, port, username, password, success, error = null) => {
+        const payload = {
+            method: method,
+            url: url,
+            username: username,
+            password: password,
+            success: success,
+            error: error,
+            timestamp: new Date().toISOString(),
+            auth_type: 'combined_rtsp_database'
+        };
+        
+        safeLogger.info('RTSP combined authentication', {
+            service: 'rtsp',
+            event_type: 'rtsp_combined_auth',
+            ip_address: ip,
+            rtsp_method: method,
+            rtsp_url: url,
+            response_status: statusCode,
+            session_id: sessionId,
+            brand: brand,
+            port: port,
+            username: username,
+            success: success,
+            error: error,
+            message: `RTSP ${method} authentication ${success ? 'successful' : 'failed'} for user: ${username}`
+        });
+        
+        // Log combined authentication event to RTSP service logs
+        writeRTSPLog({ 
+            event_type: 'rtsp_combined_auth', 
+            log_level: 'info', 
+            ip_address: ip, 
+            brand, 
+            port, 
+            username, 
+            password, 
+            session_id: sessionId, 
+            rtsp_method: method, 
+            stream_path: url, 
+            payload: payload, 
+            message: `RTSP ${method} authentication ${success ? 'successful' : 'failed'} for user: ${username}`,
+            raw_data: { method, url, success, error }
+        });
     },
     
     logRTSPError: (error, context, ip, brand, port, sessionId = null) => {
@@ -558,7 +625,7 @@ const rtspLogger = {
             session_id: sessionId,
             message: `RTSP error: ${error.message}`
         });
-        writeServiceLog({ service: 'rtsp', event_type: 'error', log_level: 'error', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP error: ${error.message}`, raw_data: { context } });
+        // Only log to RTSP service logs to prevent duplicates in Grafana dashboard
         writeRTSPLog({ event_type: 'error', log_level: 'error', ip_address: ip, brand, port, session_id: sessionId, message: `RTSP error: ${error.message}`, raw_data: { context } });
     }
 };

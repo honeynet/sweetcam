@@ -64,15 +64,13 @@ function authenticateUser(username, password) {
         pool.query(query, [lowerUsername], (error, results) => {
             if (error) {
                 console.error('Database query error:', error.message);
-        
-                rtspLogger.logRTSPDatabaseAuth(null, username, false, error.message, 'auto', RTSP_PORT);
+                // Database authentication logging is now handled by the calling function
                 resolve(false);
                 return;
             }
             
             if (results.length === 0) {
-        
-                rtspLogger.logRTSPDatabaseAuth(null, username, false, 'user_not_found', 'auto', RTSP_PORT);
+                // Database authentication logging is now handled by the calling function
                 resolve(false);
                 return;
             }
@@ -82,8 +80,7 @@ function authenticateUser(username, password) {
                 try {
                     const isValid = bcrypt.compareSync(password, user.passwordHash);
                     if (isValid) {
-                
-                        rtspLogger.logRTSPDatabaseAuth(null, username, true, null, 'auto', RTSP_PORT);
+                        // Database authentication logging is now handled by the calling function
                         resolve(true);
                         return;
                     }
@@ -93,8 +90,7 @@ function authenticateUser(username, password) {
                 }
             }
             
-    
-            rtspLogger.logRTSPDatabaseAuth(null, username, false, 'wrong_password', 'auto', RTSP_PORT);
+            // Database authentication logging is now handled by the calling function
             resolve(false);
         });
     });
@@ -243,8 +239,10 @@ a=control:trackID=1\r
                 session: sessionId
             };
             
-            //log RTSP method request
-            rtspLogger.logRTSPMethod(socket.remoteAddress, method, url, sessionId, brand, RTSP_PORT);
+            //log RTSP method request (only if not already logged during authentication)
+            if (!(method === 'DESCRIBE' || method === 'SETUP' || method === 'PLAY' || method === 'PAUSE' || method === 'TEARDOWN')) {
+                rtspLogger.logRTSPMethod(socket.remoteAddress, method, url, sessionId, brand, RTSP_PORT, this.getUsernameFromSession(sessionId), this.getPasswordFromSession(sessionId));
+            }
             
             //check if we have an authenticated session
             let authenticatedSession = null;
@@ -255,9 +253,11 @@ a=control:trackID=1\r
             //authentication check (only for DESCRIBE and later methods)
             if (method === 'DESCRIBE' || method === 'SETUP' || method === 'PLAY' || method === 'PAUSE' || method === 'TEARDOWN') {
                 if (authenticatedSession && authenticatedSession.authenticated) {
-                //using authenticated session
+                    //using authenticated session - no need to re-authenticate
+                    console.log('Using existing authenticated session for:', sessionId);
                 } else {
                     let credentials = null;
+                    let isNewAuthentication = true;
                     
                     //first try to get credentials from authorization header
                     const authLine = dataStr.split('\r\n').find(line => line.startsWith('Authorization:'));
@@ -265,18 +265,20 @@ a=control:trackID=1\r
                         credentials = parseAuthorization(authLine);
                     }
                     
-                    //if no athorization header, try to extract from URL
+                    //if no authorization header, try to extract from URL
                     if (!credentials && url.includes('@')) {
                         try {
-                            let urlMatch = url.match(/rtsp:\/\/([^:]+):([^@]+)@([^\/]+)(\/.*)/);
-                            if (!urlMatch) {
-                                urlMatch = url.match(/rtsp:\/\/([^:]+):([^@]+)@([^\/]+)/);
-                            }
+                            // Handle various RTSP URL formats:
+                            // rtsp://user:pass@host:port/path
+                            // rtsp://user:pass@host/path
+                            // rtsp://user:pass@host
+                            let urlMatch = url.match(/rtsp:\/\/([^:]+):([^@]+)@([^\/]+)(?::\d+)?(?:\/.*)?/);
                             if (urlMatch) {
                                 credentials = {
                                     username: urlMatch[1],
                                     password: urlMatch[2]
                                 };
+                                console.log('Extracted credentials from URL:', credentials.username, credentials.password);
                             }
                         } catch (e) {
                             console.error('Error parsing URL credentials:', e.message);
@@ -287,17 +289,14 @@ a=control:trackID=1\r
                         const nonce = this.brandDetector.generateNonce();
                         const response = brandConfig.patterns.unauthorized(nonce);
                         
-                        // Log the request/response with payloads
-                        rtspLogger.logRTSPSessionWithPayload(
+                        // Log unauthorized request (no credentials provided)
+                        rtspLogger.logRTSPMethod(
                             socket.remoteAddress, 
                             method, 
                             url, 
-                            401, 
                             sessionId, 
                             brand, 
-                            RTSP_PORT,
-                            requestPayload,
-                            { status: 401, headers: response.split('\r\n'), body: response }
+                            RTSP_PORT
                         );
                         
                         socket.write(response);
@@ -310,8 +309,8 @@ a=control:trackID=1\r
                             const nonce = this.brandDetector.generateNonce();
                             const response = brandConfig.patterns.unauthorized(nonce);
                             
-                            // Log the request/response with payloads
-                            rtspLogger.logRTSPSessionWithPayload(
+                            // Log combined authentication failure
+                            rtspLogger.logRTSPCombinedAuth(
                                 socket.remoteAddress, 
                                 method, 
                                 url, 
@@ -319,8 +318,10 @@ a=control:trackID=1\r
                                 sessionId, 
                                 brand, 
                                 RTSP_PORT,
-                                requestPayload,
-                                { status: 401, headers: response.split('\r\n'), body: response }
+                                credentials.username,
+                                credentials.password,
+                                false,
+                                'invalid_credentials'
                             );
                             
                             socket.write(response);
@@ -332,11 +333,15 @@ a=control:trackID=1\r
                             if (this.sessions.has(sessionId)) {
                                 this.sessions.get(sessionId).authenticated = true;
                                 this.sessions.get(sessionId).username = credentials.username;
+                                this.sessions.get(sessionId).password = credentials.password;
+                                this.sessions.get(sessionId).credentialsLogged = true;
                             } else {
                                 // Create new session if it doesn't exist
                                 this.sessions.set(sessionId, {
                                     authenticated: true,
                                     username: credentials.username,
+                                    password: credentials.password,
+                                    credentialsLogged: true,
                                     socket: socket,
                                     state: 'new'
                                 });
@@ -347,26 +352,50 @@ a=control:trackID=1\r
                             this.sessions.set(newSessionId, {
                                 authenticated: true,
                                 username: credentials.username,
+                                password: credentials.password,
+                                credentialsLogged: true,
                                 socket: socket,
                                 state: 'new'
                             });
+                        }
+                        
+                        // Log successful authentication only once using combined logging
+                        if (isNewAuthentication) {
+                            console.log('Authentication successful for user:', credentials.username);
+                            // Log combined authentication event with full credentials
+                            rtspLogger.logRTSPCombinedAuth(
+                                socket.remoteAddress, 
+                                'AUTH', 
+                                url, 
+                                200, 
+                                sessionId, 
+                                brand, 
+                                RTSP_PORT,
+                                credentials.username,
+                                credentials.password,
+                                true
+                            );
                         }
                     } catch (err) {
                         console.error('Authentication error:', err.message);
                         const errorResponse = `RTSP/1.0 500 Internal Server Error\r\nCSeq: ${cseq}\r\n\r\n`;
                         
-                        // Log the request/response with payloads
-                        rtspLogger.logRTSPSessionWithPayload(
-                            socket.remoteAddress, 
-                            method, 
-                            url, 
-                            500, 
-                            sessionId, 
-                            brand, 
-                            RTSP_PORT,
-                            requestPayload,
-                            { status: 500, headers: errorResponse.split('\r\n'), body: errorResponse }
-                        );
+                        // Log combined authentication error
+                        if (credentials) {
+                            rtspLogger.logRTSPCombinedAuth(
+                                socket.remoteAddress, 
+                                method, 
+                                url, 
+                                500, 
+                                sessionId, 
+                                brand, 
+                                RTSP_PORT,
+                                credentials.username,
+                                credentials.password,
+                                false,
+                                err.message
+                            );
+                        }
                         
                         socket.write(errorResponse);
                         return;
@@ -387,7 +416,10 @@ a=control:trackID=1\r
                     response = brandConfig.patterns.options.pattern1;
                 }
                 
-                // Log the request/response with payloads
+                // Log the request/response with payloads (without duplicating credentials)
+                const session = this.sessions.get(sessionId);
+                const shouldLogCredentials = session && !session.credentialsLogged;
+                
                 rtspLogger.logRTSPSessionWithPayload(
                     socket.remoteAddress, 
                     method, 
@@ -397,11 +429,16 @@ a=control:trackID=1\r
                     brand, 
                     RTSP_PORT,
                     requestPayload,
-                    { status: 200, headers: response.split('\r\n'), body: response }
+                    { status: 200, headers: response.split('\r\n'), body: response },
+                    shouldLogCredentials ? this.getUsernameFromSession(sessionId) : null,
+                    shouldLogCredentials ? this.getPasswordFromSession(sessionId) : null
                 );
                 
                 rtspLogger.logRTSPSOptions(socket.remoteAddress, headers['User-Agent'], brand, RTSP_PORT);
-                rtspLogger.logRTSPResponse(socket.remoteAddress, method, 200, sessionId, brand, RTSP_PORT);
+                // Only log response with credentials if they haven't been logged yet
+                rtspLogger.logRTSPResponse(socket.remoteAddress, method, 200, sessionId, brand, RTSP_PORT, 
+                    this.shouldLogCredentials(sessionId) ? this.getUsernameFromSession(sessionId) : null, 
+                    this.shouldLogCredentials(sessionId) ? this.getPasswordFromSession(sessionId) : null);
                 socket.write(response);
                 return;
             }
@@ -426,7 +463,7 @@ a=control:trackID=1\r
             if (!stream && method !== 'DESCRIBE') {
                 const notFoundResponse = `RTSP/1.0 404 Not Found\r\nCSeq: ${cseq}\r\n\r\n`;
                 
-                // Log the request/response with payloads
+                // Log the request/response with payloads (without duplicating credentials)
                 rtspLogger.logRTSPSessionWithPayload(
                     socket.remoteAddress, 
                     method, 
@@ -436,7 +473,9 @@ a=control:trackID=1\r
                     brand, 
                     RTSP_PORT,
                     requestPayload,
-                    { status: 404, headers: notFoundResponse.split('\r\n'), body: notFoundResponse }
+                    { status: 404, headers: notFoundResponse.split('\r\n'), body: notFoundResponse },
+                    this.shouldLogCredentials(sessionId) ? this.getUsernameFromSession(sessionId) : null,
+                    this.shouldLogCredentials(sessionId) ? this.getPasswordFromSession(sessionId) : null
                 );
                 
                 socket.write(notFoundResponse);
@@ -448,7 +487,7 @@ a=control:trackID=1\r
                     if (!stream) {
                         const notFoundResponse = `RTSP/1.0 404 Not Found\r\nCSeq: ${cseq}\r\n\r\n`;
                         
-                        // Log the request/response with payloads
+                        // Log the request/response with payloads (without duplicating credentials)
                         rtspLogger.logRTSPSessionWithPayload(
                             socket.remoteAddress, 
                             method, 
@@ -458,10 +497,15 @@ a=control:trackID=1\r
                             brand, 
                             RTSP_PORT,
                             requestPayload,
-                            { status: 404, headers: notFoundResponse.split('\r\n'), body: notFoundResponse }
+                            { status: 404, headers: notFoundResponse.split('\r\n'), body: notFoundResponse },
+                            this.shouldLogCredentials(sessionId) ? this.getUsernameFromSession(sessionId) : null,
+                            this.shouldLogCredentials(sessionId) ? this.getPasswordFromSession(sessionId) : null
                         );
                         
-                        rtspLogger.logRTSPResponse(socket.remoteAddress, method, 404, sessionId, brand, RTSP_PORT);
+                        // Only log response with credentials if they haven't been logged yet
+                        rtspLogger.logRTSPResponse(socket.remoteAddress, method, 404, sessionId, brand, RTSP_PORT, 
+                            this.shouldLogCredentials(sessionId) ? this.getUsernameFromSession(sessionId) : null, 
+                            this.shouldLogCredentials(sessionId) ? this.getPasswordFromSession(sessionId) : null);
                         socket.write(notFoundResponse);
                         return;
                     }
@@ -470,7 +514,7 @@ a=control:trackID=1\r
                     const baseURL = `rtsp://${serverAddress}:${RTSP_PORT}${path}/`;
                     const sdpResponse = `RTSP/1.0 200 OK\r\nCSeq: ${cseq}\r\nContent-Type: application/sdp\r\nContent-Base: ${baseURL}\r\nContent-Length: ${Buffer.byteLength(sdp)}\r\n\r\n${sdp}`;
                     
-                    // Log the request/response with payloads
+                    // Log the request/response with payloads (without duplicating credentials)
                     rtspLogger.logRTSPSessionWithPayload(
                         socket.remoteAddress, 
                         method, 
@@ -480,11 +524,16 @@ a=control:trackID=1\r
                         brand, 
                         RTSP_PORT,
                         requestPayload,
-                        { status: 200, headers: sdpResponse.split('\r\n'), body: sdpResponse }
+                        { status: 200, headers: sdpResponse.split('\r\n'), body: sdpResponse },
+                        this.shouldLogCredentials(sessionId) ? this.getUsernameFromSession(sessionId) : null,
+                        this.shouldLogCredentials(sessionId) ? this.getPasswordFromSession(sessionId) : null
                     );
                     
                     rtspLogger.logRTSPDescribe(socket.remoteAddress, url, headers['User-Agent'], brand, RTSP_PORT);
-                    rtspLogger.logRTSPResponse(socket.remoteAddress, method, 200, sessionId, brand, RTSP_PORT);
+                    // Only log response with credentials if they haven't been logged yet
+                    rtspLogger.logRTSPResponse(socket.remoteAddress, method, 200, sessionId, brand, RTSP_PORT, 
+                        this.shouldLogCredentials(sessionId) ? this.getUsernameFromSession(sessionId) : null, 
+                        this.shouldLogCredentials(sessionId) ? this.getPasswordFromSession(sessionId) : null);
                     socket.write(sdpResponse);
                     break;
                     
@@ -496,6 +545,14 @@ a=control:trackID=1\r
                     const serverRtpPort = 8002;
                     const serverRtcpPort = 8003;
                     
+                    // Get username and password from authenticated session if available
+                    let username = null;
+                    let password = null;
+                    if (sessionId && this.sessions.has(sessionId)) {
+                        username = this.sessions.get(sessionId).username;
+                        password = this.sessions.get(sessionId).password;
+                    }
+                    
                     this.sessions.set(sessionId2, {
                         path: stream ? stream.name : '/stream',
                         state: 'setup',
@@ -505,12 +562,16 @@ a=control:trackID=1\r
                         clientAddress: socket.remoteAddress,
                         socket: socket,
                         authenticated: true,
+                        username: username,
+                        password: password,
+                        credentialsLogged: true,
                         brand: stream ? stream.brand : brand
                     });
 
                     const setupResponse = `RTSP/1.0 200 OK\r\nCSeq: ${cseq}\r\nTransport: RTP/AVP;unicast;client_port=${transport.rtpPort}-${transport.rtcpPort};server_port=${serverRtpPort}-${serverRtcpPort}\r\nSession: ${sessionId2}\r\n\r\n`;
                     
-                    // Log the request/response with payloads
+                    // Log the request/response with payloads (without duplicating credentials)
+                    // Since this is a new session, we can log the credentials
                     rtspLogger.logRTSPSessionWithPayload(
                         socket.remoteAddress, 
                         method, 
@@ -520,12 +581,14 @@ a=control:trackID=1\r
                         brand, 
                         RTSP_PORT,
                         requestPayload,
-                        { status: 200, headers: setupResponse.split('\r\n'), body: setupResponse, session: sessionId2 }
+                        { status: 200, headers: setupResponse.split('\r\n'), body: setupResponse, session: sessionId2 },
+                        username,
+                        password
                     );
                     
-                    rtspLogger.logRTSPStreamSetup(socket.remoteAddress, sessionId2, stream ? stream.name : '/stream', transport, brand, RTSP_PORT);
-                    rtspLogger.logRTSPSession(socket.remoteAddress, sessionId2, 'created', stream ? stream.name : '/stream', brand, RTSP_PORT);
-                    rtspLogger.logRTSPResponse(socket.remoteAddress, method, 200, sessionId2, brand, RTSP_PORT);
+                    rtspLogger.logRTSPStreamSetup(socket.remoteAddress, sessionId2, stream ? stream.name : '/stream', transport, brand, RTSP_PORT, username, password);
+                    rtspLogger.logRTSPSession(socket.remoteAddress, sessionId2, 'created', stream ? stream.name : '/stream', brand, RTSP_PORT, username, password);
+                    rtspLogger.logRTSPResponse(socket.remoteAddress, method, 200, sessionId2, brand, RTSP_PORT, username, password);
                     socket.write(setupResponse);
                     break;
                     
@@ -535,7 +598,10 @@ a=control:trackID=1\r
                     if (!session) {
                         const sessionNotFoundResponse = `RTSP/1.0 454 session not found\r\nCSeq: ${cseq}\r\n\r\n`;
                         
-                        // Log the request/response with payloads
+                        // Log the request/response with payloads (without duplicating credentials)
+                        const session = this.sessions.get(sessionId3);
+                        const shouldLogCredentials = session && !session.credentialsLogged;
+                        
                         rtspLogger.logRTSPSessionWithPayload(
                             socket.remoteAddress, 
                             method, 
@@ -545,10 +611,15 @@ a=control:trackID=1\r
                             brand, 
                             RTSP_PORT,
                             requestPayload,
-                            { status: 454, headers: sessionNotFoundResponse.split('\r\n'), body: sessionNotFoundResponse }
+                            { status: 454, headers: sessionNotFoundResponse.split('\r\n'), body: sessionNotFoundResponse },
+                            shouldLogCredentials ? this.getUsernameFromSession(sessionId3) : null,
+                            shouldLogCredentials ? this.getPasswordFromSession(sessionId3) : null
                         );
                         
-                        rtspLogger.logRTSPResponse(socket.remoteAddress, method, 454, sessionId3, brand, RTSP_PORT);
+                        // Only log response with credentials if they haven't been logged yet
+                        rtspLogger.logRTSPResponse(socket.remoteAddress, method, 454, sessionId3, brand, RTSP_PORT, 
+                            this.shouldLogCredentials(sessionId3) ? this.getUsernameFromSession(sessionId3) : null, 
+                            this.shouldLogCredentials(sessionId3) ? this.getPasswordFromSession(sessionId3) : null);
                         socket.write(sessionNotFoundResponse);
                         return;
                     }
@@ -571,7 +642,7 @@ a=control:trackID=1\r
                     const nptStart = 0.0;
                     const playResponse = `RTSP/1.0 200 OK\r\nCSeq: ${cseq}\r\nSession: ${sessionId3}\r\nRange: npt=${nptStart.toFixed(3)}-\r\nRTP-Info: url=rtsp://127.0.0.1:${RTSP_PORT}${session.path}/trackID=1;seq=${session.lastSeq};rtptime=${rtpStart}\r\n\r\n`;
                     
-                    // Log the request/response with payloads
+                    // Log the request/response with payloads (without duplicating credentials)
                     rtspLogger.logRTSPSessionWithPayload(
                         socket.remoteAddress, 
                         method, 
@@ -581,12 +652,23 @@ a=control:trackID=1\r
                         brand, 
                         RTSP_PORT,
                         requestPayload,
-                        { status: 200, headers: playResponse.split('\r\n'), body: playResponse, session: sessionId3 }
+                        { status: 200, headers: playResponse.split('\r\n'), body: playResponse, session: sessionId3 },
+                        this.shouldLogCredentials(sessionId3) ? this.getUsernameFromSession(sessionId3) : null,
+                        this.shouldLogCredentials(sessionId3) ? this.getPasswordFromSession(sessionId3) : null
                     );
                     
-                    rtspLogger.logRTSPStreamPlay(socket.remoteAddress, sessionId3, session.path, brand, RTSP_PORT);
-                    rtspLogger.logRTSPSession(socket.remoteAddress, sessionId3, 'playing', session.path, brand, RTSP_PORT);
-                    rtspLogger.logRTSPResponse(socket.remoteAddress, method, 200, sessionId3, brand, RTSP_PORT);
+                                          // Only log stream with credentials if they haven't been logged yet
+                      rtspLogger.logRTSPStreamPlay(socket.remoteAddress, sessionId3, session.path, brand, RTSP_PORT, 
+                          this.shouldLogCredentials(sessionId3) ? this.getUsernameFromSession(sessionId3) : null, 
+                          this.shouldLogCredentials(sessionId3) ? this.getPasswordFromSession(sessionId3) : null);
+                      // Only log session with credentials if they haven't been logged yet
+                      rtspLogger.logRTSPSession(socket.remoteAddress, sessionId3, 'playing', session.path, brand, RTSP_PORT, 
+                          this.shouldLogCredentials(sessionId3) ? this.getUsernameFromSession(sessionId3) : null, 
+                          this.shouldLogCredentials(sessionId3) ? this.getPasswordFromSession(sessionId3) : null);
+                    // Only log response with credentials if they haven't been logged yet
+                    rtspLogger.logRTSPResponse(socket.remoteAddress, method, 200, sessionId3, brand, RTSP_PORT, 
+                        this.shouldLogCredentials(sessionId3) ? this.getUsernameFromSession(sessionId3) : null, 
+                        this.shouldLogCredentials(sessionId3) ? this.getPasswordFromSession(sessionId3) : null);
                     socket.write(playResponse);
 
                     this.startRTPStream(session);
@@ -598,20 +680,25 @@ a=control:trackID=1\r
                     if (!sessionPause) {
                         const sessionNotFoundResponse = `RTSP/1.0 454 session not found\r\nCSeq: ${cseq}\r\n\r\n`;
                         
-                        // Log the request/response with payloads
+                        // Log the request/response with payloads (without duplicating credentials)
                         rtspLogger.logRTSPSessionWithPayload(
                             socket.remoteAddress, 
                             method, 
                             url, 
-                            454, 
+                            200, 
                             sessionIdPause, 
                             brand, 
                             RTSP_PORT,
                             requestPayload,
-                            { status: 454, headers: sessionNotFoundResponse.split('\r\n'), body: sessionNotFoundResponse }
+                            { status: 454, headers: sessionNotFoundResponse.split('\r\n'), body: sessionNotFoundResponse },
+                            this.shouldLogCredentials(sessionIdPause) ? this.getUsernameFromSession(sessionIdPause) : null,
+                            this.shouldLogCredentials(sessionIdPause) ? this.getPasswordFromSession(sessionIdPause) : null
                         );
                         
-                        rtspLogger.logRTSPResponse(socket.remoteAddress, method, 454, sessionIdPause, brand, RTSP_PORT);
+                        // Only log response with credentials if they haven't been logged yet
+                        rtspLogger.logRTSPResponse(socket.remoteAddress, method, 454, sessionIdPause, brand, RTSP_PORT, 
+                            this.shouldLogCredentials(sessionIdPause) ? this.getUsernameFromSession(sessionIdPause) : null, 
+                            this.shouldLogCredentials(sessionIdPause) ? this.getPasswordFromSession(sessionIdPause) : null);
                         socket.write(sessionNotFoundResponse);
                         return;
                     }
@@ -631,7 +718,7 @@ a=control:trackID=1\r
                     
                     const pauseResponse = `RTSP/1.0 200 OK\r\nCSeq: ${cseq}\r\nSession: ${sessionIdPause}\r\n\r\n`;
                     
-                    // Log the request/response with payloads
+                    // Log the request/response with payloads (without duplicating credentials)
                     rtspLogger.logRTSPSessionWithPayload(
                         socket.remoteAddress, 
                         method, 
@@ -641,12 +728,25 @@ a=control:trackID=1\r
                         brand, 
                         RTSP_PORT,
                         requestPayload,
-                        { status: 200, headers: pauseResponse.split('\r\n'), body: pauseResponse, session: sessionIdPause }
+                        { status: 200, headers: pauseResponse.split('\r\n'), body: pauseResponse, session: sessionIdPause },
+                        this.shouldLogCredentials(sessionIdPause) ? this.getUsernameFromSession(sessionIdPause) : null,
+                        this.shouldLogCredentials(sessionIdPause) ? this.getPasswordFromSession(sessionIdPause) : null
                     );
                     
-                    rtspLogger.logRTSPStreamPause(socket.remoteAddress, sessionIdPause, sessionPause.path, brand, RTSP_PORT);
-                    rtspLogger.logRTSPSession(socket.remoteAddress, sessionIdPause, 'paused', sessionPause.path, brand, RTSP_PORT);
-                    rtspLogger.logRTSPResponse(socket.remoteAddress, method, 200, sessionIdPause, brand, RTSP_PORT);
+                      // Only log stream with credentials if they haven't been logged yet
+                      rtspLogger.logRTSPStreamPause(socket.remoteAddress, sessionIdPause, sessionPause.path, brand, RTSP_PORT, 
+                          this.shouldLogCredentials(sessionIdPause) ? this.getUsernameFromSession(sessionIdPause) : null, 
+                          this.shouldLogCredentials(sessionIdPause) ? this.getPasswordFromSession(sessionIdPause) : null);
+                                          // Only log session with credentials if they haven't been logged yet
+                      const sessionObj = this.sessions.get(sessionIdPause);
+                      const shouldLogCredentials = sessionObj && !sessionObj.credentialsLogged;
+                      rtspLogger.logRTSPSession(socket.remoteAddress, sessionIdPause, 'paused', sessionPause.path, brand, RTSP_PORT, 
+                          shouldLogCredentials ? this.getUsernameFromSession(sessionIdPause) : null, 
+                          shouldLogCredentials ? this.getPasswordFromSession(sessionIdPause) : null);
+                    // Only log response with credentials if they haven't been logged yet
+                    rtspLogger.logRTSPResponse(socket.remoteAddress, method, 200, sessionIdPause, brand, RTSP_PORT, 
+                        this.shouldLogCredentials(sessionIdPause) ? this.getUsernameFromSession(sessionIdPause) : null, 
+                        this.shouldLogCredentials(sessionIdPause) ? this.getPasswordFromSession(sessionIdPause) : null);
                     socket.write(pauseResponse);
                     break;
                     
@@ -656,7 +756,7 @@ a=control:trackID=1\r
                     if (!sess) {
                         const sessionNotFoundResponse = `RTSP/1.0 454 session not found\r\nCSeq: ${cseq}\r\n\r\n`;
                         
-                        // Log the request/response with payloads
+                        // Log the request/response with payloads (without duplicating credentials)
                         rtspLogger.logRTSPSessionWithPayload(
                             socket.remoteAddress, 
                             method, 
@@ -666,10 +766,15 @@ a=control:trackID=1\r
                             brand, 
                             RTSP_PORT,
                             requestPayload,
-                            { status: 454, headers: sessionNotFoundResponse.split('\r\n'), body: sessionNotFoundResponse }
+                            { status: 454, headers: sessionNotFoundResponse.split('\r\n'), body: sessionNotFoundResponse },
+                            this.shouldLogCredentials(sessionId4) ? this.getUsernameFromSession(sessionId4) : null,
+                            this.shouldLogCredentials(sessionId4) ? this.getPasswordFromSession(sessionId4) : null
                         );
                         
-                        rtspLogger.logRTSPResponse(socket.remoteAddress, method, 454, sessionId4, brand, RTSP_PORT);
+                        // Only log response with credentials if they haven't been logged yet
+                        rtspLogger.logRTSPResponse(socket.remoteAddress, method, 454, sessionId4, brand, RTSP_PORT, 
+                            this.shouldLogCredentials(sessionId4) ? this.getUsernameFromSession(sessionId4) : null, 
+                            this.shouldLogCredentials(sessionId4) ? this.getPasswordFromSession(sessionId4) : null);
                         socket.write(sessionNotFoundResponse);
                         return;
                     }
@@ -685,7 +790,7 @@ a=control:trackID=1\r
                     
                     const teardownResponse = `RTSP/1.0 200 OK\r\nCSeq: ${cseq}\r\nSession: ${sessionId4}\r\n\r\n`;
                     
-                    // Log the request/response with payloads
+                    // Log the request/response with payloads (without duplicating credentials)
                     rtspLogger.logRTSPSessionWithPayload(
                         socket.remoteAddress, 
                         method, 
@@ -695,12 +800,25 @@ a=control:trackID=1\r
                         brand, 
                         RTSP_PORT,
                         requestPayload,
-                        { status: 200, headers: teardownResponse.split('\r\n'), body: teardownResponse, session: sessionId4 }
+                        { status: 200, headers: teardownResponse.split('\r\n'), body: teardownResponse, session: sessionId4 },
+                        this.shouldLogCredentials(sessionId4) ? this.getUsernameFromSession(sessionId4) : null,
+                        this.shouldLogCredentials(sessionId4) ? this.getPasswordFromSession(sessionId4) : null
                     );
                     
-                    rtspLogger.logRTSPStreamTeardown(socket.remoteAddress, sessionId4, sess.path, brand, RTSP_PORT);
-                        rtspLogger.logRTSPSession(socket.remoteAddress, sessionId4, 'destroyed', sess.path, brand, RTSP_PORT);
-                    rtspLogger.logRTSPResponse(socket.remoteAddress, method, 200, sessionId4, brand, RTSP_PORT);
+                    // Only log stream with credentials if they haven't been logged yet
+                    rtspLogger.logRTSPStreamTeardown(socket.remoteAddress, sessionId4, sess.path, brand, RTSP_PORT, 
+                        this.shouldLogCredentials(sessionId4) ? this.getUsernameFromSession(sessionId4) : null, 
+                        this.shouldLogCredentials(sessionId4) ? this.getPasswordFromSession(sessionId4) : null);
+                    
+                    // Only log session with credentials if they haven't been logged yet
+                    rtspLogger.logRTSPSession(socket.remoteAddress, sessionId4, 'destroyed', sess.path, brand, RTSP_PORT, 
+                        this.shouldLogCredentials(sessionId4) ? this.getUsernameFromSession(sessionId4) : null, 
+                        this.shouldLogCredentials(sessionId4) ? this.getPasswordFromSession(sessionId4) : null);
+                    
+                    // Only log response with credentials if they haven't been logged yet
+                    rtspLogger.logRTSPResponse(socket.remoteAddress, method, 200, sessionId4, brand, RTSP_PORT, 
+                        this.shouldLogCredentials(sessionId4) ? this.getUsernameFromSession(sessionId4) : null, 
+                        this.shouldLogCredentials(sessionId4) ? this.getPasswordFromSession(sessionId4) : null);
                     socket.write(teardownResponse);
                     break;
                     
@@ -956,6 +1074,25 @@ a=control:trackID=1\r
         
         session.rtpInterval = setInterval(sendFrame, frameInterval);
         session.rtcpInterval = setInterval(sendRTCP, 1000);
+    }
+
+    getUsernameFromSession(sessionId) {
+        if (!sessionId) return null;
+        const session = this.sessions.get(sessionId);
+        return session ? session.username : null;
+    }
+
+    getPasswordFromSession(sessionId) {
+        if (!sessionId) return null;
+        const session = this.sessions.get(sessionId);
+        return session ? session.password : null;
+    }
+
+    shouldLogCredentials(sessionId) {
+        if (sessionId && this.sessions.has(sessionId)) {
+            return !this.sessions.get(sessionId).credentialsLogged;
+        }
+        return false;
     }
 }
 

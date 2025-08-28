@@ -32,8 +32,6 @@ class ONVIFHoneypot {
     
     setInterval(() => this.cleanupSessions(), 5 * 60 * 1000);
     
-    // Clean up old pending requests every 5 minutes
-
   }
 
   generateSessionId() {
@@ -43,7 +41,6 @@ class ONVIFHoneypot {
   getOrCreateSession(ip) {
     const now = Date.now();
     
-    //check if IP already has an active session
     if (this.sessions.has(ip)) {
       const session = this.sessions.get(ip);
       if (now - session.lastActivity < this.sessionTimeout) {
@@ -95,14 +92,12 @@ class ONVIFHoneypot {
       res.setHeader('Server', 'ONVIF/1.0');
       res.setHeader('Connection', 'close');
       
-      // Only set SOAP content type for ONVIF routes, not for health or other routes
       if (req.path.startsWith('/onvif/') || req.path === '/') {
         res.setHeader('Content-Type', 'application/soap+xml; charset=utf-8');
       }
       
       const sessionId = this.getOrCreateSession(req.ip);
       
-      //capture response status after it is sent
       const originalSend = res.send;
       const honeypotInstance = this; 
       res.send = function(data) {
@@ -170,47 +165,17 @@ class ONVIFHoneypot {
         
         const responseHeaders = res.getHeaders();
         
-        onvifLogger.logHTTPRequestResponse(
-          req.ip, 
-          req.method, 
-          req.url, 
-          302, 
-          brand, 
-          this.port, 
-          userAgent, 
-          sessionId, 
-          requestHeaders, 
-          requestBody, 
-          responseHeaders, 
-          responseBody
-        );
         
       } catch (error) {
         console.error('Error in ONVIF root route:', error);
         const userAgent = req.headers['user-agent'] || null;
         const sessionId = this.getOrCreateSession(req.ip);
-        
-        // Log error with payload
-        onvifLogger.logHTTPRequestResponse(
-          req.ip, 
-          req.method, 
-          req.url, 
-          500, 
-          'hikvision', 
-          this.port, 
-          userAgent, 
-          sessionId, 
-          req.headers, 
-          null, 
-          res.getHeaders(), 
-          'Internal Server Error'
-        );
-        
+                
         res.status(500).send('Internal Server Error');
       }
     });
 
-    //onvif service endpoints, handle both http get and soap requests
+    //onvif service endpoints, handle both http get and soap requests for both device and media service
     this.app.all('/onvif/device_service', (req, res, next) => {
       res.setHeader('Server', 'ONVIF/1.0');
       
@@ -330,49 +295,17 @@ class ONVIFHoneypot {
             </body>
           </html>`;
           
-          // Send the response
           res.status(200).send(htmlResponse);
           
-          // Capture response data and log with full payload
           const responseHeaders = res.getHeaders();
           const responseBody = htmlResponse;
           
-          // Log the complete HTTP request/response with payload
-          onvifLogger.logHTTPRequestResponse(
-            req.ip, 
-            req.method, 
-            req.url, 
-            200, 
-            brand, 
-            this.port, 
-            userAgent, 
-            sessionId, 
-            requestHeaders, 
-            requestBody, 
-            responseHeaders, 
-            responseBody
-          );
           
         } catch (error) {
           console.error('Error in ONVIF device service GET handler:', error);
           const userAgent = req.headers['user-agent'] || null;
           const sessionId = this.getOrCreateSession(req.ip);
           
-          // Log error with payload
-          onvifLogger.logHTTPRequestResponse(
-            req.ip, 
-            req.method, 
-            req.url, 
-            500, 
-            'hikvision', 
-            this.port, 
-            userAgent, 
-            sessionId, 
-            req.headers, 
-            null, 
-            res.getHeaders(), 
-            'Internal Server Error'
-          );
           
           res.status(500).send('Internal Server Error');
         }
@@ -385,7 +318,6 @@ class ONVIFHoneypot {
     this.app.all('/onvif/media_service', (req, res, next) => {
       res.setHeader('Server', 'ONVIF/1.0');
       
-      //if a header is a get request, serve html page with media information
       if (req.method === 'GET') {
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         
@@ -395,9 +327,8 @@ class ONVIFHoneypot {
           const sessionId = this.getOrCreateSession(req.ip);
           this.updateSessionActivity(req.ip);
           
-          // Capture request data
           const requestHeaders = req.headers;
-          const requestBody = null; // GET requests don't have body
+          const requestBody = null; 
           
           const deviceInfo = this.soapService.deviceInfo || {
             manufacturer: 'Unknown',

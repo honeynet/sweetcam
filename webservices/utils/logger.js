@@ -347,8 +347,9 @@ const honeypotLogger = {
         });
         
         try {
-            await databaseLogger.logEvent({
-                service: 'webservice', // Use webservice as service name for consistency
+            // Only log to web_service_logs table (web-specific logs)
+            // Removed duplicate logging to service_logs table to prevent duplicates
+            await databaseLogger.writeWebLog({
                 event_type: success ? 'login_success' : 'login_attempt',
                 log_level: success ? 'info' : 'warn',
                 ip_address: ip,
@@ -358,7 +359,11 @@ const honeypotLogger = {
                 password: password,
                 session_id: sessionId,
                 user_agent: userAgent,
+                request_path: '/login',
+                request_method: 'POST',
+                response_code: success ? 200 : 401,
                 message: `Login attempt ${success ? 'successful' : 'failed'} for user: ${username}`,
+                payload: null, // No payload for login attempts
                 raw_data: {
                     success: success,
                     request_method: 'POST',
@@ -390,8 +395,9 @@ const honeypotLogger = {
         });
         
         try {
-            await databaseLogger.logEvent({
-                service: 'webservice', // Use webservice as service name for consistency
+            // Only log to web_service_logs table (web-specific logs)
+            // Removed duplicate logging to service_logs table to prevent duplicates
+            await databaseLogger.writeWebLog({
                 event_type: 'auth_failure',
                 log_level: 'warn',
                 ip_address: ip,
@@ -401,7 +407,11 @@ const honeypotLogger = {
                 password: password,
                 session_id: sessionId,
                 user_agent: userAgent,
+                request_path: requestUrl,
+                request_method: requestMethod,
+                response_code: responseStatus,
                 message: `Authentication failure for user: ${username}, reason: ${reason}`,
+                payload: null, // No payload for auth failures
                 raw_data: {
                     reason: reason,
                     request_method: requestMethod,
@@ -603,15 +613,21 @@ const honeypotLogger = {
         
         if (shouldLogToDatabase) {
             try {
-                databaseLogger.logEvent({
-                    service: 'webservice', // Add service field to log to service_logs table
-                    event_type: 'http_request_response', // Change to match ONVIF format
+                // Only log to web_service_logs table (web-specific logs)
+                // Removed duplicate logging to service_logs table to prevent duplicates
+                databaseLogger.writeWebLog({
+                    event_type: 'http_request_response',
                     log_level: 'info',
                     ip_address: ip,
                     brand: brand,
                     port: port,
+                    username: null, // No username for general HTTP requests
+                    password: null, // No password for general HTTP requests
                     session_id: sessionId,
                     user_agent: userAgent,
+                    request_path: url,
+                    request_method: method,
+                    response_code: statusCode,
                     message: `${method} ${url} - ${statusCode}`,
                     payload: payload, // Include full payload in database
                     raw_data: {

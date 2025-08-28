@@ -28,37 +28,33 @@ function mapCowrieToLogEvent(event) {
       return { 
         ...base, 
         event_type: 'session_start', 
-        message: `Session started from ${base.ip_address}:${base.port}`,
-        payload: event // Full event data including connection details
+        message: `Session started from ${base.ip_address}:${base.port}`
       };
     case 'cowrie.session.closed':
       return { 
         ...base, 
         event_type: 'session_end', 
-        message: `Session closed for ${base.ip_address}`,
-        payload: event // Full event data including session duration, tty info
+        message: `Session closed for ${base.ip_address}`
       };
     case 'cowrie.login.failed':
       return { 
         ...base, 
         event_type: 'auth_failure', 
         log_level: 'warn', 
-        message: `Login failed for user ${base.username || 'unknown'}`,
-        payload: event // Full event data including failed credentials
+        message: `Login failed for user ${base.username || 'unknown'}`
       };
     case 'cowrie.login.success':
       return { 
         ...base, 
         event_type: 'login_success', 
-        message: `Login success for user ${base.username || 'unknown'}`,
-        payload: event // Full event data including successful credentials
+        message: `Login success for user ${base.username || 'unknown'}`
       };
     case 'cowrie.command.input':
       return { 
         ...base, 
         event_type: 'command_execution', 
-        message: event.input ? `Command: ${event.input}` : 'Command input', 
-        payload: event, // Full event data including command, input, session
+        message: event.input ? `Command: ${event.input}` : 'Command input',
+        command: event.input,
         raw_data: { ...event, command: event.input } 
       };
     case 'cowrie.command.failed':
@@ -67,7 +63,7 @@ function mapCowrieToLogEvent(event) {
         event_type: 'command_execution', 
         log_level: 'error', 
         message: event.input ? `Command failed: ${event.input}` : 'Command failed',
-        payload: event, // Full event data including failed command details
+        command: event.input,
         raw_data: { ...event, command: event.input } 
       };
     case 'cowrie.session.file_download':
@@ -75,7 +71,8 @@ function mapCowrieToLogEvent(event) {
         ...base, 
         event_type: 'download_attempt', 
         message: event.url ? `Download from ${event.url}` : 'File download',
-        payload: event, // Full event data including URL, file path, size
+        file_path: event.outfile,
+        file_size: event.size,
         raw_data: { ...event, file_path: event.outfile, file_size: event.size } 
       };
     case 'cowrie.session.file_upload':
@@ -83,45 +80,41 @@ function mapCowrieToLogEvent(event) {
         ...base, 
         event_type: 'upload_attempt', 
         message: event.filename ? `Upload ${event.filename}` : 'File upload',
-        payload: event, // Full event data including filename, size, content
+        file_path: event.filename,
+        file_size: event.size,
         raw_data: { ...event, file_path: event.filename, file_size: event.size } 
       };
     case 'cowrie.client.version':
       return { 
         ...base, 
         event_type: 'service_event', 
-        message: `Client version: ${event.version || ''}`,
-        payload: event // Full event data including client version info
+        message: `Client version: ${event.version || ''}`
       };
     case 'cowrie.client.fingerprint':
       return { 
         ...base, 
         event_type: 'service_event', 
-        message: `Client fingerprint: ${event.kexAlgs || ''}`,
-        payload: event // Full event data including fingerprint details
+        message: `Client fingerprint: ${event.kexAlgs || ''}`
       };
     case 'cowrie.direct-tcpip.request':
       return { 
         ...base, 
         event_type: 'service_event', 
         log_level: 'info', 
-        message: `Direct TCPIP request to ${event.dst_ip || ''}:${event.dst_port || ''}`,
-        payload: event // Full event data including destination IP/port
+        message: `Direct TCPIP request to ${event.dst_ip || ''}:${event.dst_port || ''}`
       };
     case 'cowrie.alert':
       return { 
         ...base, 
-        event_type: 'service_event', 
+        event_type: 'service_event',
         log_level: 'info', 
-        message: event.message || 'Cowrie event',
-        payload: event // Full event data including alert details
+        message: event.message || 'Cowrie event'
       };
     default:
       return { 
         ...base, 
         event_type: 'service_event', 
-        message: eventId || 'cowrie_event',
-        payload: event // Full event data for unknown event types
+        message: eventId || 'cowrie_event'
       };
   }
 }
@@ -191,7 +184,12 @@ while True:
 
       try {
         const mapped = mapCowrieToLogEvent(evt);
+        
+        // Log to service_logs table (general service logs)
         await databaseLogger.logEvent(mapped);
+        
+        // Also log to cowrie_service_logs table (cowrie-specific logs)
+        await databaseLogger.writeCowrieLog(mapped);
       } catch (e) {
         console.error('[COWRIE_INGESTOR] Error logging event:', e.message);
       }

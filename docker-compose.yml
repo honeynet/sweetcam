@@ -621,8 +621,10 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_FEATURE_TOGGLES_ENABLE=publicDashboards
       - GF_PUBLIC_DASHBOARDS_ENABLED=true
+      - GF_PLUGINS_PREINSTALL=grafana-worldmap-panel
     volumes:
       - grafana-data:/var/lib/grafana
+      - ./grafana/grafana.ini:/etc/grafana/grafana.ini
       - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
       - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
       - ./grafana/dashboards:/var/lib/grafana/dashboards

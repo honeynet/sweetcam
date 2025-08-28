@@ -64,9 +64,15 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Global request tracking to prevent duplicate logging
+const processedRequests = new Map();
+
 app.use((req, res, next) => {
     const originalSend = res.send;
     const originalJson = res.json;
+    
+    // Generate a unique request ID based on request details
+    const requestKey = `${req.ip}-${req.method}-${req.url}-${Date.now()}`;
     
     // Always capture request data, even if no body exists
     let requestPayload = {
@@ -81,6 +87,46 @@ app.use((req, res, next) => {
         headers: req.headers
     };
     
+    // Common logging function to prevent duplication
+    const logRequest = (responsePayload) => {
+        if (processedRequests.has(requestKey)) {
+            console.log(`[DEBUG] Request ${requestKey} already processed, skipping duplicate`);
+            return; // Prevent duplicate logging
+        }
+        
+        console.log(`[DEBUG] Processing request ${requestKey} for ${req.method} ${req.url}`);
+        
+        // Mark as processed immediately to prevent race conditions
+        processedRequests.set(requestKey, true);
+        
+        try {
+            const cameraType = typeof getCameraType === 'function' ? getCameraType(req) : 'unknown';
+            const port = process.env.PORT || (req.connection && req.connection.server ? req.connection.server.address().port : 80);
+            
+            honeypotLogger.logHTTPRequest(
+                req.ip,
+                req.method,
+                req.url,
+                res.statusCode,
+                req.get('User-Agent'),
+                cameraType,
+                port,
+                req.sessionID,
+                requestPayload,
+                responsePayload
+            );
+            
+            console.log(`[DEBUG] Request ${requestKey} processed successfully`);
+            
+            // Clean up old entries to prevent memory leaks (keep only last 1000 requests)
+            if (processedRequests.size > 1000) {
+                const firstKey = processedRequests.keys().next().value;
+                processedRequests.delete(firstKey);
+            }
+        } catch (error) {
+            console.error('Error in payload logging middleware:', error.message);
+        }
+    };
     
     res.send = function(data) {
         const responsePayload = {
@@ -88,28 +134,8 @@ app.use((req, res, next) => {
             body: data
         };
         
-        setTimeout(() => {
-            try {
-                const cameraType = typeof getCameraType === 'function' ? getCameraType(req) : 'unknown';
-                const port = process.env.PORT || (req.connection && req.connection.server ? req.connection.server.address().port : 80);
-                
-                honeypotLogger.logHTTPRequest(
-                    req.ip,
-                    req.method,
-                    req.url,
-                    res.statusCode,
-                    req.get('User-Agent'),
-                    cameraType,
-                    port,
-                    req.sessionID,
-                    requestPayload,
-                    responsePayload
-                );
-            } catch (error) {
-                console.error('Error in payload logging middleware:', error.message);
-            }
-        }, 0);
-        
+        console.log(`[DEBUG] res.send called for request ${requestKey}`);
+        logRequest(responsePayload);
         return originalSend.call(this, data);
     };
     
@@ -119,28 +145,8 @@ app.use((req, res, next) => {
             body: data
         };
         
-        setTimeout(() => {
-            try {
-                const cameraType = typeof getCameraType === 'function' ? getCameraType(req) : 'unknown';
-                const port = process.env.PORT || (req.connection && req.connection.server ? req.connection.server.address().port : 80);
-                
-                honeypotLogger.logHTTPRequest(
-                    req.ip,
-                    req.method,
-                    req.url,
-                    res.statusCode,
-                    req.get('User-Agent'),
-                    cameraType,
-                    port,
-                    req.sessionID,
-                    requestPayload,
-                    responsePayload
-                );
-            } catch (error) {
-                console.error('Error in payload logging middleware:', error.message);
-            }
-        }, 0);
-        
+        console.log(`[DEBUG] res.json called for request ${requestKey}`);
+        logRequest(responsePayload);
         return originalJson.call(this, data);
     };
     
