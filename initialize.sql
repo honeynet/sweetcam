@@ -43,28 +43,18 @@ CREATE TABLE IF NOT EXISTS `service_logs`
 (
     `id`           bigint       NOT NULL AUTO_INCREMENT,
     `timestamp`    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `service`      varchar(50)  NOT NULL COMMENT 'web, rtsp, onvif, cowrie',
-    `event_type`   varchar(100) NOT NULL,
-    `log_level`    varchar(20)  NOT NULL DEFAULT 'info' COMMENT 'info, error, warn, debug',
     `ip_address`   varchar(45)  DEFAULT NULL COMMENT 'IPv4 or IPv6 address',
-    `brand`        varchar(50)  DEFAULT NULL COMMENT 'camera brand',
+    `service`      varchar(50)  NOT NULL COMMENT 'web, rtsp, onvif, cowrie',
     `port`         int          DEFAULT NULL,
-    `username`     varchar(255) DEFAULT NULL,
-    `password`     varchar(255) DEFAULT NULL,
-    `session_id`   varchar(255) DEFAULT NULL,
-    `user_agent`   text         DEFAULT NULL,
-    `message`      text         DEFAULT NULL,
-    `payload`      json         DEFAULT NULL COMMENT 'HTTP request and response payloads',
-    `raw_data`     json         DEFAULT NULL COMMENT 'Complete log entry as JSON',
+    `time_end`     TIMESTAMP    NULL DEFAULT NULL,
+    `brand`        varchar(50)  DEFAULT NULL COMMENT 'camera brand',
     `created_at`   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
     INDEX `idx_service` (`service`),
-    INDEX `idx_event_type` (`event_type`),
     INDEX `idx_timestamp` (`timestamp`),
     INDEX `idx_ip_address` (`ip_address`),
     INDEX `idx_brand` (`brand`),
-    INDEX `idx_session_id` (`session_id`),
-    INDEX `idx_log_level` (`log_level`)
+    INDEX `idx_port` (`port`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Web service specific logs
@@ -259,21 +249,18 @@ CREATE TABLE IF NOT EXISTS `session_tracking`
     INDEX `idx_start_time` (`start_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Unified view for Grafana
+-- Unified view for Grafana (updated to include event_type and message)
 CREATE OR REPLACE VIEW all_logs AS
-SELECT timestamp, service, event_type, ip_address, brand, message
-FROM service_logs
-UNION ALL
-SELECT timestamp, 'web' AS service, event_type, ip_address, brand, message
+SELECT timestamp, 'web' AS service, event_type, ip_address, brand, port, NULL AS time_end, created_at, message
 FROM web_service_logs
 UNION ALL
-SELECT timestamp, 'rtsp' AS service, event_type, ip_address, brand, message
+SELECT timestamp, 'rtsp' AS service, event_type, ip_address, brand, port, NULL AS time_end, created_at, message
 FROM rtsp_service_logs
 UNION ALL
-SELECT timestamp, 'onvif' AS service, event_type, ip_address, brand, message
+SELECT timestamp, 'onvif' AS service, event_type, ip_address, brand, port, NULL AS time_end, created_at, message
 FROM onvif_service_logs
 UNION ALL
-SELECT timestamp, 'cowrie' AS service, event_type, ip_address, brand, message
+SELECT timestamp, 'cowrie' AS service, event_type, ip_address, brand, port, NULL AS time_end, created_at, message
 FROM cowrie_service_logs;
 
 -- Read-only user for Grafana

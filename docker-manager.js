@@ -97,9 +97,10 @@ Main Menu:
 4. Custom Setup
 5. Health Check & Monitoring
 6. Service Management
+7. Install Docker
 0. Exit
 
-Select an option (0-6):
+Select an option (0-7):
         `;
         console.log(menu);
     }
@@ -458,6 +459,241 @@ Select an option (1-6):
         }
     }
 
+    async installDocker() {
+        console.log("\n\x1b[36mDocker Installation & Setup\x1b[0m");
+        
+        try {
+            // Check if Docker is already installed
+            try {
+                execSync('docker --version', { stdio: 'pipe' });
+                console.log("\x1b[32m✓ Docker is already installed\x1b[0m");
+                
+                const dockerVersion = execSync('docker --version', { encoding: 'utf8' }).trim();
+                console.log(`\x1b[1mDocker Version: ${dockerVersion}\x1b[0m`);
+                
+                // Check if Docker daemon is running
+                try {
+                    execSync('docker info', { stdio: 'pipe' });
+                    console.log("\x1b[32m✓ Docker daemon is running\x1b[0m");
+                    
+                    // Check Docker Compose
+                    try {
+                        execSync('docker compose version', { stdio: 'pipe' });
+                        console.log("\x1b[32m✓ Docker Compose is available\x1b[0m");
+                        
+                        const composeVersion = execSync('docker compose version', { encoding: 'utf8' }).trim();
+                        console.log(`\x1b[1mDocker Compose Version: ${composeVersion}\x1b[0m`);
+                        
+                        console.log("\n\x1b[32m\x1b[1mDocker is fully configured and ready to use!\x1b[0m");
+                        return;
+                        
+                    } catch (error) {
+                        console.log("\x1b[33m⚠ Docker Compose not found. Installing...\x1b[0m");
+                        await this.installDockerCompose();
+                    }
+                    
+                } catch (error) {
+                    console.log("\x1b[33m⚠ Docker daemon is not running. Starting...\x1b[0m");
+                    await this.startDockerDaemon();
+                }
+                
+            } catch (error) {
+                console.log("\x1b[33m⚠ Docker not found. Installing...\x1b[0m");
+                await this.installDockerEngine();
+            }
+            
+        } catch (error) {
+            console.log(`\x1b[31mERROR: ${error.message}\x1b[0m`);
+        }
+    }
+
+    async installDockerEngine() {
+        console.log("\n\x1b[36mInstalling Docker Engine...\x1b[0m");
+        
+        try {
+            // Detect OS
+            const platform = process.platform;
+            const arch = process.arch;
+            
+            console.log(`\x1b[1mDetected: ${platform} (${arch})\x1b[0m`);
+            
+            if (platform === 'linux') {
+                await this.installDockerLinux();
+            } else if (platform === 'darwin') {
+                await this.installDockerMac();
+            } else if (platform === 'win32') {
+                await this.installDockerWindows();
+            } else {
+                throw new Error(`Unsupported platform: ${platform}`);
+            }
+            
+        } catch (error) {
+            console.log(`\x1b[31mERROR Installing Docker Engine: ${error.message}\x1b[0m`);
+            console.log("\x1b[33mPlease install Docker manually from: https://docs.docker.com/get-docker/\x1b[0m");
+        }
+    }
+
+    async installDockerLinux() {
+        console.log("\n\x1b[36mInstalling Docker on Linux...\x1b[0m");
+        
+        try {
+            // Check if running as root
+            if (process.getuid && process.getuid() !== 0) {
+                console.log("\x1b[33m⚠ This operation requires root privileges\x1b[0m");
+                console.log("\x1b[1mPlease run with sudo or as root user\x1b[0m");
+                return;
+            }
+            
+            // Update package list
+            console.log("Updating package list...");
+            execSync('apt-get update', { stdio: 'pipe' });
+            
+            // Install prerequisites
+            console.log("Installing prerequisites...");
+            execSync('apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release', { stdio: 'pipe' });
+            
+            // Add Docker's official GPG key
+            console.log("Adding Docker GPG key...");
+            execSync('curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg', { stdio: 'pipe' });
+            
+            // Add Docker repository
+            console.log("Adding Docker repository...");
+            const release = execSync('lsb_release -cs', { encoding: 'utf8' }).trim();
+            execSync(`echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu ${release} stable" > /etc/apt/sources.list.d/docker.list`, { stdio: 'pipe' });
+            
+            // Update package list again
+            execSync('apt-get update', { stdio: 'pipe' });
+            
+            // Install Docker
+            console.log("Installing Docker Engine...");
+            execSync('apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin', { stdio: 'pipe' });
+            
+            // Start and enable Docker
+            console.log("Starting Docker service...");
+            execSync('systemctl start docker', { stdio: 'pipe' });
+            execSync('systemctl enable docker', { stdio: 'pipe' });
+            
+            // Add current user to docker group
+            const username = execSync('whoami', { encoding: 'utf8' }).trim();
+            execSync(`usermod -aG docker ${username}`, { stdio: 'pipe' });
+            
+            console.log("\x1b[32m✓ Docker Engine installed successfully!\x1b[0m");
+            console.log(`\x1b[1mNote: You may need to log out and back in for group changes to take effect\x1b[0m`);
+            
+        } catch (error) {
+            throw new Error(`Linux installation failed: ${error.message}`);
+        }
+    }
+
+    async installDockerMac() {
+        console.log("\n\x1b[36mInstalling Docker on macOS...\x1b[0m");
+        
+        try {
+            // Check if Homebrew is installed
+            try {
+                execSync('brew --version', { stdio: 'pipe' });
+            } catch (error) {
+                console.log("\x1b[33m⚠ Homebrew not found. Installing Homebrew first...\x1b[0m");
+                execSync('/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"', { stdio: 'pipe' });
+            }
+            
+            // Install Docker Desktop
+            console.log("Installing Docker Desktop...");
+            execSync('brew install --cask docker', { stdio: 'pipe' });
+            
+            console.log("\x1b[32m✓ Docker Desktop installed successfully!\x1b[0m");
+            console.log("\x1b[1mPlease start Docker Desktop from Applications folder\x1b[0m");
+            
+        } catch (error) {
+            throw new Error(`macOS installation failed: ${error.message}`);
+        }
+    }
+
+    async installDockerWindows() {
+        console.log("\n\x1b[36mInstalling Docker on Windows...\x1b[0m");
+        
+        try {
+            // Check if running on Windows 10/11
+            const osRelease = execSync('ver', { encoding: 'utf8' }).trim();
+            if (!osRelease.includes('10') && !osRelease.includes('11')) {
+                throw new Error('Docker Desktop requires Windows 10 or later');
+            }
+            
+            // Check if WSL2 is available
+            try {
+                execSync('wsl --version', { stdio: 'pipe' });
+            } catch (error) {
+                console.log("\x1b[33m⚠ WSL2 not found. Installing WSL2...\x1b[0m");
+                execSync('wsl --install', { stdio: 'pipe' });
+            }
+            
+            // Download Docker Desktop installer
+            console.log("Downloading Docker Desktop...");
+            execSync('curl -L -o DockerDesktopInstaller.exe "https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe"', { stdio: 'pipe' });
+            
+            // Run installer
+            console.log("Running Docker Desktop installer...");
+            execSync('start /wait DockerDesktopInstaller.exe install --quiet', { stdio: 'pipe' });
+            
+            // Clean up installer
+            execSync('del DockerDesktopInstaller.exe', { stdio: 'pipe' });
+            
+            console.log("\x1b[32m✓ Docker Desktop installed successfully!\x1b[0m");
+            console.log("\x1b[1mPlease restart your computer and start Docker Desktop\x1b[0m");
+            
+        } catch (error) {
+            throw new Error(`Windows installation failed: ${error.message}`);
+        }
+    }
+
+    async installDockerCompose() {
+        console.log("\n\x1b[36mInstalling Docker Compose...\x1b[0m");
+        
+        try {
+            const platform = process.platform;
+            
+            if (platform === 'linux') {
+                // Install Docker Compose plugin
+                console.log("Installing Docker Compose plugin...");
+                execSync('apt-get install -y docker-compose-plugin', { stdio: 'pipe' });
+                
+                console.log("\x1b[32m✓ Docker Compose plugin installed successfully!\x1b[0m");
+                
+            } else if (platform === 'darwin' || platform === 'win32') {
+                // Docker Compose is included with Docker Desktop
+                console.log("\x1b[32m✓ Docker Compose is included with Docker Desktop\x1b[0m");
+            }
+            
+        } catch (error) {
+            throw new Error(`Docker Compose installation failed: ${error.message}`);
+        }
+    }
+
+    async startDockerDaemon() {
+        console.log("\n\x1b[36mStarting Docker Daemon...\x1b[0m");
+        
+        try {
+            const platform = process.platform;
+            
+            if (platform === 'linux') {
+                console.log("Starting Docker service...");
+                execSync('systemctl start docker', { stdio: 'pipe' });
+                execSync('systemctl enable docker', { stdio: 'pipe' });
+                
+                console.log("\x1b[32m✓ Docker daemon started successfully!\x1b[0m");
+                
+            } else if (platform === 'darwin') {
+                console.log("\x1b[33m⚠ Please start Docker Desktop from Applications folder\x1b[0m");
+                
+            } else if (platform === 'win32') {
+                console.log("\x1b[33m⚠ Please start Docker Desktop from Start menu\x1b[0m");
+            }
+            
+        } catch (error) {
+            throw new Error(`Failed to start Docker daemon: ${error.message}`);
+        }
+    }
+
 
 
     async run() {
@@ -490,8 +726,11 @@ Select an option (1-6):
                     case "6":
                         await this.serviceManagement();
                         break;
+                    case "7":
+                        await this.installDocker();
+                        break;
                     default:
-                        console.log("\x1b[31mInvalid option. Please select 0-6.\x1b[0m");
+                        console.log("\x1b[31mInvalid option. Please select 0-7.\x1b[0m");
                 }
                 
                 if (choice !== "0") {

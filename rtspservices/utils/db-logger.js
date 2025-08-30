@@ -14,23 +14,15 @@ const pool = mysql.createPool({
 
 async function writeServiceLog(entry) {
   const sql = `INSERT INTO service_logs 
-    (timestamp, service, event_type, log_level, ip_address, brand, port, username, password, session_id, user_agent, message, payload, raw_data) 
-    VALUES (COALESCE(?, CURRENT_TIMESTAMP), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    (timestamp, ip_address, service, port, time_end, brand) 
+    VALUES (COALESCE(?, CURRENT_TIMESTAMP), ?, ?, ?, ?, ?)`;
   const params = [
     entry.timestamp || null,
-    'rtsp',
-    entry.event_type,
-    entry.log_level || 'info',
     entry.ip_address || null,
-    entry.brand || null,
+    'rtsp',
     entry.port || null,
-    entry.username || null,
-    entry.password || null,
-    entry.session_id || null,
-    entry.user_agent || null,
-    entry.message || null,
-    entry.payload ? JSON.stringify(entry.payload) : null,
-    entry.raw_data ? JSON.stringify(entry.raw_data) : null
+    entry.time_end || null,
+    entry.brand || null
   ];
   try {
     await pool.execute(sql, params);

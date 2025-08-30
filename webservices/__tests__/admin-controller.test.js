@@ -1,5 +1,5 @@
 const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
+
 const fs = require('fs');
 
 // Mock the admin services
@@ -38,15 +38,9 @@ const mockRequireAdminAuth = jest.fn((req, res, next) => {
   next();
 });
 
-// Mock the JWT services
-const mockJwtServices = {
-  getJWTToken: jest.fn()
-};
 
-// Mock the telegram bot
-const mockTelegramBot = {
-  sendMessage: jest.fn()
-};
+
+
 
 // Set up mocks
 jest.mock('./../services/admin-services', () => mockAdminServices);
@@ -55,8 +49,8 @@ jest.mock('./../services/sweetcam-services', () => mockSweetcamServices);
 jest.mock('./../services/rtsp-management', () => mockRtspManagement);
 jest.mock('./../services/onvif-management', () => mockOnvifManagement);
 jest.mock('./../utils/admin-auth', () => ({ requireAdminAuth: mockRequireAdminAuth }));
-jest.mock('./../utils/jwt-services', () => mockJwtServices);
-jest.mock('./../utils/telegram-bot', () => mockTelegramBot);
+
+
 
 // Mock file system operations
 fs.readFileSync.mockImplementation((filePath) => {
@@ -75,8 +69,7 @@ fs.readFileSync.mockImplementation((filePath) => {
 // Mock bcrypt
 bcrypt.hash.mockResolvedValue('hashedpassword123');
 
-// Mock JWT
-jwt.verify.mockReturnValue({ id: 1 });
+
 
 describe('Admin Controller', () => {
   beforeEach(() => {
@@ -94,7 +87,7 @@ describe('Admin Controller', () => {
     mockSweetcamServices.getCamVideoConfig.mockReturnValue({ resolution: '1080p', fps: 30 });
     mockSweetcamServices.getBrandConfig.mockReturnValue({ brand: 'Hikvision', model: 'DS-2CD2T47G1-L' });
     
-    mockJwtServices.getJWTToken.mockReturnValue('mock-jwt-token');
+
     
     // Set environment variable for admin path
     process.env.ADMIN_PATH = 'admin';
@@ -178,8 +171,7 @@ describe('Admin Controller', () => {
         end: jest.fn()
       };
       
-      // Mock JWT verification
-      jwt.verify.mockReturnValue({ id: 1 });
+
       
       // Simulate password update
       await mockAdminServices.updatePassword(1, 'newpassword123');
@@ -202,15 +194,7 @@ describe('Admin Controller', () => {
       expect(req.body.newPassword).toBeNull();
     });
 
-    test('should handle JWT token verification', () => {
-      const token = 'mock-jwt-token';
-      const secret = process.env.JWT_SECRET || 'default-secret-key';
-      
-      const decoded = jwt.verify(token, secret);
-      
-      expect(decoded).toEqual({ id: 1 });
-      expect(jwt.verify).toHaveBeenCalledWith(token, secret);
-    });
+
   });
 
   describe('Picture Configuration', () => {
@@ -437,19 +421,7 @@ describe('Admin Controller', () => {
   });
 
   describe('Error Handling', () => {
-    test('should handle JWT verification errors', () => {
-      const invalidToken = 'invalid-token';
-      const secret = 'default-secret-key';
-      
-      // Mock JWT verification to throw error
-      jwt.verify.mockImplementation(() => {
-        throw new Error('Invalid token');
-      });
-      
-      expect(() => {
-        jwt.verify(invalidToken, secret);
-      }).toThrow('Invalid token');
-    });
+
 
     test('should handle file system errors gracefully', () => {
       fs.readFileSync.mockImplementation((filePath) => {
@@ -487,19 +459,7 @@ describe('Admin Controller', () => {
       expect(customPrefix).toBe('custom-admin');
     });
 
-    test('should use default JWT secret when not set', () => {
-      delete process.env.JWT_SECRET;
-      const defaultSecret = 'default-secret-key';
-      
-      expect(defaultSecret).toBe('default-secret-key');
-    });
 
-    test('should use custom JWT secret when set', () => {
-      process.env.JWT_SECRET = 'custom-secret-key';
-      const customSecret = process.env.JWT_SECRET;
-      
-      expect(customSecret).toBe('custom-secret-key');
-    });
   });
 
   describe('Integration Tests', () => {

@@ -10,6 +10,7 @@ The SweetCam Docker Manager is an interactive CLI tool that provides  management
 - **Health Monitoring**: Real-time container health checks and status overview
 - **Log Management**: View service logs with configurable line count (1-100)
 - **Automatic Service Dependencies**: Intelligently manages service dependencies and requirements
+- **Install Docker**: Install Docker and Docker Compose if not already installed
 
 ## Supported Camera Brands
 
@@ -72,9 +73,10 @@ Main Menu:
 4. Custom Setup
 5. Health Check & Monitoring
 6. Service Management
+7. Install Docker
 0. Exit
 
-Select an option (0-6):
+Select an option (0-7):
 ```
 
 ## Deployment Options

@@ -6,9 +6,7 @@ const rtspManagement = require('../services/rtsp-management')
 const onvifManagement = require('../services/onvif-management')
 const { requireAdminAuth } = require('../utils/admin-auth')
 const bcrypt = require("bcrypt")
-const jwt = require('jsonwebtoken')
-const jwtServices = require("../utils/jwt-services")
-const telegramBot = require("../utils/telegram-bot")
+
 
 const prefix = process.env.ADMIN_PATH || 'admin'
 
@@ -29,22 +27,28 @@ function getCameraTypeByPort(port) {
 
 
 
-adminRouter.patch(`/${prefix}/password`, async (req, res) => {
+adminRouter.patch(`/${prefix}/password`, requireAdminAuth, async (req, res) => {
     const newPassword = req.body.newPassword
 
     if (!newPassword) {
         return res.status(400).send({error: 'provide new password is null'}).end()
     }
-    const decodedToken = jwt.verify(jwtServices.getJWTToken(req), process.env.JWT_SECRET || 'default-secret-key')
-    const id = decodedToken.id
-    await adminServices.updatePassword(id, newPassword)
+    
+    // Get admin user from session (set by requireAdminAuth middleware)
+    const adminUser = req.adminUser;
+    if (!adminUser || !adminUser.id) {
+        return res.status(400).send({error: 'Admin user not found'}).end()
+    }
+    
+    await adminServices.updatePassword(adminUser.id, newPassword)
     return res.status(200).send({message: "password update succeed"}).end()
 })
 
 adminRouter.get(`/${prefix}/picture`, requireAdminAuth, (req, res) => {
+    const cameraType = getCameraTypeByPort(80); // Default to hikvision for admin
     const config = {
-        ...sweetcamServices.getCamPictureConfig(),
-        ...sweetcamServices.getBrandConfig(),
+        ...sweetcamServices.getCamPictureConfig(cameraType),
+        ...sweetcamServices.getBrandConfig(cameraType),
         userName: req.adminUser ? req.adminUser.name : "admin"
     }
     res.render("picture", config);
@@ -52,9 +56,10 @@ adminRouter.get(`/${prefix}/picture`, requireAdminAuth, (req, res) => {
 
 
 adminRouter.get(`/${prefix}/video`, requireAdminAuth, (req, res) => {
+    const cameraType = getCameraTypeByPort(80); // Default to hikvision for admin
     const config = {
-        ...sweetcamServices.getCamVideoConfig(),
-        ...sweetcamServices.getBrandConfig(),
+        ...sweetcamServices.getCamVideoConfig(cameraType),
+        ...sweetcamServices.getBrandConfig(cameraType),
         userName: req.adminUser ? req.adminUser.name : "admin"
     }
     res.render("video", config)
@@ -76,7 +81,8 @@ adminRouter.patch(`/${prefix}/config/cam-picture`, requireAdminAuth, (req, res) 
 })
 
 adminRouter.get(`/${prefix}/config/cam-picture`, requireAdminAuth, (req, res) => {
-    const camPictureConfig = sweetcamServices.getCamPictureConfig()
+    const cameraType = getCameraTypeByPort(80); // Default to hikvision for admin
+    const camPictureConfig = sweetcamServices.getCamPictureConfig(cameraType)
     res.json(camPictureConfig)
 })
 
@@ -88,7 +94,8 @@ adminRouter.patch(`/${prefix}/cam-video`, requireAdminAuth, (req, res) => {
 })
 
 adminRouter.get(`/${prefix}/cam-video`, requireAdminAuth, (req, res) => {
-    const camVideoConfig = sweetcamServices.getCamVideoConfig()
+    const cameraType = getCameraTypeByPort(80); // Default to hikvision for admin
+    const camVideoConfig = sweetcamServices.getCamVideoConfig(cameraType)
     res.json(camVideoConfig)
 })
 

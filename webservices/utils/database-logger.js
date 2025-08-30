@@ -129,6 +129,12 @@ class DatabaseLogger {
                     } else if (item.data.service === 'cowrie' || 
                                item.data.isCowrieLog === true) {
                         await this.writeCowrieLogDirect(connection, item.data);
+                    } else if (item.data.service === 'onvif' || 
+                               item.data.isONVIFLog === true) {
+                        await this.writeONVIFLogDirect(connection, item.data);
+                    } else if (item.data.service === 'rtsp' || 
+                               item.data.isRTSPLog === true) {
+                        await this.writeRTSPLogDirect(connection, item.data);
                     } else {
                         await this.logEventDirect(connection, item.data);
                     }
@@ -255,7 +261,35 @@ class DatabaseLogger {
     async logEventDirect(connection, logData) {
         const logEntry = {
             timestamp: logData.timestamp || new Date(),
+            ip_address: logData.ip_address || null,
             service: logData.service || 'unknown',
+            port: logData.port || null,
+            time_end: logData.time_end || null,
+            brand: logData.brand || null
+        };
+
+        const query = `
+            INSERT INTO service_logs 
+            (timestamp, ip_address, service, port, time_end, brand)
+            VALUES (?, ?, ?, ?, ?, ?)
+        `;
+
+        const params = [
+            logEntry.timestamp,
+            logEntry.ip_address,
+            logEntry.service,
+            logEntry.port,
+            logEntry.time_end,
+            logEntry.brand
+        ];
+
+        const [result] = await connection.execute(query, params);
+        return result.insertId;
+    }
+
+    async writeONVIFLogDirect(connection, logData) {
+        const logEntry = {
+            timestamp: logData.timestamp || new Date(),
             event_type: logData.event_type || 'unknown',
             log_level: logData.log_level || 'info',
             ip_address: logData.ip_address || null,
@@ -265,21 +299,24 @@ class DatabaseLogger {
             password: logData.password || null,
             session_id: logData.session_id || null,
             user_agent: logData.user_agent || null,
+            request_method: logData.request_method || null,
+            request_url: logData.request_url || null,
+            response_status: logData.response_status || null,
             message: logData.message || null,
             payload: logData.payload ? JSON.stringify(logData.payload) : null,
             raw_data: logData.raw_data ? JSON.stringify(logData.raw_data) : null
         };
 
         const query = `
-            INSERT INTO service_logs 
-            (timestamp, service, event_type, log_level, ip_address, brand, port, 
-             username, password, session_id, user_agent, message, payload, raw_data)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO onvif_service_logs 
+            (timestamp, event_type, log_level, ip_address, brand, port, username, 
+             password, session_id, user_agent, request_method, request_url, 
+             response_status, message, payload, raw_data)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const params = [
             logEntry.timestamp,
-            logEntry.service,
             logEntry.event_type,
             logEntry.log_level,
             logEntry.ip_address,
@@ -289,13 +326,67 @@ class DatabaseLogger {
             logEntry.password,
             logEntry.session_id,
             logEntry.user_agent,
+            logEntry.request_method,
+            logEntry.request_url,
+            logEntry.response_status,
             logEntry.message,
             logEntry.payload,
             logEntry.raw_data
         ];
 
         const [result] = await connection.execute(query, params);
-            return result.insertId;
+        return result.insertId;
+    }
+
+    async writeRTSPLogDirect(connection, logData) {
+        const logEntry = {
+            timestamp: logData.timestamp || new Date(),
+            event_type: logData.event_type || 'unknown',
+            log_level: logData.log_level || 'info',
+            ip_address: logData.ip_address || null,
+            brand: logData.brand || null,
+            port: logData.port || null,
+            username: logData.username || null,
+            password: logData.password || null,
+            session_id: logData.session_id || null,
+            user_agent: logData.user_agent || null,
+            rtsp_method: logData.rtsp_method || null,
+            stream_path: logData.stream_path || null,
+            connection_id: logData.connection_id || null,
+            message: logData.message || null,
+            payload: logData.payload ? JSON.stringify(logData.payload) : null,
+            raw_data: logData.raw_data ? JSON.stringify(logData.raw_data) : null
+        };
+
+        const query = `
+            INSERT INTO rtsp_service_logs 
+            (timestamp, event_type, log_level, ip_address, brand, port, username, 
+             password, session_id, user_agent, rtsp_method, stream_path, 
+             connection_id, message, payload, raw_data)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        const params = [
+            logEntry.timestamp,
+            logEntry.event_type,
+            logEntry.log_level,
+            logEntry.ip_address,
+            logEntry.brand,
+            logEntry.port,
+            logEntry.username,
+            logEntry.password,
+            logEntry.session_id,
+            logEntry.user_agent,
+            logEntry.rtsp_method,
+            logEntry.stream_path,
+            logEntry.connection_id,
+            logEntry.message,
+            logEntry.payload,
+            logEntry.raw_data
+        ];
+
+        const [result] = await connection.execute(query, params);
+        return result.insertId;
     }
 
     async initialize() {
@@ -450,6 +541,34 @@ class DatabaseLogger {
 
         // Add flag to indicate this is a cowrie service log
         logData.isCowrieLog = true;
+
+        // Use queue system instead of direct writes
+        this.addToQueue(logData, 'normal');
+        return 'queued';
+    }
+
+    async writeONVIFLog(logData) {
+        if (!this.initialized) {
+            console.log('[DATABASE] Initializing database logger...');
+            await this.initialize();
+        }
+
+        // Add flag to indicate this is an ONVIF service log
+        logData.isONVIFLog = true;
+
+        // Use queue system instead of direct writes
+        this.addToQueue(logData, 'normal');
+        return 'queued';
+    }
+
+    async writeRTSPLog(logData) {
+        if (!this.initialized) {
+            console.log('[DATABASE] Initializing database logger...');
+            await this.initialize();
+        }
+
+        // Add flag to indicate this is an RTSP service log
+        logData.isRTSPLog = true;
 
         // Use queue system instead of direct writes
         this.addToQueue(logData, 'normal');

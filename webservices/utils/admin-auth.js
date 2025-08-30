@@ -1,4 +1,4 @@
-const { Admin } = require('../model/admin');
+const sequelize = require('../database/database');
 
 // Middleware to check if the current user is an admin
 async function requireAdminAuth(req, res, next) {
@@ -22,16 +22,22 @@ async function requireAdminAuth(req, res, next) {
         
         // Fallback: Check if the user exists in the admin table
         try {
-            const admin = await Admin.findOne({ where: { name: username } });
+            const results = await sequelize.query(
+                'SELECT * FROM admins WHERE name = ?',
+                {
+                    replacements: [username],
+                    type: sequelize.QueryTypes.SELECT
+                }
+            );
             
-            if (!admin) {
+            if (results.length === 0) {
                 console.log('Admin auth failed: User not found in admin table');
                 return res.status(403).json({ error: 'Admin access required' });
             }
 
             console.log('User authenticated as admin via admin table');
             // User is authenticated as admin
-            req.adminUser = admin;
+            req.adminUser = results[0];
             next();
         } catch (dbError) {
             console.error('Database error in admin auth:', dbError);

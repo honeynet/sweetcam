@@ -14,6 +14,8 @@ A Node.js tool for managing and analyzing logs from all honeypot services (Web, 
 - **Log analysis**: Statistical analysis of log data
 - **Search functionality**: Text search in logs
 - **Old log cleanup**: Delete logs older than specified days
+- **Date-specific deletion**: Delete logs from specific dates
+- **JSON file support**: Handle both .log and .json files
 - **Password display**: Show passwords in authentication logs
 - **Dry run mode**: Safe deletion with preview
 - **Color-coded output**: Easy-to-read formatted output
@@ -109,6 +111,15 @@ node log_manager.js --docker --delete-old -1 --execute
 
 # Delete old logs for specific service
 node log_manager.js --docker --delete-old 30 --service web --execute
+
+# Delete logs from specific date (NEW!)
+node log_manager.js --docker --delete-by-date 2025-08-30 --execute
+
+# Delete logs from specific date for specific service
+node log_manager.js --docker --delete-by-date 2025-08-30 --service onvif --execute
+
+# Preview deletion by date (dry run)
+node log_manager.js --docker --delete-by-date 2025-08-30
 ```
 
 ## Docker Integration
@@ -214,6 +225,21 @@ node log_manager.js --docker --event-types service_event --search "started"
 node log_manager.js --docker --service rtsp --event-types database_auth
 ```
 
+### 13. Delete Today's Logs and JSON Files (NEW!)
+```shell
+node log_manager.js --docker --delete-by-date 2025-08-30 --execute
+```
+
+### 14. Clean Up Specific Date for All Services
+```shell
+node log_manager.js --docker --delete-by-date 2025-08-29 --execute
+```
+
+### 15. Delete Audit JSON Files from Specific Date
+```shell
+node log_manager.js --docker --delete-by-date 2025-08-30 --service onvif --execute
+```
+
 ## Log Deletion Guidelines
 
 ### Understanding `--delete-old` Parameter
@@ -222,6 +248,19 @@ node log_manager.js --docker --service rtsp --event-types database_auth
 - `--delete-old 1`: Delete files **older than 1 day** (day before yesterday and earlier)
 - `--delete-old 7`: Delete files **older than 7 days** (keep last week)
 - `--delete-old -1`: Delete files **older than -1 days** (today's files)
+
+### Understanding `--delete-by-date` Parameter (NEW!)
+
+- `--delete-by-date 2025-08-30`: Delete files **from August 30, 2025**
+- `--delete-by-date 2025-08-29`: Delete files **from August 29, 2025**
+- `--delete-by-date 2025-08-28`: Delete files **from August 28, 2025**
+
+### When to Use Each Method
+
+- **Use `--delete-old`** when you want to keep logs from the last N days
+- **Use `--delete-by-date`** when you want to delete logs from a specific date
+- **Use `--delete-by-date`** for precise cleanup of specific dates
+- **Use `--delete-old`** for regular maintenance cleanup
 
 ### Recommended Cleanup Schedule
 
@@ -234,7 +273,18 @@ node log_manager.js --docker --delete-old 7 --execute
 
 # Emergency: Clean up today's logs
 node log_manager.js --docker --delete-old -1 --execute
+
+# Specific date cleanup (NEW!)
+node log_manager.js --docker --delete-by-date 2025-08-30 --execute
 ```
+
+### File Types Supported
+
+The Log Manager now supports both file types:
+- **`.log` files**: Traditional log files with date patterns
+- **`.json` files**: Audit files, configuration files, and other JSON data
+- **Date pattern files**: Files with names like `app-2025-08-30.log` or `data-2025-08-30.json`
+- **Non-pattern files**: Files like `.017fa2c86641803faec32927dcb40f1108374ed9-audit.json` (deleted by modification time)
 
 ## Troubleshooting
 
@@ -264,6 +314,29 @@ node log_manager.js --docker --delete-old -1 --execute
 ### Custom Log Directory (Local Files)
 ```shell
 node log_manager.js --logs-dir /path/to/logs --service web
+```
+
+### New Features in Latest Version
+
+#### Date-Specific Deletion
+```shell
+# Delete all files from a specific date
+node log_manager.js --delete-by-date 2025-08-30 --execute
+
+# Delete files from specific date for specific service
+node log_manager.js --delete-by-date 2025-08-30 --service onvif --execute
+
+# Preview what would be deleted
+node log_manager.js --delete-by-date 2025-08-30
+```
+
+#### JSON File Support
+```shell
+# The Log Manager now automatically detects and handles:
+# - .log files (traditional logs)
+# - .json files (audit files, configs, etc.)
+# - Files with date patterns in names
+# - Files without date patterns (using modification time)
 ```
 
 ### Combined Filters

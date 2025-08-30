@@ -1,14 +1,14 @@
 const net = require('net');
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcrypt');
-const { RTSPServer } = require('./rtsp-server');
-const { rtspLogger } = require('./utils/logger');
-const { writeServiceLog, writeRTSPLog } = require('./utils/db-logger');
-const BrandDetector = require('./utils/brand-detector');
+const { RTSPServer } = require('../rtsp-server');
+const { rtspLogger } = require('../utils/logger');
+const { writeServiceLog, writeRTSPLog } = require('../utils/db-logger');
+const BrandDetector = require('../utils/brand-detector');
 
 // Mock dependencies
-jest.mock('./utils/logger');
-jest.mock('./utils/db-logger');
+jest.mock('../utils/logger');
+jest.mock('../utils/db-logger');
 jest.mock('mysql2/promise');
 jest.mock('bcrypt');
 
@@ -351,7 +351,9 @@ describe('RTSP Server Tests', () => {
         'rtsp://192.168.1.100:554/stream',
         undefined,
         'hikvision',
-        554
+        554,
+        null,
+        null
       );
     });
 
@@ -366,7 +368,9 @@ describe('RTSP Server Tests', () => {
         200,
         undefined,
         'hikvision',
-        554
+        554,
+        null,
+        null
       );
     });
 
@@ -380,7 +384,7 @@ describe('RTSP Server Tests', () => {
       
       await rtspServer.handleRequest(mockSocket, Buffer.from(request));
       
-      expect(rtspLogger.logRTSPDatabaseAuth).toHaveBeenCalled();
+      expect(rtspLogger.logRTSPCombinedAuth).toHaveBeenCalled();
     });
 
     test('should log unauthorized access attempts', async () => {
@@ -388,7 +392,7 @@ describe('RTSP Server Tests', () => {
       
       await rtspServer.handleRequest(mockSocket, Buffer.from(request));
       
-      expect(rtspLogger.logRTSPSessionWithPayload).toHaveBeenCalled();
+      expect(rtspLogger.logRTSPMethod).toHaveBeenCalled();
       expect(mockSocket.write).toHaveBeenCalledWith(
         expect.stringContaining('RTSP/1.0 401 Unauthorized')
       );
@@ -459,7 +463,9 @@ describe('RTSP Server Tests', () => {
           status: 200,
           headers: expect.any(Array),
           body: expect.any(String)
-        })
+        }),
+        null,
+        null
       );
     });
   });

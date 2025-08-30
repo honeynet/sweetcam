@@ -149,26 +149,14 @@ jest.mock('nodemailer', () => ({
   }))
 }));
 
-// Mock node-telegram-bot-api
-jest.mock('node-telegram-bot-api', () => {
-  return jest.fn().mockImplementation(() => ({
-    on: jest.fn(),
-    sendMessage: jest.fn(),
-    startPolling: jest.fn(),
-    stopPolling: jest.fn()
-  }));
-});
+
 
 // Mock line-reader
 jest.mock('line-reader', () => ({
   eachLine: jest.fn()
 }));
 
-// Mock jsonwebtoken
-jest.mock('jsonwebtoken', () => ({
-  sign: jest.fn(),
-  verify: jest.fn()
-}));
+
 
 // Mock cookie-parser
 jest.mock('cookie-parser', () => jest.fn());

@@ -196,9 +196,14 @@ Refer to the [Database Documentation](./DATABASE_DOCUMENTATION.md) for more deta
 
 ## Log Manager
 
-The SweetCam honeypot includes a log manager tool to help you manage and analyze logs from all honeypot services (Web, RTSP, ONVIF).
+The SweetCam honeypot includes a comprehensive log manager tool to help you manage and analyze logs from all honeypot services (Web, RTSP, ONVIF). 
 
-Refer to the [Log Manager README](./LOG_MANAGER_README.md) for more details.
+**New Features:**
+- **Date-specific deletion**: Delete logs from exact dates
+- **JSON file support**: Handle both .log and .json files
+- **Enhanced filtering**: Advanced log analysis and cleanup
+
+Refer to the [Log Manager README](./LOG_MANAGER_README.md) for complete documentation and examples.
 
 ## Grafana - Visualizing Logs
 

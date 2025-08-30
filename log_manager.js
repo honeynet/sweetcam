@@ -46,6 +46,7 @@ let config = {
     search: null,
     caseSensitive: false,
     deleteOld: null,
+    deleteByDate: null,
     execute: false,
     dryRun: true,
     docker: false,
@@ -139,6 +140,10 @@ function parseArgs() {
                 config.deleteOld = parseInt(nextArg);
                 i++;
                 break;
+            case '--delete-by-date':
+                config.deleteByDate = nextArg;
+                i++;
+                break;
             case '--execute':
                 config.execute = true;
                 config.dryRun = false;
@@ -186,7 +191,8 @@ OPTIONS:
     --analyze                 Perform log analysis
     --search TEXT             Search for specific text in logs
     --case-sensitive          Case sensitive search
-    --delete-old DAYS         Delete logs older than N days
+    --delete-old DAYS         Delete logs and JSON files older than N days
+    --delete-by-date DATE     Delete logs and JSON files from specific date (YYYY-MM-DD)
     --execute                 Execute delete operations (default is dry run)
     --restart-services        Restart services after log deletion to fix file handles
     --logs-dir DIR            Logs directory path (default: ./logs)
@@ -200,6 +206,8 @@ EXAMPLES:
     node log_manager.js --search "admin" --service web
     node log_manager.js --delete-old 7 --execute
     node log_manager.js --delete-old 7 --execute --restart-services
+    node log_manager.js --delete-old 0 --execute  # Delete today's logs and JSON files
+    node log_manager.js --delete-by-date 2025-08-30 --execute  # Delete files from specific date
 `);
 }
 
@@ -232,8 +240,8 @@ function getLogFiles(service = null, date = null) {
         
         try {
             const serviceFiles = fs.readdirSync(servicePath)
-                .filter(file => file.endsWith('.log'))
-                .filter(file => !date || file.includes(`-${date}.log`))
+                .filter(file => file.endsWith('.log') || file.endsWith('.json'))
+                .filter(file => !date || file.includes(`-${date}.log`) || file.includes(`-${date}.json`))
                 .map(file => path.join(servicePath, file));
             
             files.push(...serviceFiles);
@@ -474,6 +482,191 @@ function searchLogs(query, service = null) {
     displayLogs(matchingEntries);
 }
 
+function deleteByDate(targetDate, service = null) {
+    if (config.docker) {
+        // Docker version - similar to deleteOldLogs but for specific date
+        let containerMap = {};
+        try {
+            const runningContainers = execSync('docker ps --format "{{.Names}}"', { encoding: 'utf8' }).trim().split('\n');
+            
+            // Map service types to running containers - check most specific first
+            runningContainers.forEach(containerName => {
+                if (containerName.includes('rtsp')) {
+                    if (!containerMap.rtsp) containerMap.rtsp = containerName;
+                } else if (containerName.includes('onvif')) {
+                    if (!containerMap.onvif) containerName;
+                } else if (containerName.includes('web')) {
+                    if (!containerMap.web) containerMap.web = containerName;
+                } else if (!containerName.includes('rtsp') && !containerName.includes('onvif') && 
+                    (containerName.includes('axis') || containerName.includes('dahua') || 
+                    containerName.includes('hikvision') || containerName.includes('mobotix') || 
+                    containerName.includes('reolink') || containerName.includes('vstarcam'))) {
+                    // These brand-specific services have web service logs mounted
+                    if (!containerMap.web) containerMap.web = containerName;
+                }
+            });
+            
+            // If no containers found for a service type, use defaults
+            if (!containerMap.web) containerMap.web = 'axis_service';
+            if (!containerMap.rtsp) containerMap.rtsp = 'rtsp_axis_service';
+            if (!containerMap.onvif) containerMap.onvif = 'onvif_axis_service';
+            
+        } catch (error) {
+            console.log(`${colors.yellow}[WARN] Error detecting running containers, using defaults: ${error.message}${colors.reset}`);
+            containerMap = {
+                'web': 'axis_service',
+                'rtsp': 'rtsp_axis_service',
+                'onvif': 'onvif_axis_service'
+            };
+        }
+        
+        const servicesToCheck = service ? [service] : Object.keys(containerMap);
+        const filesToDelete = [];
+        
+        for (const serviceName of servicesToCheck) {
+            const containerName = containerMap[serviceName];
+            if (!containerName) continue;
+            
+            try {
+                // Define which log directories to check for each service
+                const logDirectories = {
+                    'web': ['webservices'],
+                    'rtsp': [''],  // RTSP services mount logs directly to /app/logs
+                    'onvif': ['']   // ONVIF services mount logs directly to /app/logs
+                };
+                
+                const directoriesToCheck = logDirectories[serviceName] || ['webservices', 'rtspservices', 'onvifservices'];
+                
+                for (const logDir of directoriesToCheck) {
+                    try {
+                        // Find old log files and JSON files in specific log directory
+                        const logPath = logDir ? `/app/logs/${logDir}` : '/app/logs';
+                        const logResult = execSync(`docker exec ${containerName} find ${logPath} -name "*.log" -type f 2>/dev/null`, { encoding: 'utf8' });
+                        const jsonResult = execSync(`docker exec ${containerName} find ${logPath} -name "*.json" -type f 2>/dev/null`, { encoding: 'utf8' });
+                        const containerFiles = [...logResult.trim().split('\n'), ...jsonResult.trim().split('\n')].filter(file => file);
+                        
+                        for (const containerFile of containerFiles) {
+                            try {
+                                // Extract date from filename (handles both .log and .json files)
+                                const filename = path.basename(containerFile);
+                                const dateMatch = filename.match(/(\d{4}-\d{2}-\d{2})/);
+                                
+                                if (dateMatch) {
+                                    const fileDate = dateMatch[1];
+                                    if (fileDate === targetDate) {
+                                        filesToDelete.push({ container: containerName, file: containerFile });
+                                    }
+                                } else {
+                                    // Check file modification time (for files without date patterns like audit JSON files)
+                                    const stats = execSync(`docker exec ${containerName} stat -c %Y "${containerFile}"`, { encoding: 'utf8' });
+                                    const mtime = new Date(parseInt(stats.trim()) * 1000);
+                                    const mtimeStr = mtime.toISOString().split('T')[0];
+                                    
+                                    if (mtimeStr === targetDate) {
+                                        filesToDelete.push({ container: containerName, file: containerFile });
+                                    }
+                                }
+                            } catch (error) {
+                                console.log(`${colors.yellow}[WARN] Error checking file ${containerFile}: ${error.message}${colors.reset}`);
+                            }
+                        }
+                    } catch (error) {
+                        // Directory might not exist, continue to next
+                        continue;
+                    }
+                }
+            } catch (error) {
+                console.log(`${colors.yellow}[WARN] Error accessing container ${containerName}: ${error.message}${colors.reset}`);
+            }
+        }
+        
+        if (filesToDelete.length === 0) {
+            console.log(`${colors.yellow}[EMPTY] No log and JSON files found for date: ${targetDate}${colors.reset}`);
+            return;
+        }
+        
+        console.log(`\n${colors.red}[DELETE] Found ${filesToDelete.length} log and JSON files for date: ${targetDate}${colors.reset}`);
+        filesToDelete.forEach(({ container, file }) => {
+            console.log(`   ${container}:${file}`);
+        });
+        
+        if (!config.dryRun) {
+            console.log(`\n${colors.red}[WARN] Deleting ${filesToDelete.length} files...${colors.reset}`);
+            filesToDelete.forEach(({ container, file }) => {
+                try {
+                    execSync(`docker exec ${container} rm "${file}"`, { encoding: 'utf8' });
+                    console.log(`   ${colors.green}[OK] Deleted: ${container}:${file}${colors.reset}`);
+                } catch (error) {
+                    console.log(`   ${colors.red}[ERROR] Error deleting ${container}:${file}: ${error.message}${colors.reset}`);
+                }
+            });
+        } else {
+            console.log(`\n${colors.blue}[DRY-RUN] Dry run mode - no files were deleted.${colors.reset}`);
+            console.log('   Use --execute to actually delete the files.');
+        }
+        
+        // Restart services after deletion to fix file handle issues
+        if (!config.dryRun && filesToDelete.length > 0 && config.restartServices) {
+            restartServicesAfterLogDeletion();
+        }
+    } else {
+        // Local file logic
+        const logFiles = getLogFiles(service, targetDate);
+        const filesToDelete = [];
+        
+        logFiles.forEach(file => {
+            try {
+                //try to extract date from filename (handles both .log and .json files)
+                const filename = path.basename(file);
+                const dateMatch = filename.match(/(\d{4}-\d{2}-\d{2})/);
+                
+                if (dateMatch) {
+                    const fileDate = dateMatch[1];
+                    if (fileDate === targetDate) {
+                        filesToDelete.push(file);
+                    }
+                } else {
+                    // For files without date patterns (like audit JSON files), check modification time
+                    const stats = fs.statSync(file);
+                    const mtime = new Date(stats.mtime);
+                    const mtimeStr = mtime.toISOString().split('T')[0];
+                    
+                    if (mtimeStr === targetDate) {
+                        filesToDelete.push(file);
+                    }
+                }
+            } catch (error) {
+                console.log(`${colors.yellow}[WARN] Error checking file ${file}: ${error.message}${colors.reset}`);
+            }
+        });
+        
+        if (filesToDelete.length === 0) {
+            console.log(`${colors.yellow}[EMPTY] No log and JSON files found for date: ${targetDate}${colors.reset}`);
+            return;
+        }
+        
+        console.log(`\n${colors.red}[DELETE] Found ${filesToDelete.length} log and JSON files for date: ${targetDate}${colors.reset}`);
+        filesToDelete.forEach(file => {
+            console.log(`   ${file}`);
+        });
+        
+        if (!config.dryRun) {
+            console.log(`\n${colors.red}[WARN] Deleting ${filesToDelete.length} files...${colors.reset}`);
+            filesToDelete.forEach(file => {
+                try {
+                    fs.unlinkSync(file);
+                    console.log(`   ${colors.green}[OK] Deleted: ${file}${colors.reset}`);
+                } catch (error) {
+                    console.log(`   ${colors.red}[ERROR] Error deleting ${file}: ${error.message}${colors.reset}`);
+                }
+            });
+        } else {
+            console.log(`\n${colors.blue}[DRY-RUN] Dry run mode - no files were deleted.${colors.reset}`);
+            console.log('   Use --execute to actually delete the files.');
+        }
+    }
+}
+
 function deleteOldLogs(days, service = null) {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - days);
@@ -535,14 +728,15 @@ function deleteOldLogs(days, service = null) {
                 
                 for (const logDir of directoriesToCheck) {
                     try {
-                        // Find old log files in specific log directory
+                        // Find old log files and JSON files in specific log directory
                         const logPath = logDir ? `/app/logs/${logDir}` : '/app/logs';
-                        const result = execSync(`docker exec ${containerName} find ${logPath} -name "*.log" -type f 2>/dev/null`, { encoding: 'utf8' });
-                        const containerFiles = result.trim().split('\n').filter(file => file);
+                        const logResult = execSync(`docker exec ${containerName} find ${logPath} -name "*.log" -type f 2>/dev/null`, { encoding: 'utf8' });
+                        const jsonResult = execSync(`docker exec ${containerName} find ${logPath} -name "*.json" -type f 2>/dev/null`, { encoding: 'utf8' });
+                        const containerFiles = [...logResult.trim().split('\n'), ...jsonResult.trim().split('\n')].filter(file => file);
                         
                         for (const containerFile of containerFiles) {
                             try {
-                                // Extract date from filename
+                                // Extract date from filename (handles both .log and .json files)
                                 const filename = path.basename(containerFile);
                                 const dateMatch = filename.match(/(\d{4}-\d{2}-\d{2})/);
                                 
@@ -552,7 +746,7 @@ function deleteOldLogs(days, service = null) {
                                         filesToDelete.push({ container: containerName, file: containerFile });
                                     }
                                 } else {
-                                    // Check file modification time
+                                    // Check file modification time (for files without date patterns like audit JSON files)
                                     const stats = execSync(`docker exec ${containerName} stat -c %Y "${containerFile}"`, { encoding: 'utf8' });
                                     const mtime = new Date(parseInt(stats.trim()) * 1000);
                                     const mtimeStr = mtime.toISOString().split('T')[0];
@@ -611,7 +805,7 @@ function deleteOldLogs(days, service = null) {
         
         logFiles.forEach(file => {
             try {
-                //try to extract date from filename
+                //try to extract date from filename (handles both .log and .json files)
                 const filename = path.basename(file);
                 const dateMatch = filename.match(/(\d{4}-\d{2}-\d{2})/);
                 
@@ -621,6 +815,7 @@ function deleteOldLogs(days, service = null) {
                         filesToDelete.push(file);
                     }
                 } else {
+                    // For files without date patterns (like audit JSON files), check modification time
                     const stats = fs.statSync(file);
                     const mtime = new Date(stats.mtime);
                     const mtimeStr = mtime.toISOString().split('T')[0];
@@ -721,6 +916,11 @@ function main() {
         return;
     }
     
+    if (config.deleteByDate !== null) {
+        deleteByDate(config.deleteByDate, config.service);
+        return;
+    }
+    
     if (config.deleteOld !== null) {
         deleteOldLogs(config.deleteOld, config.service);
         return;
@@ -756,5 +956,6 @@ module.exports = {
     displayLogs,
     analyzeLogs,
     searchLogs,
-    deleteOldLogs
+    deleteOldLogs,
+    deleteByDate
 }; 

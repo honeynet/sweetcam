@@ -101,6 +101,22 @@ class ONVIFManagementService {
             const result = await this.executeDockerCommand(command);
             
             console.log(`Start output: ${result.stdout}`);
+            
+            // Log service start event
+            const { databaseLogger } = require('../utils/database-logger');
+            try {
+                await databaseLogger.writeONVIFLog({
+                    event_type: 'service_start',
+                    log_level: 'info',
+                    brand: this.onvifServices[serviceName]?.brand || 'auto',
+                    port: this.onvifServices[serviceName]?.port || 8000,
+                    message: `ONVIF service ${serviceName} started via web interface`,
+                    payload: { service_name: serviceName, action: 'start' }
+                });
+            } catch (logError) {
+                console.error('Failed to log ONVIF service start event:', logError.message);
+            }
+            
             return { success: true, message: `${serviceName} started successfully` };
         } catch (error) {
             console.error(`Error starting ${serviceName}:`, error.message);
@@ -115,6 +131,21 @@ class ONVIFManagementService {
             const result = await this.executeDockerCommand(command);
             
             console.log(`Stop output: ${result.stdout}`);
+            
+            // Log service stop event
+            const { databaseLogger } = require('../utils/database-logger');
+            try {
+                await databaseLogger.writeONVIFLog({
+                    event_type: 'service_stop',
+                    log_level: 'info',
+                    brand: this.onvifServices[serviceName]?.brand || 'auto',
+                    port: this.onvifServices[serviceName]?.port || 8000,
+                    message: `ONVIF service ${serviceName} stopped via web interface`,
+                    payload: { service_name: serviceName, action: 'stop' }
+                });
+            } catch (logError) {
+                console.error('Failed to log ONVIF service stop event:', logError.message);
+            }
             
             if (result.stdout && result.stdout.trim() === serviceName) {
                 return { success: true, message: `${serviceName} stopped successfully` };
