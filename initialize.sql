@@ -249,6 +249,37 @@ CREATE TABLE IF NOT EXISTS `session_tracking`
     INDEX `idx_start_time` (`start_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Unique payloads tracking table for detecting custom/unique attack patterns
+CREATE TABLE IF NOT EXISTS `unique_payloads`
+(
+    `id`               bigint       NOT NULL AUTO_INCREMENT,
+    `payload_hash`     varchar(64)  NOT NULL COMMENT 'SHA256 hash of the payload for uniqueness detection',
+    `service`          varchar(50)  NOT NULL COMMENT 'web, rtsp, onvif, cowrie',
+    `event_type`       varchar(100) NOT NULL COMMENT 'Type of event where payload was found',
+    `payload_type`     varchar(50)  NOT NULL COMMENT 'username, password, command, content-type, etc.',
+    `payload_content`  text         NOT NULL COMMENT 'The actual payload content',
+    `ip_address`       varchar(45)  DEFAULT NULL COMMENT 'IP address where payload was first seen',
+    `brand`            varchar(50)  DEFAULT NULL COMMENT 'Camera brand if applicable',
+    `first_seen`       TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'When this payload was first encountered',
+    `last_seen`        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Last time this payload was seen',
+    `occurrence_count` int          NOT NULL DEFAULT 1 COMMENT 'How many times this payload has been seen',
+    `is_suspicious`    boolean      NOT NULL DEFAULT FALSE COMMENT 'Flag for suspicious payloads',
+    `threat_level`     varchar(20)  DEFAULT 'low' COMMENT 'low, medium, high, critical',
+    `created_at`       TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`       TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_payload_hash_service` (`payload_hash`, `service`),
+    INDEX `idx_payload_hash` (`payload_hash`),
+    INDEX `idx_service` (`service`),
+    INDEX `idx_event_type` (`event_type`),
+    INDEX `idx_payload_type` (`payload_type`),
+    INDEX `idx_first_seen` (`first_seen`),
+    INDEX `idx_last_seen` (`last_seen`),
+    INDEX `idx_is_suspicious` (`is_suspicious`),
+    INDEX `idx_threat_level` (`threat_level`),
+    INDEX `idx_occurrence_count` (`occurrence_count`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Unified view for Grafana (updated to include event_type and message)
 CREATE OR REPLACE VIEW all_logs AS
 SELECT timestamp, 'web' AS service, event_type, ip_address, brand, port, NULL AS time_end, created_at, message

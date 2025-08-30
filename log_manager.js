@@ -235,16 +235,20 @@ function getLogFiles(service = null, date = null) {
             continue;
         }
         
-        const pattern = date ? `*-${date}.log` : '*.log';
-        const globPattern = path.join(servicePath, pattern);
-        
         try {
             const serviceFiles = fs.readdirSync(servicePath)
-                .filter(file => file.endsWith('.log') || file.endsWith('.json'))
-                .filter(file => !date || file.includes(`-${date}.log`) || file.includes(`-${date}.json`))
-                .map(file => path.join(servicePath, file));
+                .filter(file => file.endsWith('.log') || file.endsWith('.json'));
             
-            files.push(...serviceFiles);
+            // Apply date filtering only if a specific date is provided
+            let filteredFiles = serviceFiles;
+            if (date) {
+                filteredFiles = serviceFiles.filter(file => 
+                    file.includes(`-${date}.log`) || file.includes(`-${date}.json`)
+                );
+            }
+            
+            const fullPaths = filteredFiles.map(file => path.join(servicePath, file));
+            files.push(...fullPaths);
         } catch (error) {
             console.log(`${colors.yellow}[WARN] Error reading ${servicePath}: ${error.message}${colors.reset}`);
         }
@@ -494,7 +498,7 @@ function deleteByDate(targetDate, service = null) {
                 if (containerName.includes('rtsp')) {
                     if (!containerMap.rtsp) containerMap.rtsp = containerName;
                 } else if (containerName.includes('onvif')) {
-                    if (!containerMap.onvif) containerName;
+                    if (!containerMap.onvif) containerMap.onvif = containerName;
                 } else if (containerName.includes('web')) {
                     if (!containerMap.web) containerMap.web = containerName;
                 } else if (!containerName.includes('rtsp') && !containerName.includes('onvif') && 
@@ -672,8 +676,11 @@ function deleteOldLogs(days, service = null) {
     cutoffDate.setDate(cutoffDate.getDate() - days);
     const cutoffDateStr = cutoffDate.toISOString().split('T')[0];
     
+    // Special case: when days = 0, we want to delete today's files
+    const isDeleteToday = days === 0;
+    
     if (config.docker) {
-        // Dynamically detect running containers
+        // Docker version - similar to deleteOldLogs but for specific date
         let containerMap = {};
         try {
             const runningContainers = execSync('docker ps --format "{{.Names}}"', { encoding: 'utf8' }).trim().split('\n');
@@ -742,7 +749,7 @@ function deleteOldLogs(days, service = null) {
                                 
                                 if (dateMatch) {
                                     const fileDate = dateMatch[1];
-                                    if (fileDate < cutoffDateStr) {
+                                    if (isDeleteToday ? fileDate === cutoffDateStr : fileDate < cutoffDateStr) {
                                         filesToDelete.push({ container: containerName, file: containerFile });
                                     }
                                 } else {
@@ -751,7 +758,7 @@ function deleteOldLogs(days, service = null) {
                                     const mtime = new Date(parseInt(stats.trim()) * 1000);
                                     const mtimeStr = mtime.toISOString().split('T')[0];
                                     
-                                    if (mtimeStr < cutoffDateStr) {
+                                    if (isDeleteToday ? mtimeStr === cutoffDateStr : mtimeStr < cutoffDateStr) {
                                         filesToDelete.push({ container: containerName, file: containerFile });
                                     }
                                 }
@@ -774,7 +781,7 @@ function deleteOldLogs(days, service = null) {
             return;
         }
         
-        console.log(`\n${colors.red}[DELETE] Found ${filesToDelete.length} log files older than ${days} days:${colors.reset}`);
+        console.log(`\n${colors.red}[DELETE] Found ${filesToDelete.length} log files ${isDeleteToday ? 'from today' : `older than ${days} days`}:${colors.reset}`);
         filesToDelete.forEach(({ container, file }) => {
             console.log(`   ${container}:${file}`);
         });
@@ -811,7 +818,7 @@ function deleteOldLogs(days, service = null) {
                 
                 if (dateMatch) {
                     const fileDate = dateMatch[1];
-                    if (fileDate < cutoffDateStr) {
+                    if (isDeleteToday ? fileDate === cutoffDateStr : fileDate < cutoffDateStr) {
                         filesToDelete.push(file);
                     }
                 } else {
@@ -820,7 +827,7 @@ function deleteOldLogs(days, service = null) {
                     const mtime = new Date(stats.mtime);
                     const mtimeStr = mtime.toISOString().split('T')[0];
                     
-                    if (mtimeStr < cutoffDateStr) {
+                    if (isDeleteToday ? mtimeStr === cutoffDateStr : mtimeStr < cutoffDateStr) {
                         filesToDelete.push(file);
                     }
                 }
@@ -834,7 +841,7 @@ function deleteOldLogs(days, service = null) {
             return;
         }
         
-        console.log(`\n${colors.red}[DELETE] Found ${filesToDelete.length} log files older than ${days} days:${colors.reset}`);
+        console.log(`\n${colors.red}[DELETE] Found ${filesToDelete.length} log files ${isDeleteToday ? 'from today' : `older than ${days} days`}:${colors.reset}`);
         filesToDelete.forEach(file => {
             console.log(`   ${file}`);
         });

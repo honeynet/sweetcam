@@ -1,4 +1,5 @@
 const mysql = require('mysql2/promise');
+const payloadAnalyzer = require('../services/payload-analyzer');
 
 class DatabaseLogger {
     constructor() {
@@ -200,6 +201,53 @@ class DatabaseLogger {
             ];
 
         const [result] = await connection.execute(query, params);
+        
+        // Analyze and track unique payloads
+        try {
+            if (logData.username && logData.username.trim()) {
+                await payloadAnalyzer.processPayload({
+                    service: 'web',
+                    eventType: logData.event_type || 'unknown',
+                    payloadType: 'username',
+                    payloadContent: logData.username.trim(),
+                    ipAddress: logData.ip_address,
+                    brand: logData.brand,
+                    timestamp: logData.timestamp || new Date()
+                });
+            }
+            
+            if (logData.password && logData.password.trim()) {
+                await payloadAnalyzer.processPayload({
+                    service: 'web',
+                    eventType: logData.event_type || 'unknown',
+                    payloadType: 'password',
+                    payloadContent: logData.password.trim(),
+                    ipAddress: logData.ip_address,
+                    brand: logData.brand,
+                    timestamp: logData.timestamp || new Date()
+                });
+            }
+            
+            if (logData.payload && typeof logData.payload === 'object') {
+                // Extract content-type and other payload fields
+                for (const [key, value] of Object.entries(logData.payload)) {
+                    if (value && typeof value === 'string' && value.trim()) {
+                        await payloadAnalyzer.processPayload({
+                            service: 'web',
+                            eventType: logData.event_type || 'unknown',
+                            payloadType: key,
+                            payloadContent: value.trim(),
+                            ipAddress: logData.ip_address,
+                            brand: logData.brand,
+                            timestamp: logData.timestamp || new Date()
+                        });
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('[DATABASE] Error analyzing payloads:', error.message);
+        }
+        
         return result.insertId;
     }
 
@@ -255,6 +303,48 @@ class DatabaseLogger {
         ];
 
         const [result] = await connection.execute(query, params);
+        
+        // Analyze and track unique payloads for Cowrie
+        try {
+            if (logData.username && logData.username.trim()) {
+                await payloadAnalyzer.processPayload({
+                    service: 'cowrie',
+                    eventType: logData.event_type || 'unknown',
+                    payloadType: 'username',
+                    payloadContent: logData.username.trim(),
+                    ipAddress: logData.ip_address,
+                    brand: logData.brand,
+                    timestamp: logData.timestamp || new Date()
+                });
+            }
+            
+            if (logData.password && logData.password.trim()) {
+                await payloadAnalyzer.processPayload({
+                    service: 'cowrie',
+                    eventType: logData.event_type || 'unknown',
+                    payloadType: 'password',
+                    payloadContent: logData.password.trim(),
+                    ipAddress: logData.ip_address,
+                    brand: logData.brand,
+                    timestamp: logData.timestamp || new Date()
+                });
+            }
+            
+            if (logData.command && logData.command.trim()) {
+                await payloadAnalyzer.processPayload({
+                    service: 'cowrie',
+                    eventType: logData.event_type || 'unknown',
+                    payloadType: 'command',
+                    payloadContent: logData.command.trim(),
+                    ipAddress: logData.ip_address,
+                    brand: logData.brand,
+                    timestamp: logData.timestamp || new Date()
+                });
+            }
+        } catch (error) {
+            console.error('[DATABASE] Error analyzing Cowrie payloads:', error.message);
+        }
+        
         return result.insertId;
     }
 
@@ -335,6 +425,53 @@ class DatabaseLogger {
         ];
 
         const [result] = await connection.execute(query, params);
+        
+        // Analyze and track unique payloads for ONVIF
+        try {
+            if (logData.username && logData.username.trim()) {
+                await payloadAnalyzer.processPayload({
+                    service: 'onvif',
+                    eventType: logData.event_type || 'unknown',
+                    payloadType: 'username',
+                    payloadContent: logData.username.trim(),
+                    ipAddress: logData.ip_address,
+                    brand: logData.brand,
+                    timestamp: logData.timestamp || new Date()
+                });
+            }
+            
+            if (logData.password && logData.password.trim()) {
+                await payloadAnalyzer.processPayload({
+                    service: 'onvif',
+                    eventType: logData.event_type || 'unknown',
+                    payloadType: 'password',
+                    payloadContent: logData.password.trim(),
+                    ipAddress: logData.ip_address,
+                    brand: logData.brand,
+                    timestamp: logData.timestamp || new Date()
+                });
+            }
+            
+            if (logData.payload && typeof logData.payload === 'object') {
+                // Extract SOAP actions and other payload fields
+                for (const [key, value] of Object.entries(logData.payload)) {
+                    if (value && typeof value === 'string' && value.trim()) {
+                        await payloadAnalyzer.processPayload({
+                            service: 'onvif',
+                            eventType: logData.event_type || 'unknown',
+                            payloadType: key,
+                            payloadContent: value.trim(),
+                            ipAddress: logData.ip_address,
+                            brand: logData.brand,
+                            timestamp: logData.timestamp || new Date()
+                        });
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('[DATABASE] Error analyzing ONVIF payloads:', error.message);
+        }
+        
         return result.insertId;
     }
 
@@ -386,6 +523,53 @@ class DatabaseLogger {
         ];
 
         const [result] = await connection.execute(query, params);
+        
+        // Analyze and track unique payloads for RTSP
+        try {
+            if (logData.username && logData.username.trim()) {
+                await payloadAnalyzer.processPayload({
+                    service: 'rtsp',
+                    eventType: logData.event_type || 'unknown',
+                    payloadType: 'username',
+                    payloadContent: logData.username.trim(),
+                    ipAddress: logData.ip_address,
+                    brand: logData.brand,
+                    timestamp: logData.timestamp || new Date()
+                });
+            }
+            
+            if (logData.password && logData.password.trim()) {
+                await payloadAnalyzer.processPayload({
+                    service: 'rtsp',
+                    eventType: logData.event_type || 'unknown',
+                    payloadType: 'password',
+                    payloadContent: logData.password.trim(),
+                    ipAddress: logData.ip_address,
+                    brand: logData.brand,
+                    timestamp: logData.timestamp || new Date()
+                });
+            }
+            
+            if (logData.payload && typeof logData.payload === 'object') {
+                // Extract RTSP method and other payload fields
+                for (const [key, value] of Object.entries(logData.payload)) {
+                    if (value && typeof value === 'string' && value.trim()) {
+                        await payloadAnalyzer.processPayload({
+                            service: 'rtsp',
+                            eventType: logData.event_type || 'unknown',
+                            payloadType: key,
+                            payloadContent: value.trim(),
+                            ipAddress: logData.ip_address,
+                            brand: logData.brand,
+                            timestamp: logData.timestamp || new Date()
+                        });
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('[DATABASE] Error analyzing RTSP payloads:', error.message);
+        }
+        
         return result.insertId;
     }
 

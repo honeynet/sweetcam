@@ -4,6 +4,7 @@ const userServices = require('../services/user-services');
 const sweetcamServices = require('../services/sweetcam-services')
 const rtspManagement = require('../services/rtsp-management')
 const onvifManagement = require('../services/onvif-management')
+const payloadAnalyzer = require('../services/payload-analyzer')
 const { requireAdminAuth } = require('../utils/admin-auth')
 const bcrypt = require("bcrypt")
 
@@ -52,6 +53,12 @@ adminRouter.get(`/${prefix}/picture`, requireAdminAuth, (req, res) => {
         userName: req.adminUser ? req.adminUser.name : "admin"
     }
     res.render("picture", config);
+})
+
+adminRouter.get(`/${prefix}/payloads`, requireAdminAuth, (req, res) => {
+    res.render("payloads", {
+        userName: req.adminUser ? req.adminUser.name : "admin"
+    });
 })
 
 
@@ -262,6 +269,68 @@ adminRouter.get(`/${prefix}/onvif/service/:port`, requireAdminAuth, async (req, 
     } catch (error) {
         console.error('Error getting service status:', error);
         res.status(500).json({ error: 'Failed to get service status' });
+    }
+});
+
+// Unique Payloads Analysis endpoints
+adminRouter.get(`/${prefix}/payloads/unique/:service`, requireAdminAuth, async (req, res) => {
+    try {
+        const { service } = req.params;
+        const { limit = 10 } = req.query;
+        
+        if (!['web', 'rtsp', 'onvif', 'cowrie'].includes(service)) {
+            return res.status(400).json({ error: 'Invalid service. Must be web, rtsp, onvif, or cowrie' });
+        }
+        
+        const uniquePayloads = await payloadAnalyzer.getLastUniquePayloads(service, parseInt(limit));
+        res.json({
+            service,
+            limit: parseInt(limit),
+            payloads: uniquePayloads
+        });
+    } catch (error) {
+        console.error('Error getting unique payloads:', error);
+        res.status(500).json({ error: 'Failed to get unique payloads' });
+    }
+});
+
+adminRouter.get(`/${prefix}/payloads/trending/:service`, requireAdminAuth, async (req, res) => {
+    try {
+        const { service } = req.params;
+        const { limit = 10 } = req.query;
+        
+        if (!['web', 'rtsp', 'onvif', 'cowrie'].includes(service)) {
+            return res.status(400).json({ error: 'Invalid service. Must be web, rtsp, onvif, or cowrie' });
+        }
+        
+        const trendingPayloads = await payloadAnalyzer.getTrendingPayloads(service, parseInt(limit));
+        res.json({
+            service,
+            limit: parseInt(limit),
+            payloads: trendingPayloads
+        });
+    } catch (error) {
+        console.error('Error getting trending payloads:', error);
+        res.status(500).json({ error: 'Failed to get trending payloads' });
+    }
+});
+
+adminRouter.get(`/${prefix}/payloads/statistics/:service`, requireAdminAuth, async (req, res) => {
+    try {
+        const { service } = req.params;
+        
+        if (!['web', 'rtsp', 'onvif', 'cowrie'].includes(service)) {
+            return res.status(400).json({ error: 'Invalid service. Must be web, rtsp, onvif, or cowrie' });
+        }
+        
+        const statistics = await payloadAnalyzer.getPayloadStatistics(service);
+        res.json({
+            service,
+            statistics
+        });
+    } catch (error) {
+        console.error('Error getting payload statistics:', error);
+        res.status(500).json({ error: 'Failed to get payload statistics' });
     }
 });
 

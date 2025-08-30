@@ -1,35 +1,51 @@
 # SweetCam Honeypot Database Documentation
 
 ## Overview
-The SweetCam honeypot system uses a MySQL database (`sweetcam`) to store logging data from multiple honeypot services. The database is designed with both generic and specialised logging tables to provide flexibility and performance.
+The SweetCam honeypot system uses a MySQL 8.0 database (`sweetcam`) to store logging data from multiple honeypot services. The database is designed with both generic and specialized logging tables to provide flexibility and performance. **The system now includes advanced unique payloads analysis capabilities to detect and track custom attack patterns across all services.**
+
+## New Feature: Unique Payloads System
+
+### What It Does
+The unique payloads system automatically analyzes and tracks all incoming payloads to identify:
+- **Unique Attack Patterns**: Payloads that appear only once (potential custom attacks)
+- **Trending Payloads**: Most frequently seen payloads (likely automated tools)
+- **Threat Assessment**: Automatic scoring of payloads based on suspicious patterns
+
+### How Uniqueness is Determined
+- **SHA256 Hash**: Combines `payload_content + service + payload_type` for uniqueness
+- **Service Isolation**: Same payload in different services is considered unique
+- **Type Isolation**: Same payload in different fields (username vs password) is considered unique
+
+### Example Use Cases
+1. **Custom XSS Detection**: `<script>alert(1)</script>` appears once = unique custom attack
+2. **Automated Scanner**: `admin` appears 150+ times = automated tool signature
+3. **Command Injection**: `$(cat /etc/passwd)` appears once = unique malicious command
 
 ## Database Schema
 
 ### Core Tables
 
 #### 1. `service_logs` - Universal Service Logging
-**Purpose**: Generic logging table for all services with flexible JSON payload storage.
+**Purpose**: Generic logging table for all services with basic event information.
 
 **Structure**:
 ```sql
 CREATE TABLE `service_logs` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `timestamp` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `service` varchar(50) NOT NULL,                    -- Service identifier (cowrie, web, onvif, rtsp)
-  `event_type` varchar(100) NOT NULL,               -- Event category
-  `log_level` varchar(20) NOT NULL DEFAULT 'info',  -- Log severity
-  `ip_address` varchar(45) DEFAULT NULL,            -- Source IP address
-  `brand` varchar(50) DEFAULT NULL,                  -- Camera brand (hikvision, dahua, etc.)
-  `port` int DEFAULT NULL,                          -- Source port
-  `username` varchar(255) DEFAULT NULL,             -- Username attempted
-  `password` varchar(255) DEFAULT NULL,             -- Password attempted
-  `session_id` varchar(255) DEFAULT NULL,           -- Session identifier
-  `user_agent` text DEFAULT NULL,                   -- HTTP user agent
-  `message` text DEFAULT NULL,                      -- Human-readable message
-  `raw_data` json DEFAULT NULL,                     -- Structured JSON data
-  `payload` json DEFAULT NULL,                      -- Generic JSON payload
-  `created_at` timestamp DEFAULT CURRENT_TIMESTAMP
-);
+  `timestamp` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `ip_address` varchar(45) DEFAULT NULL COMMENT 'IPv4 or IPv6 address',
+  `service` varchar(50) NOT NULL COMMENT 'web, rtsp, onvif, cowrie',
+  `port` int DEFAULT NULL,
+  `time_end` TIMESTAMP NULL DEFAULT NULL,
+  `brand` varchar(50) DEFAULT NULL COMMENT 'camera brand',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_service` (`service`),
+  INDEX `idx_timestamp` (`timestamp`),
+  INDEX `idx_ip_address` (`ip_address`),
+  INDEX `idx_brand` (`brand`),
+  INDEX `idx_port` (`port`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
 
 **Use Cases**:
@@ -42,15 +58,14 @@ CREATE TABLE `service_logs` (
 -- All events from a specific IP
 SELECT * FROM service_logs WHERE ip_address = '192.168.1.100';
 
--- Failed login attempts across all services
+-- Events by service type
 SELECT service, COUNT(*) FROM service_logs 
-WHERE event_type = 'auth_failure' 
 GROUP BY service;
 
--- Recent suspicious activity
-SELECT * FROM service_logs 
-WHERE log_level IN ('warn', 'error') 
-ORDER BY timestamp DESC LIMIT 10;
+-- Recent activity by brand
+SELECT brand, COUNT(*) FROM service_logs 
+WHERE timestamp > DATE_SUB(NOW(), INTERVAL 24 HOUR)
+GROUP BY brand;
 ```
 
 #### 2. `web_service_logs` - Web Service Specialized Logging
@@ -60,27 +75,30 @@ ORDER BY timestamp DESC LIMIT 10;
 ```sql
 CREATE TABLE `web_service_logs` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `timestamp` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `event_type` varchar(100) NOT NULL,               -- http_request, auth_failure, login_attempt
+  `timestamp` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `event_type` varchar(100) NOT NULL COMMENT 'login_attempt, auth_failure, rtsp_management, rtsp_service_toggle, service_event',
   `log_level` varchar(20) NOT NULL DEFAULT 'info',
   `ip_address` varchar(45) DEFAULT NULL,
-  `brand` varchar(50) DEFAULT NULL,                  -- Camera brand
+  `brand` varchar(50) DEFAULT NULL COMMENT 'Camera brand',
   `port` int DEFAULT NULL,
   `username` varchar(255) DEFAULT NULL,
   `password` varchar(255) DEFAULT NULL,
   `session_id` varchar(255) DEFAULT NULL,
   `user_agent` text DEFAULT NULL,
-  `request_method` varchar(10) DEFAULT NULL,        -- HTTP method (GET, POST, etc.)
-  `request_url` text DEFAULT NULL,                  -- Requested URL
-  `request_headers` json DEFAULT NULL,              -- HTTP headers
-  `request_body` text DEFAULT NULL,                 -- Request body content
-  `response_status` int DEFAULT NULL,               -- HTTP response status
-  `response_headers` json DEFAULT NULL,             -- Response headers
-  `response_body` text DEFAULT NULL,                -- Response body
+  `request_path` varchar(500) DEFAULT NULL,
+  `request_method` varchar(10) DEFAULT NULL,
+  `response_code` int DEFAULT NULL,
   `message` text DEFAULT NULL,
+  `payload` json DEFAULT NULL COMMENT 'HTTP request and response payloads',
   `raw_data` json DEFAULT NULL,
-  `created_at` timestamp DEFAULT CURRENT_TIMESTAMP
-);
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_event_type` (`event_type`),
+  INDEX `idx_timestamp` (`timestamp`),
+  INDEX `idx_ip_address` (`ip_address`),
+  INDEX `idx_brand` (`brand`),
+  INDEX `idx_session_id` (`session_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
 
 **Use Cases**:
@@ -98,7 +116,7 @@ GROUP BY brand;
 
 -- HTTP requests to login endpoints
 SELECT * FROM web_service_logs 
-WHERE request_url LIKE '%/login%' 
+WHERE request_path LIKE '%/login%' 
 ORDER BY timestamp DESC;
 
 -- Attack patterns by IP
@@ -109,15 +127,15 @@ GROUP BY ip_address
 HAVING attempts > 10;
 ```
 
-#### 3. `cowrie_service_logs` - SSH/Telnet Honeypot Logging
-**Purpose**: Specialized table for Cowrie SSH honeypot with structured fields for command analysis.
+#### 3. `rtsp_service_logs` - RTSP Protocol Logging
+**Purpose**: Specialized table for RTSP streaming protocol attacks.
 
 **Structure**:
 ```sql
-CREATE TABLE `cowrie_service_logs` (
+CREATE TABLE `rtsp_service_logs` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `timestamp` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `event_type` varchar(100) NOT NULL,               -- session_start, command_execution, file_upload
+  `timestamp` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `event_type` varchar(100) NOT NULL COMMENT 'rtsp_method, connection_event, service_event, auth_attempt',
   `log_level` varchar(20) NOT NULL DEFAULT 'info',
   `ip_address` varchar(45) DEFAULT NULL,
   `brand` varchar(50) DEFAULT NULL,
@@ -125,17 +143,136 @@ CREATE TABLE `cowrie_service_logs` (
   `username` varchar(255) DEFAULT NULL,
   `password` varchar(255) DEFAULT NULL,
   `session_id` varchar(255) DEFAULT NULL,
-  `command` text DEFAULT NULL,                      -- Executed command
-  `file_path` varchar(500) DEFAULT NULL,            -- File path for uploads/downloads
-  `file_size` bigint DEFAULT NULL,                  -- File size in bytes
-  `geoip_country` varchar(10) DEFAULT NULL,         -- Geographic country
-  `geoip_city` varchar(100) DEFAULT NULL,           -- Geographic city
-  `threat_level` varchar(20) DEFAULT NULL,          -- low, medium, high, critical
-  `alert_type` varchar(100) DEFAULT NULL,           -- Alert category
-  `message` text DEFAULT NULL,                      -- Human-readable description
-  `raw_data` json DEFAULT NULL,                     -- Full event JSON
-  `created_at` timestamp DEFAULT CURRENT_TIMESTAMP
-);
+  `rtsp_method` varchar(20) DEFAULT NULL COMMENT 'DESCRIBE, SETUP, PLAY, etc.',
+  `stream_path` varchar(500) DEFAULT NULL,
+  `connection_id` varchar(255) DEFAULT NULL,
+  `message` text DEFAULT NULL,
+  `payload` json DEFAULT NULL COMMENT 'RTSP stream and connection payloads',
+  `raw_data` json DEFAULT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_event_type` (`event_type`),
+  INDEX `idx_timestamp` (`timestamp`),
+  INDEX `idx_ip_address` (`ip_address`),
+  INDEX `idx_brand` (`brand`),
+  INDEX `idx_rtsp_method` (`rtsp_method`),
+  INDEX `idx_session_id` (`session_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+**Use Cases**:
+- RTSP protocol attack analysis
+- Streaming attempt monitoring
+- Media access tracking
+
+**Example Queries**:
+```sql
+-- RTSP methods by frequency
+SELECT rtsp_method, COUNT(*) as frequency 
+FROM rtsp_service_logs 
+WHERE rtsp_method IS NOT NULL 
+GROUP BY rtsp_method 
+ORDER BY frequency DESC;
+
+-- Connection attempts by brand
+SELECT brand, COUNT(*) FROM rtsp_service_logs 
+WHERE event_type = 'connection_event' 
+GROUP BY brand;
+```
+
+#### 4. `onvif_service_logs` - ONVIF Protocol Logging
+**Purpose**: Specialized table for ONVIF camera protocol attacks.
+
+**Structure**:
+```sql
+CREATE TABLE `onvif_service_logs` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `timestamp` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `event_type` varchar(100) NOT NULL COMMENT 'soap_request, connection_event, ws_discovery, device_info_request, service_event',
+  `log_level` varchar(20) NOT NULL DEFAULT 'info',
+  `ip_address` varchar(45) DEFAULT NULL,
+  `brand` varchar(50) DEFAULT NULL,
+  `port` int DEFAULT NULL,
+  `username` varchar(255) DEFAULT NULL,
+  `password` varchar(255) DEFAULT NULL,
+  `session_id` varchar(255) DEFAULT NULL,
+  `soap_action` varchar(500) DEFAULT NULL,
+  `user_agent` text DEFAULT NULL,
+  `request_method` varchar(10) DEFAULT NULL,
+  `request_url` varchar(500) DEFAULT NULL,
+  `response_status` int DEFAULT NULL,
+  `device_info` json DEFAULT NULL,
+  `discovery_type` varchar(50) DEFAULT NULL COMMENT 'WS-Discovery, Probe, Resolve',
+  `message` text DEFAULT NULL,
+  `payload` json DEFAULT NULL COMMENT 'HTTP request and response payloads',
+  `raw_data` json DEFAULT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_event_type` (`event_type`),
+  INDEX `idx_timestamp` (`timestamp`),
+  INDEX `idx_ip_address` (`ip_address`),
+  INDEX `idx_brand` (`brand`),
+  INDEX `idx_soap_action` (`soap_action`),
+  INDEX `idx_user_agent` (`user_agent`(100)),
+  INDEX `idx_request_method` (`request_method`),
+  INDEX `idx_request_url` (`request_url`(100)),
+  INDEX `idx_response_status` (`response_status`),
+  INDEX `idx_session_id` (`session_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+**Use Cases**:
+- ONVIF protocol attack analysis
+- Camera discovery attempts
+- Device enumeration tracking
+
+**Example Queries**:
+```sql
+-- SOAP actions by frequency
+SELECT soap_action, COUNT(*) as frequency 
+FROM onvif_service_logs 
+WHERE soap_action IS NOT NULL 
+GROUP BY soap_action 
+ORDER BY frequency DESC;
+
+-- Discovery attempts by type
+SELECT discovery_type, COUNT(*) FROM onvif_service_logs 
+WHERE event_type = 'ws_discovery' 
+GROUP BY discovery_type;
+```
+
+#### 5. `cowrie_service_logs` - SSH/Telnet Honeypot Logging
+**Purpose**: Specialized table for Cowrie SSH honeypot with structured fields for command analysis.
+
+**Structure**:
+```sql
+CREATE TABLE `cowrie_service_logs` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `timestamp` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `event_type` varchar(100) NOT NULL COMMENT 'session_start, session_end, login_attempt, command_execution, file_operation, download_attempt, upload_attempt, geoip_lookup, service_event, startup_shutdown',
+  `log_level` varchar(20) NOT NULL DEFAULT 'info',
+  `ip_address` varchar(45) DEFAULT NULL,
+  `brand` varchar(50) DEFAULT NULL,
+  `port` int DEFAULT NULL,
+  `username` varchar(255) DEFAULT NULL,
+  `password` varchar(255) DEFAULT NULL,
+  `session_id` varchar(255) DEFAULT NULL,
+  `command` text DEFAULT NULL COMMENT 'Executed command',
+  `file_path` varchar(500) DEFAULT NULL COMMENT 'File path for uploads/downloads',
+  `file_size` bigint DEFAULT NULL COMMENT 'File size in bytes',
+  `geoip_country` varchar(10) DEFAULT NULL COMMENT 'Geographic country',
+  `geoip_city` varchar(100) DEFAULT NULL COMMENT 'Geographic city',
+  `message` text DEFAULT NULL COMMENT 'Human-readable description',
+  `raw_data` json DEFAULT NULL COMMENT 'Full event JSON',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_event_type` (`event_type`),
+  INDEX `idx_timestamp` (`timestamp`),
+  INDEX `idx_ip_address` (`ip_address`),
+  INDEX `idx_brand` (`brand`),
+  INDEX `idx_session_id` (`session_id`),
+  INDEX `idx_geoip_country` (`geoip_country`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
 
 **Use Cases**:
@@ -166,26 +303,6 @@ GROUP BY geoip_country
 ORDER BY attacks DESC;
 ```
 
-#### 4. `onvif_service_logs` - ONVIF Protocol Logging
-**Purpose**: Specialized table for ONVIF camera protocol attacks.
-
-**Structure**: Similar to other service logs with ONVIF-specific fields.
-
-**Use Cases**:
-- ONVIF protocol attack analysis
-- Camera discovery attempts
-- Device enumeration tracking
-
-#### 5. `rtsp_service_logs` - RTSP Protocol Logging
-**Purpose**: Specialized table for RTSP streaming protocol attacks.
-
-**Structure**: Similar to other service logs with RTSP-specific fields.
-
-**Use Cases**:
-- RTSP protocol attack analysis
-- Streaming attempt monitoring
-- Media access tracking
-
 ### User Management Tables
 
 #### 6. `users` - Regular User Accounts
@@ -197,8 +314,9 @@ CREATE TABLE `users` (
   `id` int NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL,
   `passwordHash` varchar(255) NOT NULL,
-  `createdAt` timestamp DEFAULT CURRENT_TIMESTAMP,
-  `updatedAt` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `createdAt` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updatedAt` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
 );
 ```
 
@@ -211,9 +329,10 @@ CREATE TABLE `admins` (
   `id` int NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL,
   `passwordHash` varchar(255) NOT NULL,
-  `chatId` varchar(255) DEFAULT NULL,               -- Telegram chat ID for notifications
-  `createdAt` timestamp DEFAULT CURRENT_TIMESTAMP,
-  `updatedAt` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `chatId` varchar(255) DEFAULT NULL COMMENT 'Telegram chat ID for notifications',
+  `createdAt` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updatedAt` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
 );
 ```
 
@@ -226,21 +345,25 @@ CREATE TABLE `admins` (
 ```sql
 CREATE TABLE `ip_reputation` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `ip_address` varchar(45) NOT NULL UNIQUE,
-  `first_seen` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `last_seen` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `ip_address` varchar(45) NOT NULL,
+  `first_seen` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `last_seen` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `total_events` int NOT NULL DEFAULT 0,
   `failed_logins` int NOT NULL DEFAULT 0,
   `successful_logins` int NOT NULL DEFAULT 0,
-  `suspicious_activities` int NOT NULL DEFAULT 0,
-  `threat_score` int NOT NULL DEFAULT 0,            -- 0-100 scale
+  `threat_score` int NOT NULL DEFAULT 0 COMMENT '0-100 threat score',
   `country` varchar(10) DEFAULT NULL,
   `city` varchar(100) DEFAULT NULL,
-  `is_blocked` tinyint(1) NOT NULL DEFAULT 0,
+  `is_blocked` boolean NOT NULL DEFAULT FALSE,
   `block_reason` text DEFAULT NULL,
-  `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_ip_address` (`ip_address`),
+  INDEX `idx_threat_score` (`threat_score`),
+  INDEX `idx_is_blocked` (`is_blocked`),
+  INDEX `idx_country` (`country`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
 
 **Use Cases**:
@@ -257,60 +380,38 @@ WHERE threat_score > 80
 ORDER BY threat_score DESC;
 
 -- Recently blocked IPs
-SELECT ip_address, block_reason, blocked_at 
+SELECT ip_address, block_reason, updated_at 
 FROM ip_reputation 
 WHERE is_blocked = 1 
 ORDER BY updated_at DESC;
 ```
 
-#### 9. `security_events` - High-Priority Security Alerts
-**Purpose**: Store critical security events requiring immediate attention.
-
-**Structure**:
-```sql
-CREATE TABLE `security_events` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `timestamp` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `service` varchar(50) NOT NULL,
-  `event_type` varchar(100) NOT NULL,
-  `severity` varchar(20) NOT NULL DEFAULT 'medium', -- low, medium, high, critical
-  `ip_address` varchar(45) DEFAULT NULL,
-  `brand` varchar(50) DEFAULT NULL,
-  `username` varchar(255) DEFAULT NULL,
-  `password` varchar(255) DEFAULT NULL,
-  `session_id` varchar(255) DEFAULT NULL,
-  `threat_type` varchar(100) DEFAULT NULL,
-  `description` text DEFAULT NULL,
-  `raw_data` json DEFAULT NULL,
-  `created_at` timestamp DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-**Use Cases**:
-- Critical security alert storage
-- Incident response tracking
-- High-priority event monitoring
-
-#### 10. `session_tracking` - Session Lifecycle Management
+#### 9. `session_tracking` - Session Lifecycle Management
 **Purpose**: Track active and completed sessions across all services.
 
 **Structure**:
 ```sql
 CREATE TABLE `session_tracking` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `session_id` varchar(255) NOT NULL UNIQUE,
+  `session_id` varchar(255) NOT NULL,
   `service` varchar(50) NOT NULL,
   `ip_address` varchar(45) DEFAULT NULL,
   `brand` varchar(50) DEFAULT NULL,
   `username` varchar(255) DEFAULT NULL,
-  `start_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `end_time` timestamp DEFAULT NULL,
+  `start_time` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `end_time` TIMESTAMP NULL DEFAULT NULL,
   `duration_seconds` int DEFAULT NULL,
   `event_count` int NOT NULL DEFAULT 0,
-  `status` varchar(20) NOT NULL DEFAULT 'active',   -- active, completed, terminated
-  `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+  `status` varchar(20) NOT NULL DEFAULT 'active' COMMENT 'active, completed, terminated',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_session_id` (`session_id`),
+  INDEX `idx_service` (`service`),
+  INDEX `idx_ip_address` (`ip_address`),
+  INDEX `idx_status` (`status`),
+  INDEX `idx_start_time` (`start_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
 
 **Use Cases**:
@@ -318,22 +419,27 @@ CREATE TABLE `session_tracking` (
 - Attack duration analysis
 - User behavior tracking
 
-#### 11. `log_statistics` - Aggregated Log Analytics
+#### 10. `log_statistics` - Aggregated Log Analytics
 **Purpose**: Store pre-calculated statistics for dashboard and reporting.
 
 **Structure**:
 ```sql
 CREATE TABLE `log_statistics` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `date` date NOT NULL,
+  `date` DATE NOT NULL,
   `service` varchar(50) NOT NULL,
   `event_type` varchar(100) NOT NULL,
   `count` int NOT NULL DEFAULT 0,
   `unique_ips` int NOT NULL DEFAULT 0,
   `unique_brands` int NOT NULL DEFAULT 0,
-  `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_date_service_event` (`date`, `service`, `event_type`),
+  INDEX `idx_date` (`date`),
+  INDEX `idx_service` (`service`),
+  INDEX `idx_event_type` (`event_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
 
 **Use Cases**:
@@ -343,13 +449,136 @@ CREATE TABLE `log_statistics` (
 
 ### Views
 
-#### 12. `all_logs` - Unified Log View
+#### 11. `all_logs` - Unified Log View
 **Purpose**: Provide a unified view of all log data across services.
+
+**Structure**:
+```sql
+CREATE OR REPLACE VIEW all_logs AS
+SELECT timestamp, 'web' AS service, event_type, ip_address, brand, port, NULL AS time_end, created_at, message
+FROM web_service_logs
+UNION ALL
+SELECT timestamp, 'rtsp' AS service, event_type, ip_address, brand, port, NULL AS time_end, created_at, message
+FROM rtsp_service_logs
+UNION ALL
+SELECT timestamp, 'onvif' AS service, event_type, ip_address, brand, port, NULL AS time_end, created_at, message
+FROM onvif_service_logs
+UNION ALL
+SELECT timestamp, 'cowrie' AS service, event_type, ip_address, brand, port, NULL AS time_end, created_at, message
+FROM cowrie_service_logs;
+```
 
 **Use Cases**:
 - Cross-service log analysis
 - Unified reporting
 - Data export
+
+## New: Unique Payloads Table
+
+### 12. `unique_payloads` - Unique Payload Tracking
+**Purpose**: Track and analyze unique payloads across all services to detect custom attacks and automated tools.
+
+**Structure**:
+```sql
+CREATE TABLE `unique_payloads` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `payload_hash` varchar(64) NOT NULL COMMENT 'SHA256 hash of the payload for uniqueness detection',
+  `service` varchar(50) NOT NULL COMMENT 'web, rtsp, onvif, cowrie',
+  `event_type` varchar(100) NOT NULL COMMENT 'Type of event where payload was found',
+  `payload_type` varchar(50) NOT NULL COMMENT 'username, password, command, content-type, etc.',
+  `payload_content` text NOT NULL COMMENT 'The actual payload content',
+  `ip_address` varchar(45) DEFAULT NULL COMMENT 'IP address where payload was first seen',
+  `brand` varchar(50) DEFAULT NULL COMMENT 'Camera brand if applicable',
+  `first_seen` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'When this payload was first encountered',
+  `last_seen` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Last time this payload was seen',
+  `occurrence_count` int NOT NULL DEFAULT 1 COMMENT 'How many times this payload has been seen',
+  `is_suspicious` boolean NOT NULL DEFAULT FALSE COMMENT 'Flag for suspicious payloads',
+  `threat_level` varchar(20) DEFAULT 'low' COMMENT 'low, medium, high, critical',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_payload_hash_service` (`payload_hash`, `service`),
+  INDEX `idx_payload_hash` (`payload_hash`),
+  INDEX `idx_service` (`service`),
+  INDEX `idx_event_type` (`event_type`),
+  INDEX `idx_payload_type` (`payload_type`),
+  INDEX `idx_first_seen` (`first_seen`),
+  INDEX `idx_last_seen` (`last_seen`),
+  INDEX `idx_is_suspicious` (`is_suspicious`),
+  INDEX `idx_threat_level` (`threat_level`),
+  INDEX `idx_occurrence_count` (`occurrence_count`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+**Use Cases**:
+- **Custom Attack Detection**: Identify payloads that appear only once
+- **Automated Tool Recognition**: Track frequently seen payloads (scanner signatures)
+- **Threat Intelligence**: Automatic scoring and pattern detection
+- **Attack Evolution Tracking**: Monitor how attack patterns change over time
+
+**Key Features**:
+- **Automatic Threat Detection**: Uses regex patterns to identify XSS, SQL injection, command injection, etc.
+- **Uniqueness Algorithm**: SHA256 hash of `payload + service + type` ensures true uniqueness
+- **Threat Scoring**: Automatic classification as low/medium/high/critical
+- **Suspicious Flagging**: Automatic detection of potentially malicious patterns
+
+**Example Queries**:
+```sql
+-- Get last 10 unique payloads for web services
+SELECT payload_type, payload_content, threat_level, occurrence_count
+FROM unique_payloads 
+WHERE service = 'web' 
+ORDER BY last_seen DESC 
+LIMIT 10;
+
+-- Find suspicious payloads with high threat levels
+SELECT * FROM unique_payloads 
+WHERE is_suspicious = 1 AND threat_level IN ('high', 'critical')
+ORDER BY first_seen DESC;
+
+-- Get trending payloads (most frequently seen)
+SELECT payload_content, occurrence_count, threat_level
+FROM unique_payloads 
+WHERE service = 'web'
+ORDER BY occurrence_count DESC, last_seen DESC
+LIMIT 10;
+
+-- Analyze payloads by type and threat level
+SELECT payload_type, threat_level, COUNT(*) as count
+FROM unique_payloads 
+WHERE service = 'web'
+GROUP BY payload_type, threat_level
+ORDER BY count DESC;
+```
+
+**Threat Detection Patterns**:
+```sql
+-- XSS Detection
+SELECT * FROM unique_payloads 
+WHERE payload_content LIKE '%<script%' 
+   OR payload_content LIKE '%javascript:%'
+   OR payload_content LIKE '%onclick%';
+
+-- SQL Injection Detection  
+SELECT * FROM unique_payloads 
+WHERE payload_content REGEXP '\\b(union|select|insert|update|delete)\\b'
+   OR payload_content LIKE '%or 1=1%'
+   OR payload_content LIKE '%union select%';
+
+-- Command Injection Detection
+SELECT * FROM unique_payloads 
+WHERE payload_content REGEXP '\\b(cat|ls|pwd|whoami|wget|curl)\\b'
+   OR payload_content LIKE '%$(%'
+   OR payload_content LIKE '%`%';
+```
+
+**Integration with Existing System**:
+- **Automatic Processing**: All incoming payloads are automatically analyzed
+- **Real-time Updates**: Threat levels and suspicious flags updated in real-time
+- **Cross-service Correlation**: Same payload in different services tracked separately
+- **Admin Dashboard**: Built-in interface for payload analysis and monitoring
+
+This table implements exactly what you requested: **"a table with the 10 last unique payloads, for potentially catching 'custom' payloads for each feature"** while providing comprehensive threat analysis and automated detection capabilities.
 
 ## Database Relationships
 
@@ -357,6 +586,7 @@ CREATE TABLE `log_statistics` (
 - All tables use `id` as primary key with auto-increment
 - `session_tracking.session_id` has unique constraint
 - `ip_reputation.ip_address` has unique constraint
+- `unique_payloads.payload_hash + service` has unique constraint
 
 ### Foreign Key Relationships
 - `service_logs.service` → service identification
@@ -370,12 +600,12 @@ CREATE TABLE `log_statistics` (
 - `service` and `event_type` columns are indexed for filtering
 - `brand` columns are indexed for brand-specific analysis
 
+## Data Analysis Examples
 
-### Data Analysis
 ```sql
 -- Attack patterns by time
 SELECT HOUR(timestamp) as hour, COUNT(*) as attacks
-FROM service_logs 
+FROM web_service_logs 
 WHERE event_type = 'auth_failure'
 GROUP BY HOUR(timestamp)
 ORDER BY hour;
@@ -386,4 +616,52 @@ FROM ip_reputation
 WHERE threat_score > 50
 GROUP BY country
 ORDER BY attacks DESC;
+
+-- Service activity comparison
+SELECT service, COUNT(*) as events
+FROM all_logs 
+WHERE timestamp > DATE_SUB(NOW(), INTERVAL 24 HOUR)
+GROUP BY service
+ORDER BY events DESC;
+
+-- Brand-specific attack analysis
+SELECT brand, event_type, COUNT(*) as count
+FROM web_service_logs 
+WHERE brand IS NOT NULL
+GROUP BY brand, event_type
+ORDER BY brand, count DESC;
 ```
+
+## Database Configuration
+
+### Connection Details
+- **Host**: `mysql_service` (Docker container)
+- **Port**: 3306
+- **Database**: `sweetcam`
+- **Charset**: `utf8mb4`
+- **Collation**: `utf8mb4_unicode_ci`
+
+### User Accounts
+- **Root User**: `root` (with full privileges)
+- **Grafana User**: `grafana` (read-only access for dashboards)
+
+### Performance Settings
+- **Max Connections**: 200
+- **Connection Timeout**: 60 seconds
+- **Wait Timeout**: 28,800 seconds (8 hours)
+- **Interactive Timeout**: 28,800 seconds (8 hours)
+
+## Maintenance and Monitoring
+
+### Regular Tasks
+1. **Log Rotation**: Monitor table sizes and implement archival strategies
+2. **Index Optimization**: Review query performance and optimize indexes
+3. **Statistics Updates**: Ensure `log_statistics` table is regularly updated
+4. **Payload Analysis**: Review `unique_payloads` for new threat patterns
+
+### Backup Strategy
+- **Volume Mounts**: Database data persisted in `mysql-data` Docker volume
+- **Initialization**: Schema automatically created from `initialize.sql`
+- **Data Persistence**: Data survives container restarts
+
+This updated documentation reflects the actual current database structure as implemented in the SweetCam honeypot system, providing accurate information for developers, administrators, and analysts working with the system.
