@@ -4,7 +4,6 @@ const brandConfigs = require('../config/brand-configs');
 
 class UDPWSDiscoveryService {
   constructor() {
-    // Get brand from environment variable, default to hikvision
     this.brand = process.env.ONVIF_BRAND || 'hikvision';
     this.brandConfig = brandConfigs[this.brand] || brandConfigs.hikvision;
     
@@ -73,7 +72,7 @@ class UDPWSDiscoveryService {
       }
 
     } catch (error) {
-      // Silent error handling
+      //silent error handling
     }
   }
 
@@ -136,7 +135,7 @@ class UDPWSDiscoveryService {
       this.socket.send(response, sourcePort, sourceIp);
 
     } catch (error) {
-      // Silent error handling
+      //silent error handling
     }
   }
 
@@ -157,7 +156,6 @@ class UDPWSDiscoveryService {
       this.socket.send(response, sourcePort, sourceIp);
 
     } catch (error) {
-      // Silent error handling
     }
   }
 

@@ -1,7 +1,7 @@
 # SweetCam Honeypot Database Documentation
 
 ## Overview
-The SweetCam honeypot system uses a MySQL 8.0 database (`sweetcam`) to store logging data from multiple honeypot services. The database is designed with both generic and specialized logging tables to provide flexibility and performance. **The system now includes advanced unique payloads analysis capabilities to detect and track custom attack patterns across all services.**
+The SweetCam honeypot system uses a MySQL 8.0 database (`sweetcam`) to store logging data from multiple honeypot services. The database is designed with both generic and specialized logging tables to provide flexibility and performance. 
 
 ## Database Schema
 
@@ -553,6 +553,12 @@ WHERE payload_content REGEXP '\\b(cat|ls|pwd|whoami|wget|curl)\\b'
    OR payload_content LIKE '%$(%'
    OR payload_content LIKE '%`%';
 ```
+
+**Integration with Existing System**:
+- **Automatic Processing**: All incoming payloads are automatically analyzed
+- **Real-time Updates**: Threat levels and suspicious flags updated in real-time
+- **Cross-service Correlation**: Same payload in different services tracked separately
+- **Admin Dashboard**: Built-in interface for payload analysis and monitoring
 
 ## Database Relationships
 

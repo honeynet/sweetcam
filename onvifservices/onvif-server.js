@@ -69,14 +69,12 @@ class ONVIFHoneypot {
           const brand = this.soapService.brand || 'hikvision';
           const soapAction = req.headers['soapaction'] || req.headers['soap-action'] || req.method;
           onvifLogger.logSOAPRequest(req.ip, soapAction, req.method, '/', brand, this.port);
-          // Log response after sending
           res.on('finish', () => {
             onvifLogger.logSOAPResponse(req.ip, 'GET', res.statusCode, brand, this.port);
           });
         } catch (error) {
           console.error('Error in ONVIF root route:', error);
           onvifLogger.logSOAPRequest(req.ip, 'GET', req.method, '/', 'hikvision', this.port);
-          // Log response after sending
           res.on('finish', () => {
             onvifLogger.logSOAPResponse(req.ip, 'GET', res.statusCode, 'hikvision', this.port);
           });
@@ -95,7 +93,7 @@ class ONVIFHoneypot {
           const brand = this.soapService.brand || 'hikvision';
           const soapAction = req.headers['soapaction'] || req.headers['soap-action'] || req.method;
           onvifLogger.logSOAPRequest(req.ip, soapAction, req.method, '/onvif/device_service', brand, this.port);
-          // Log response after sending
+          //log response after sending
           res.on('finish', () => {
             onvifLogger.logSOAPResponse(req.ip, 'GET', res.statusCode, brand, this.port);
           });
@@ -234,7 +232,6 @@ class ONVIFHoneypot {
           const brand = this.soapService.brand || 'hikvision';
           const soapAction = req.headers['soapaction'] || req.headers['soap-action'] || req.method;
         onvifLogger.logSOAPRequest(req.ip, soapAction, req.method, '/onvif/media_service', brand, this.port);
-        // Log response after sending
         res.on('finish', () => {
           onvifLogger.logSOAPResponse(req.ip, 'GET', res.statusCode, brand, this.port);
         });
@@ -358,7 +355,6 @@ class ONVIFHoneypot {
         const brand = this.soapService.brand || 'hikvision';
         const soapAction = req.headers['soapaction'] || req.headers['soap-action'] || req.method;
         onvifLogger.logSOAPRequest(req.ip, soapAction, req.method, req.url, brand, this.port);
-        // Log response after sending
         res.on('finish', () => {
           onvifLogger.logSOAPResponse(req.ip, soapAction, res.statusCode, brand, this.port);
         });
@@ -403,12 +399,11 @@ class ONVIFHoneypot {
       response.setHeader('Server', 'ONVIF/1.0');
       response.setHeader('Content-Type', 'application/soap+xml; charset=utf-8');
       
-      // Log SOAP request
       const soapAction = request.headers['soapaction'] || request.headers['soap-action'] || 'SOAP_REQUEST';
       const brand = this.soapService.brand || 'hikvision';
       onvifLogger.logSOAPRequest(request.connection.remoteAddress, soapAction, 'POST', '/onvif/device_service/soap', brand, this.port);
       
-      // Log SOAP response
+        //log SOAP response
       response.on('finish', () => {
         onvifLogger.logSOAPResponse(request.connection.remoteAddress, soapAction, response.statusCode, brand, this.port);
       });
@@ -418,12 +413,10 @@ class ONVIFHoneypot {
       response.setHeader('Server', 'ONVIF/1.0');
       response.setHeader('Content-Type', 'application/soap+xml; charset=utf-8');
       
-      // Log SOAP request
       const soapAction = request.headers['soapaction'] || request.headers['soap-action'] || 'SOAP_REQUEST';
       const brand = this.soapService.brand || 'hikvision';
       onvifLogger.logSOAPRequest(request.connection.remoteAddress, soapAction, 'POST', '/onvif/media_service/soap', brand, this.port);
       
-      // Log SOAP response
       response.on('finish', () => {
         onvifLogger.logSOAPResponse(request.connection.remoteAddress, soapAction, response.statusCode, brand, this.port);
       });

@@ -64,17 +64,14 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Global request tracking to prevent duplicate logging
 const processedRequests = new Map();
 
 app.use((req, res, next) => {
     const originalSend = res.send;
     const originalJson = res.json;
     
-    // Generate a unique request ID based on request details
     const requestKey = `${req.ip}-${req.method}-${req.url}-${Date.now()}`;
     
-    // Always capture request data, even if no body exists
     let requestPayload = {
         body: req.body && Object.keys(req.body).length > 0 ? req.body : null,
         query: req.query && Object.keys(req.query).length > 0 ? req.query : null,
@@ -87,16 +84,14 @@ app.use((req, res, next) => {
         headers: req.headers
     };
     
-    // Common logging function to prevent duplication
     const logRequest = (responsePayload) => {
         if (processedRequests.has(requestKey)) {
             console.log(`[DEBUG] Request ${requestKey} already processed, skipping duplicate`);
-            return; // Prevent duplicate logging
+            return; 
         }
         
         console.log(`[DEBUG] Processing request ${requestKey} for ${req.method} ${req.url}`);
         
-        // Mark as processed immediately to prevent race conditions
         processedRequests.set(requestKey, true);
         
         try {
@@ -118,7 +113,6 @@ app.use((req, res, next) => {
             
             console.log(`[DEBUG] Request ${requestKey} processed successfully`);
             
-            // Clean up old entries to prevent memory leaks (keep only last 1000 requests)
             if (processedRequests.size > 1000) {
                 const firstKey = processedRequests.keys().next().value;
                 processedRequests.delete(firstKey);

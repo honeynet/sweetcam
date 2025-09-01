@@ -226,6 +226,74 @@ If the dashboard does not appear, check the provisioning mounts in `docker-compo
 
 Use the Grafana time range selector (top-right) to adjust the period. Most panels honor the time filter.
 
+
+## Testing
+
+SweetCam includes comprehensive test suites for all major services to ensure functionality, security, and reliability. The testing framework uses **Jest** for all services with automated coverage reporting.
+
+### Test Coverage
+
+The project includes tests for three main services:
+
+#### 1. **RTSP Services** (`rtspservices/`)
+- **Authentication Tests**: RTSP credential validation, session management, database authentication
+- **Brand Detection Tests**: Port-based, path-based, and User-Agent-based brand detection
+- **Nmap Recognition Tests**: Authentic server signatures and fingerprinting for each camera brand
+- **Logging Tests**: Request/response logging, payload capture, error handling
+
+#### 2. **ONVIF Services** (`onvifservices/onvif-test-suite/`)
+- **ONVIF Protocol Tests**: SOAP service functionality for all camera brands
+- **Port Management Tests**: Service availability and port configurations
+- **Database Integration Tests**: Connection handling, logging, data persistence
+
+#### 3. **Web Services** (`webservices/`)
+- **Admin Controller Tests**: Administrative interface functionality
+- **HTTP Unit Tests**: Web service endpoints, authentication, session management
+
+### Running Tests
+
+#### Prerequisites
+```shell
+# Ensure Node.js and npm are installed
+node --version
+npm --version
+
+# Database must be running for integration tests
+docker compose up -d mysql_service
+```
+
+#### Global Test Commands
+```shell
+# Run all tests for a specific service
+cd rtspservices && npm test
+cd onvifservices/onvif-test-suite && npm test  
+cd webservices && npm test
+```
+
+
+### Test Structure
+
+```
+├── rtspservices/
+│   ├── __tests__/
+│   │   ├── authentication.test.js    # Auth functionality tests
+│   │   ├── brand-detection.test.js   # Brand detection tests  
+│   │   ├── logging.test.js          # Logging system tests
+│   │   └── nmap-recognition.test.js # Nmap fingerprinting tests
+│   └── jest.config.js               # Jest configuration
+├── onvifservices/onvif-test-suite/
+│   ├── database.test.js             # Database integration tests
+│   ├── onvif.test.js               # ONVIF protocol tests
+│   ├── port.test.js                # Port management tests
+│   └── jest.config.js              # Jest configuration
+└── webservices/
+    ├── __tests__/
+    │   ├── admin-controller.test.js # Admin interface tests
+    │   └── http-unit.test.js       # HTTP service tests  
+    └── jest.config.js              # Jest configuration
+```
+
+
 ## Documentation
 
 - **[Main README](./README.md)** - This file, providing an overview and quick start guide
