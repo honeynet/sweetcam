@@ -3,24 +3,6 @@
 ## Overview
 The SweetCam honeypot system uses a MySQL 8.0 database (`sweetcam`) to store logging data from multiple honeypot services. The database is designed with both generic and specialized logging tables to provide flexibility and performance. **The system now includes advanced unique payloads analysis capabilities to detect and track custom attack patterns across all services.**
 
-## New Feature: Unique Payloads System
-
-### What It Does
-The unique payloads system automatically analyzes and tracks all incoming payloads to identify:
-- **Unique Attack Patterns**: Payloads that appear only once (potential custom attacks)
-- **Trending Payloads**: Most frequently seen payloads (likely automated tools)
-- **Threat Assessment**: Automatic scoring of payloads based on suspicious patterns
-
-### How Uniqueness is Determined
-- **SHA256 Hash**: Combines `payload_content + service + payload_type` for uniqueness
-- **Service Isolation**: Same payload in different services is considered unique
-- **Type Isolation**: Same payload in different fields (username vs password) is considered unique
-
-### Example Use Cases
-1. **Custom XSS Detection**: `<script>alert(1)</script>` appears once = unique custom attack
-2. **Automated Scanner**: `admin` appears 150+ times = automated tool signature
-3. **Command Injection**: `$(cat /etc/passwd)` appears once = unique malicious command
-
 ## Database Schema
 
 ### Core Tables
@@ -572,14 +554,6 @@ WHERE payload_content REGEXP '\\b(cat|ls|pwd|whoami|wget|curl)\\b'
    OR payload_content LIKE '%`%';
 ```
 
-**Integration with Existing System**:
-- **Automatic Processing**: All incoming payloads are automatically analyzed
-- **Real-time Updates**: Threat levels and suspicious flags updated in real-time
-- **Cross-service Correlation**: Same payload in different services tracked separately
-- **Admin Dashboard**: Built-in interface for payload analysis and monitoring
-
-This table implements exactly what you requested: **"a table with the 10 last unique payloads, for potentially catching 'custom' payloads for each feature"** while providing comprehensive threat analysis and automated detection capabilities.
-
 ## Database Relationships
 
 ### Primary Keys
@@ -664,4 +638,3 @@ ORDER BY brand, count DESC;
 - **Initialization**: Schema automatically created from `initialize.sql`
 - **Data Persistence**: Data survives container restarts
 
-This updated documentation reflects the actual current database structure as implemented in the SweetCam honeypot system, providing accurate information for developers, administrators, and analysts working with the system.
