@@ -66,7 +66,7 @@
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "SELECT NOW() AS time, brand AS metric, COUNT(*) AS value FROM (SELECT brand FROM web_service_logs WHERE brand IS NOT NULL AND brand NOT IN ('auto', 'test', '8080', 'curl/8.14.1') AND $__timeFilter(timestamp) UNION ALL SELECT brand FROM rtsp_service_logs WHERE brand IS NOT NULL AND brand NOT IN ('auto', 'test', '8080', 'curl/8.14.1') AND $__timeFilter(timestamp) UNION ALL SELECT brand FROM onvif_service_logs WHERE brand IS NOT NULL AND brand NOT IN ('auto', 'test', '8080', 'curl/8.14.1') AND $__timeFilter(timestamp) UNION ALL SELECT brand FROM cowrie_service_logs WHERE brand IS NOT NULL AND brand NOT IN ('auto', 'test', '8080', 'curl/8.14.1') AND $__timeFilter(timestamp)) AS combined_brands GROUP BY brand;",
+          "rawSql": "SELECT NOW() AS time, brand AS metric, COUNT(*) AS value FROM (SELECT brand FROM web_service_logs WHERE brand IS NOT NULL AND brand NOT IN ('auto', 'test', '8080', '8088', '8086', '8087', '8089', '8090', 'curl/8.14.1') AND brand REGEXP '^[a-zA-Z]+$' AND $__timeFilter(timestamp) UNION ALL SELECT brand FROM rtsp_service_logs WHERE brand IS NOT NULL AND brand NOT IN ('auto', 'test', '8080', '8088', '8086', '8087', '8089', '8090', 'curl/8.14.1') AND brand REGEXP '^[a-zA-Z]+$' AND $__timeFilter(timestamp) UNION ALL SELECT brand FROM onvif_service_logs WHERE brand IS NOT NULL AND brand NOT IN ('auto', 'test', '8080', '8088', '8086', '8087', '8089', '8090', 'curl/8.14.1') AND brand REGEXP '^[a-zA-Z]+$' AND $__timeFilter(timestamp) UNION ALL SELECT brand FROM cowrie_service_logs WHERE brand IS NOT NULL AND brand NOT IN ('auto', 'test', '8080', '8088', '8086', '8087', '8089', '8090', 'curl/8.14.1') AND brand REGEXP '^[a-zA-Z]+$' AND $__timeFilter(timestamp)) AS combined_brands GROUP BY brand;",
           "refId": "A"
         }
       ]
@@ -424,7 +424,7 @@
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT \n  timestamp,\n  event_type,\n  ip_address,\n  brand,\n  soap_action,\n  request_method,\n  request_url,\n  response_status,\n  CASE \n    WHEN payload IS NOT NULL AND JSON_EXTRACT(payload, '$.request') IS NOT NULL THEN LEFT(JSON_EXTRACT(payload, '$.request'), 200)\n    ELSE 'No request data' \n  END as request_data,\n  CASE \n    WHEN payload IS NOT NULL AND JSON_EXTRACT(payload, '$.response') IS NOT NULL THEN LEFT(JSON_EXTRACT(payload, '$.response'), 200) \n    ELSE 'No response data' \n  END as response_data,\n  message\nFROM onvif_service_logs \nWHERE timestamp >= DATE_SUB(NOW(), INTERVAL 7 DAY)\nORDER BY timestamp DESC \nLIMIT 150;",
+          "rawSql": "SELECT \n  timestamp,\n  event_type,\n  ip_address,\n  brand,\n  COALESCE(soap_action, JSON_EXTRACT(raw_data, '$.request_headers.soapaction')) as soap_action,\n  COALESCE(request_method, JSON_EXTRACT(raw_data, '$.method')) as request_method,\n  COALESCE(request_url, JSON_EXTRACT(raw_data, '$.url')) as request_url,\n  COALESCE(response_status, JSON_EXTRACT(raw_data, '$.status_code')) as response_status,\n  LEFT(raw_data, 300) as raw_data_preview,\n  message\nFROM onvif_service_logs \nWHERE timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY)\nORDER BY timestamp DESC \nLIMIT 150;",
           "refId": "A"
         }
       ],
@@ -455,25 +455,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "request_data"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 300
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "json"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "response_data"
+              "options": "raw_data_preview"
             },
             "properties": [
               {
@@ -515,8 +497,7 @@
               "request_method": "Method",
               "request_url": "Request URL",
               "response_status": "Response Status",
-              "request_data": "Request Data",
-              "response_data": "Response Data",
+              "raw_data_preview": "Raw Data Preview",
               "message": "message"
             }
           }
@@ -531,8 +512,7 @@
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT \n  timestamp,\n  event_type,\n  ip_address,\n  brand,\n  username,\n  COALESCE(JSON_EXTRACT(payload, '$.input'), JSON_EXTRACT(payload, '$.command'), 'No command') as command,\n  COALESCE(JSON_EXTRACT(payload, '$.outfile'), JSON_EXTRACT(payload, '$.filename'), JSON_EXTRACT(payload, '$.file_path'), 'No path') as file_path,\n  COALESCE(JSON_EXTRACT(payload, '$.size'), JSON_EXTRACT(payload, '$.file_size'), 'No size') as file_size,\n  COALESCE(JSON_EXTRACT(payload, '$.geoip_country'), 'No country') as geoip_country,\n  COALESCE(JSON_EXTRACT(payload, '$.geoip_city'), 'No city') as geoip_city,\n  CASE \n    WHEN JSON_EXTRACT(payload, '$.session') IS NOT NULL THEN JSON_OBJECT('session_id', JSON_EXTRACT(payload, '$.session'), 'duration', JSON_EXTRACT(payload, '$.duration'), 'ttylog', JSON_EXTRACT(payload, '$.ttylog'), 'sensor', JSON_EXTRACT(payload, '$.sensor'))\n    WHEN JSON_EXTRACT(payload, '$.session_data') IS NOT NULL THEN JSON_EXTRACT(payload, '$.session_data')\n    ELSE 'No session data' \n  END as session_data,\n  CASE \n    WHEN JSON_EXTRACT(payload, '$.ttylog') IS NOT NULL THEN CONCAT('TTY Log: ', JSON_EXTRACT(payload, '$.ttylog'), ' (', COALESCE(JSON_EXTRACT(payload, '$.size'), 'unknown'), ' bytes)')\n    WHEN JSON_EXTRACT(payload, '$.command_output') IS NOT NULL THEN LEFT(JSON_EXTRACT(payload, '$.command_output'), 200)\n    ELSE 'No command output' \n  END as command_output,\n  message\nFROM cowrie_service_logs \nWHERE payload IS NOT NULL AND (event_type LIKE '%ssh%' OR event_type LIKE '%session%' OR event_type LIKE '%command%' OR event_type LIKE '%login%' OR event_type LIKE '%cowrie%') AND $__timeFilter(timestamp)\nORDER BY timestamp DESC \nLIMIT 100;",
-          "refId": "A"
+          "rawSql": "WITH deduplicated_commands AS (\n  SELECT \n    timestamp,\n    event_type,\n    ip_address,\n    brand,\n    username,\n    COALESCE(JSON_EXTRACT(raw_data, '$.input'), JSON_EXTRACT(raw_data, '$.command'), command, 'No command') as command,\n    COALESCE(JSON_EXTRACT(raw_data, '$.outfile'), JSON_EXTRACT(raw_data, '$.filename'), file_path, 'No path') as file_path,\n    COALESCE(JSON_EXTRACT(raw_data, '$.size'), file_size, 'No size') as file_size,\n    CASE \n      WHEN JSON_EXTRACT(raw_data, '$.session') IS NOT NULL THEN JSON_OBJECT('session_id', JSON_EXTRACT(raw_data, '$.session'), 'duration', JSON_EXTRACT(raw_data, '$.duration'), 'ttylog', JSON_EXTRACT(raw_data, '$.ttylog'), 'sensor', JSON_EXTRACT(raw_data, '$.sensor'))\n      WHEN JSON_EXTRACT(raw_data, '$.session_data') IS NOT NULL THEN JSON_EXTRACT(raw_data, '$.session_data')\n      WHEN session_id IS NOT NULL THEN JSON_OBJECT('session_id', session_id, 'duration', 'N/A', 'ttylog', 'N/A', 'sensor', 'N/A')\n      ELSE 'No session data' \n    END as session_data,\n    CASE \n      WHEN JSON_EXTRACT(raw_data, '$.ttylog') IS NOT NULL THEN CONCAT('TTY Log: ', JSON_EXTRACT(raw_data, '$.ttylog'), ' (', COALESCE(JSON_EXTRACT(raw_data, '$.size'), file_size, 'unknown'), ' bytes)')\n      WHEN JSON_EXTRACT(raw_data, '$.command_output') IS NOT NULL THEN LEFT(JSON_EXTRACT(raw_data, '$.command_output'), 200)\n      ELSE 'No command output' \n  END as command_output,\n    message,\n    JSON_EXTRACT(raw_data, '$.session') as session_id,\n    ROW_NUMBER() OVER (\n      PARTITION BY \n        JSON_EXTRACT(raw_data, '$.input'), \n        JSON_EXTRACT(raw_data, '$.session'), \n        ip_address, \n        timestamp\n      ORDER BY id ASC\n    ) as rn\n  FROM cowrie_service_logs \n  WHERE raw_data IS NOT NULL AND (\n    event_type = 'session_start' OR \n    event_type = 'session_end' OR \n    event_type = 'login_success' OR \n    event_type = 'auth_failure' OR \n    event_type = 'command_execution' OR \n    event_type = 'download_attempt' OR \n    event_type = 'upload_attempt' OR \n    event_type = 'service_event'\n  ) AND $__timeFilter(timestamp)\n)\nSELECT \n  timestamp,\n  event_type,\n  ip_address,\n  brand,\n  username,\n  command,\n  file_path,\n  file_size,\n  session_data,\n  command_output,\n  message\nFROM deduplicated_commands \nWHERE rn = 1\nORDER BY timestamp DESC \nLIMIT 100;"
         }
       ],
       "fieldConfig": {
@@ -622,8 +602,6 @@
               "command": "Command",
               "file_path": "File Path",
               "file_size": "File Size",
-              "geoip_country": "Country",
-              "geoip_city": "City",
               "session_data": "Session Data",
               "command_output": "Command Output",
               "message": "Message"
@@ -653,7 +631,7 @@
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT \n  timestamp,\n  event_type,\n  ip_address,\n  brand,\n  username,\n  COALESCE(JSON_EXTRACT(payload, '$.request_path'), 'No path') as request_path,\n  COALESCE(JSON_EXTRACT(payload, '$.request_method'), 'No method') as request_method,\n  COALESCE(JSON_EXTRACT(payload, '$.response_code'), 'No code') as response_code,\n  CASE \n    WHEN JSON_EXTRACT(payload, '$.request') IS NOT NULL THEN JSON_EXTRACT(payload, '$.request')\n    ELSE 'No request data' \n  END as request_data,\n  CASE \n    WHEN JSON_EXTRACT(payload, '$.response') IS NOT NULL THEN LEFT(JSON_EXTRACT(payload, '$.response'), 200) \n    ELSE 'No response data' \n  END as response_data,\n  message\nFROM (\n  SELECT timestamp, event_type, ip_address, brand, username, payload, message FROM web_service_logs WHERE payload IS NOT NULL AND $__timeFilter(timestamp)\n  UNION ALL\n  SELECT timestamp, event_type, ip_address, brand, username, payload, message FROM rtsp_service_logs WHERE payload IS NOT NULL AND $__timeFilter(timestamp)\n  UNION ALL\n  SELECT timestamp, event_type, ip_address, brand, username, payload, message FROM onvif_service_logs WHERE payload IS NOT NULL AND $__timeFilter(timestamp)\n  UNION ALL\n  SELECT timestamp, event_type, ip_address, brand, username, payload, message FROM cowrie_service_logs WHERE payload IS NOT NULL AND $__timeFilter(timestamp)\n) AS combined_services\nORDER BY timestamp DESC \nLIMIT 100;",
+          "rawSql": "SELECT \n  timestamp,\n  event_type,\n  ip_address,\n  brand,\n  username,\n  COALESCE(JSON_EXTRACT(payload, '$.request_path'), 'No path') as request_path,\n  COALESCE(JSON_EXTRACT(payload, '$.request_method'), 'No method') as request_method,\n  COALESCE(JSON_EXTRACT(payload, '$.response_code'), 'No code') as response_code,\n  CASE \n    WHEN JSON_EXTRACT(payload, '$.request') IS NOT NULL THEN JSON_EXTRACT(payload, '$.request')\n    ELSE 'No request data' \n  END as request_data,\n  CASE \n    WHEN JSON_EXTRACT(payload, '$.response') IS NOT NULL THEN LEFT(JSON_EXTRACT(payload, '$.response'), 200) \n    ELSE 'No response data' \n  END as response_data,\n  message\nFROM (\n  SELECT timestamp, event_type, ip_address, brand, username, payload, message FROM web_service_logs WHERE payload IS NOT NULL AND $__timeFilter(timestamp)\n  UNION ALL\n  SELECT timestamp, event_type, ip_address, brand, username, payload, message FROM rtsp_service_logs WHERE payload IS NOT NULL AND $__timeFilter(timestamp)\n  UNION ALL\n  SELECT timestamp, event_type, ip_address, brand, username, raw_data as payload, message FROM onvif_service_logs WHERE raw_data IS NOT NULL AND $__timeFilter(timestamp)\n  UNION ALL\n  SELECT timestamp, event_type, ip_address, brand, username, raw_data as payload, message FROM cowrie_service_logs WHERE raw_data IS NOT NULL AND $__timeFilter(timestamp)\n) AS combined_services\nORDER BY timestamp DESC \nLIMIT 100;",
           "refId": "A"
         }
       ],
@@ -1027,7 +1005,7 @@
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT service, payload_type, LEFT(payload_content, 100) as payload_preview, threat_level, is_suspicious, occurrence_count, first_seen, last_seen FROM unique_payloads WHERE occurrence_count = 1 ORDER BY last_seen DESC LIMIT 10;",
+          "rawSql": "SELECT service, payload_type, LEFT(payload_content, 100) as payload_preview, threat_level, is_suspicious, occurrence_count, first_seen, last_seen FROM unique_payloads WHERE (occurrence_count = 1) OR (service = 'cowrie' AND occurrence_count <= 5) ORDER BY last_seen DESC LIMIT 10;",
           "refId": "A"
         }
       ],

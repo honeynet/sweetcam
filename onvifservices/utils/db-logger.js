@@ -39,8 +39,8 @@ async function writeServiceLog(entry) {
 
 async function writeONVIFLog(entry) {
   const sql = `INSERT INTO onvif_service_logs 
-    (timestamp, event_type, log_level, ip_address, brand, port, username, password, session_id, soap_action, device_info, discovery_type, message, raw_data) 
-    VALUES (COALESCE(?, CURRENT_TIMESTAMP), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    (timestamp, event_type, log_level, ip_address, brand, port, username, password, session_id, soap_action, request_method, request_url, response_status, device_info, discovery_type, message, raw_data) 
+    VALUES (COALESCE(?, CURRENT_TIMESTAMP), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
   const params = [
     entry.timestamp || null,
     entry.event_type,
@@ -52,6 +52,9 @@ async function writeONVIFLog(entry) {
     entry.password || null,
     entry.session_id || null,
     entry.soap_action || null,
+    entry.request_method || null,
+    entry.request_url || null,
+    entry.response_status || null,
     entry.device_info ? JSON.stringify(entry.device_info) : null,
     entry.discovery_type || null,
     entry.message || null,
