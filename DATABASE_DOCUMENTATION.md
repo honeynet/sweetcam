@@ -474,8 +474,6 @@ CREATE TABLE `unique_payloads` (
   `first_seen` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'When this payload was first encountered',
   `last_seen` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Last time this payload was seen',
   `occurrence_count` int NOT NULL DEFAULT 1 COMMENT 'How many times this payload has been seen',
-  `is_suspicious` boolean NOT NULL DEFAULT FALSE COMMENT 'Flag for suspicious payloads',
-  `threat_level` varchar(20) DEFAULT 'low' COMMENT 'low, medium, high, critical',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -486,8 +484,6 @@ CREATE TABLE `unique_payloads` (
   INDEX `idx_payload_type` (`payload_type`),
   INDEX `idx_first_seen` (`first_seen`),
   INDEX `idx_last_seen` (`last_seen`),
-  INDEX `idx_is_suspicious` (`is_suspicious`),
-  INDEX `idx_threat_level` (`threat_level`),
   INDEX `idx_occurrence_count` (`occurrence_count`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
@@ -499,37 +495,33 @@ CREATE TABLE `unique_payloads` (
 - **Attack Evolution Tracking**: Monitor how attack patterns change over time
 
 **Key Features**:
-- **Automatic Threat Detection**: Uses regex patterns to identify XSS, SQL injection, command injection, etc.
 - **Uniqueness Algorithm**: SHA256 hash of `payload + service + type` ensures true uniqueness
-- **Threat Scoring**: Automatic classification as low/medium/high/critical
-- **Suspicious Flagging**: Automatic detection of potentially malicious patterns
 
 **Example Queries**:
 ```sql
 -- Get last 10 unique payloads for web services
-SELECT payload_type, payload_content, threat_level, occurrence_count
+SELECT payload_type, payload_content, occurrence_count
 FROM unique_payloads 
 WHERE service = 'web' 
 ORDER BY last_seen DESC 
 LIMIT 10;
 
--- Find suspicious payloads with high threat levels
+-- Find all unique payloads ordered by date
 SELECT * FROM unique_payloads 
-WHERE is_suspicious = 1 AND threat_level IN ('high', 'critical')
 ORDER BY first_seen DESC;
 
 -- Get trending payloads (most frequently seen)
-SELECT payload_content, occurrence_count, threat_level
+SELECT payload_content, occurrence_count
 FROM unique_payloads 
 WHERE service = 'web'
 ORDER BY occurrence_count DESC, last_seen DESC
 LIMIT 10;
 
 -- Analyze payloads by type and threat level
-SELECT payload_type, threat_level, COUNT(*) as count
+SELECT payload_type, COUNT(*) as count
 FROM unique_payloads 
 WHERE service = 'web'
-GROUP BY payload_type, threat_level
+GROUP BY payload_type
 ORDER BY count DESC;
 ```
 

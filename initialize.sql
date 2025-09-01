@@ -263,8 +263,6 @@ CREATE TABLE IF NOT EXISTS `unique_payloads`
     `first_seen`       TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'When this payload was first encountered',
     `last_seen`        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Last time this payload was seen',
     `occurrence_count` int          NOT NULL DEFAULT 1 COMMENT 'How many times this payload has been seen',
-    `is_suspicious`    boolean      NOT NULL DEFAULT FALSE COMMENT 'Flag for suspicious payloads',
-    `threat_level`     varchar(20)  DEFAULT 'low' COMMENT 'low, medium, high, critical',
     `created_at`       TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
     `updated_at`       TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
@@ -275,8 +273,6 @@ CREATE TABLE IF NOT EXISTS `unique_payloads`
     INDEX `idx_payload_type` (`payload_type`),
     INDEX `idx_first_seen` (`first_seen`),
     INDEX `idx_last_seen` (`last_seen`),
-    INDEX `idx_is_suspicious` (`is_suspicious`),
-    INDEX `idx_threat_level` (`threat_level`),
     INDEX `idx_occurrence_count` (`occurrence_count`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

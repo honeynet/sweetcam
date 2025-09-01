@@ -300,6 +300,8 @@ cd webservices && npm test
 - **[Port Manager README](./PORT_MANAGER_README.md)** - Complete guide to the Port Manager tool
 - **[Docker Manager README](./DOCKER_MANAGER_README.md)** - Complete guide to the Docker Manager tool
 - **[Log Manager README](./LOG_MANAGER_README.md)** - Guide to the Log Manager tool
+- **[Database Documentation](./DATABASE_DOCUMENTATION.md)** - Guide to the Database
+- **[Tools and Versions](./TOOLS_AND_VERSIONS.md)** - Guide to the Tools and Versions
 
 ## Support
 

@@ -11,55 +11,6 @@ class PayloadAnalyzer {
         this.initialized = false;
         this.initializing = false;
         
-        // Suspicious patterns for threat detection
-        this.suspiciousPatterns = [
-            // XSS patterns
-            /<script[^>]*>/i,
-            /javascript:/i,
-            /on\w+\s*=/i,
-            /<iframe[^>]*>/i,
-            /<object[^>]*>/i,
-            /<embed[^>]*>/i,
-            
-            // SQL Injection patterns
-            /(\b(union|select|insert|update|delete|drop|create|alter|exec|execute)\b)/i,
-            /(\b(or|and)\b\s+\d+\s*=\s*\d+)/i,
-            /(\b(union|select)\b\s+.*\bfrom\b)/i,
-            
-            // Command injection patterns
-            /(\b(cat|ls|pwd|whoami|id|uname|wget|curl|nc|netcat|bash|sh)\b)/i,
-            /(\$\(.*\))/,
-            /(\`.*\`)/,
-            
-            // Path traversal patterns
-            /\.\.\//,
-            /\.\.\\/,
-            /\/etc\/passwd/,
-            /\/proc\/version/,
-            
-            // PHP patterns
-            /\.php\?/i,
-            /php:\/\/filter/i,
-            /php:\/\/input/i,
-            
-            // Suspicious URLs
-            /https?:\/\/[^\s<>"']*\.(com|net|org|ru|cn|tk|ml|ga|gq|cf|cc|xyz)/i,
-            
-            // Encoded patterns
-            /%3cscript/i,
-            /%3ciframe/i,
-            /&#x3c;script/i,
-            /&#60;script/i
-        ];
-        
-        // Threat level scoring
-        this.threatScores = {
-            low: 1,
-            medium: 2,
-            high: 3,
-            critical: 4
-        };
-        
         PayloadAnalyzer.instance = this;
     }
 
@@ -116,52 +67,6 @@ class PayloadAnalyzer {
     }
 
     /**
-     * Analyze payload for suspicious patterns and determine threat level
-     * @param {string} payload - The payload content
-     * @returns {Object} Analysis result with threat level and suspicious flag
-     */
-    analyzePayload(payload) {
-        if (!payload || typeof payload !== 'string') {
-            return { threatLevel: 'low', isSuspicious: false, score: 0 };
-        }
-
-        let score = 0;
-        let isSuspicious = false;
-        const matchedPatterns = [];
-
-        // Check against suspicious patterns
-        for (const pattern of this.suspiciousPatterns) {
-            if (pattern.test(payload)) {
-                score += 2;
-                isSuspicious = true;
-                matchedPatterns.push(pattern.source);
-            }
-        }
-
-        // Additional scoring based on payload characteristics
-        if (payload.length > 1000) score += 1; // Very long payloads
-        if (payload.includes('eval(')) score += 3; // Dangerous functions
-        if (payload.includes('document.cookie')) score += 2; // Cookie theft
-        if (payload.includes('keylog')) score += 2; // Keylogging
-        if (payload.includes('attacker.com')) score += 2; // Suspicious domains
-        if (payload.includes('<?php')) score += 3; // PHP code
-        if (payload.includes('${')) score += 2; // Template injection
-
-        // Determine threat level based on score
-        let threatLevel = 'low';
-        if (score >= 8) threatLevel = 'critical';
-        else if (score >= 6) threatLevel = 'high';
-        else if (score >= 4) threatLevel = 'medium';
-
-        return {
-            threatLevel,
-            isSuspicious,
-            score,
-            matchedPatterns
-        };
-    }
-
-    /**
      * Process and store a new payload
      * @param {Object} payloadData - Payload data object
      * @returns {Object} Result of the operation
@@ -189,9 +94,6 @@ class PayloadAnalyzer {
             const connection = await this.pool.getConnection();
             
             try {
-                // Analyze the payload
-                const analysis = this.analyzePayload(payloadContent);
-                
                 // Generate hash for uniqueness
                 const payloadHash = this.generatePayloadHash(payloadContent, service, payloadType);
                 
@@ -219,13 +121,13 @@ class PayloadAnalyzer {
                         isNew: false
                     };
                 } else {
-                    // Insert new payload
+                    // Insert new payload (without threat_level and is_suspicious)
                     const [insertResult] = await connection.execute(`
                         INSERT INTO unique_payloads 
                         (payload_hash, service, event_type, payload_type, payload_content, 
                          ip_address, brand, first_seen, last_seen, occurrence_count, 
-                         is_suspicious, threat_level, created_at, updated_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
+                         created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
                     `, [
                         payloadHash,
                         service,
@@ -236,8 +138,6 @@ class PayloadAnalyzer {
                         brand,
                         timestamp,
                         timestamp,
-                        analysis.isSuspicious,
-                        analysis.threatLevel,
                         timestamp,
                         timestamp
                     ]);
@@ -246,9 +146,7 @@ class PayloadAnalyzer {
                         action: 'inserted',
                         payloadId: insertResult.insertId,
                         occurrenceCount: 1,
-                        isNew: true,
-                        threatLevel: analysis.threatLevel,
-                        isSuspicious: analysis.isSuspicious
+                        isNew: true
                     };
                 }
             } finally {
@@ -283,9 +181,7 @@ class PayloadAnalyzer {
                         brand,
                         first_seen,
                         last_seen,
-                        occurrence_count,
-                        is_suspicious,
-                        threat_level
+                        occurrence_count
                     FROM unique_payloads 
                     WHERE service = ?
                     ORDER BY last_seen DESC
@@ -319,11 +215,6 @@ class PayloadAnalyzer {
                 const [stats] = await connection.execute(`
                     SELECT 
                         COUNT(*) as total_payloads,
-                        COUNT(CASE WHEN is_suspicious = 1 THEN 1 END) as suspicious_payloads,
-                        COUNT(CASE WHEN threat_level = 'critical' THEN 1 END) as critical_payloads,
-                        COUNT(CASE WHEN threat_level = 'high' THEN 1 END) as high_payloads,
-                        COUNT(CASE WHEN threat_level = 'medium' THEN 1 END) as medium_payloads,
-                        COUNT(CASE WHEN threat_level = 'low' THEN 1 END) as low_payloads,
                         SUM(occurrence_count) as total_occurrences
                     FROM unique_payloads 
                     WHERE service = ?
@@ -362,9 +253,7 @@ class PayloadAnalyzer {
                         brand,
                         first_seen,
                         last_seen,
-                        occurrence_count,
-                        is_suspicious,
-                        threat_level
+                        occurrence_count
                     FROM unique_payloads 
                     WHERE service = ?
                     ORDER BY occurrence_count DESC, last_seen DESC
@@ -392,4 +281,4 @@ class PayloadAnalyzer {
 }
 
 const payloadAnalyzer = new PayloadAnalyzer();
-module.exports = payloadAnalyzer; 
+module.exports = payloadAnalyzer;

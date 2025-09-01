@@ -19,8 +19,16 @@
     {
       "type": "timeseries",
       "title": "Total Logs Over Time",
-      "gridPos": {"x": 0, "y": 0, "w": 24, "h": 8},
-      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
       "targets": [
         {
           "format": "time_series",
@@ -34,8 +42,16 @@
     {
       "type": "barchart",
       "title": "Top Attacker IPs",
-      "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
-      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
       "targets": [
         {
           "format": "table",
@@ -43,13 +59,23 @@
           "refId": "A"
         }
       ],
-      "options": {"orientation": "auto"}
+      "options": {
+        "orientation": "auto"
+      }
     },
     {
       "type": "piechart",
       "title": "Events by Service",
-      "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
-      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
       "targets": [
         {
           "format": "time_series",
@@ -61,8 +87,16 @@
     {
       "type": "piechart",
       "title": "Events by Brand",
-      "gridPos": {"x": 0, "y": 16, "w": 12, "h": 8},
-      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
       "targets": [
         {
           "format": "time_series",
@@ -74,8 +108,16 @@
     {
       "type": "barchart",
       "title": "Top Countries",
-      "gridPos": {"x": 12, "y": 16, "w": 12, "h": 8},
-      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
       "targets": [
         {
           "format": "table",
@@ -87,8 +129,16 @@
     {
       "type": "geomap",
       "title": "Geo Attacker Distribution",
-      "gridPos": {"x": 0, "y": 24, "w": 24, "h": 12},
-      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 24,
+        "h": 12
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
       "targets": [
         {
           "format": "table",
@@ -97,18 +147,33 @@
         }
       ],
       "options": {
-        "view": { "id": "world" },
-        "controls": { "showZoom": true, "showAttribution": "true" },
-        "basemap": { "type": "carto" },
+        "view": {
+          "id": "world"
+        },
+        "controls": {
+          "showZoom": true,
+          "showAttribution": "true"
+        },
+        "basemap": {
+          "type": "carto"
+        },
         "layers": [
           {
             "type": "markers",
             "name": "Counts",
             "config": {
               "show": true,
-              "sizeConfig": { "fixed": 6, "field": "value" },
-              "color": { "scheme": "Turbo" },
-              "location": { "mode": "auto", "field": "location" },
+              "sizeConfig": {
+                "fixed": 6,
+                "field": "value"
+              },
+              "color": {
+                "scheme": "Turbo"
+              },
+              "location": {
+                "mode": "auto",
+                "field": "location"
+              },
               "aggregation": "sum"
             }
           }
@@ -118,8 +183,16 @@
     {
       "type": "timeseries",
       "title": "Connection per Protocol Over Time",
-      "gridPos": {"x": 0, "y": 36, "w": 24, "h": 8},
-      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "gridPos": {
+        "x": 0,
+        "y": 36,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
       "targets": [
         {
           "format": "time_series",
@@ -204,8 +277,16 @@
     {
       "type": "table",
       "title": "Web Service Payloads - HTTP Requests & Responses",
-      "gridPos": {"x": 0, "y": 84, "w": 24, "h": 8},
-      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "gridPos": {
+        "x": 0,
+        "y": 84,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
       "targets": [
         {
           "format": "table",
@@ -280,7 +361,9 @@
         "footer": {
           "countRows": false,
           "fields": "",
-          "reducer": ["sum"],
+          "reducer": [
+            "sum"
+          ],
           "show": false
         },
         "showHeader": true
@@ -311,8 +394,16 @@
     {
       "type": "table",
       "title": "RTSP Service Payloads - Stream & Connection Data",
-      "gridPos": {"x": 0, "y": 92, "w": 24, "h": 8},
-      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "gridPos": {
+        "x": 0,
+        "y": 92,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
       "targets": [
         {
           "format": "table",
@@ -387,7 +478,9 @@
         "footer": {
           "countRows": false,
           "fields": "",
-          "reducer": ["sum"],
+          "reducer": [
+            "sum"
+          ],
           "show": false
         },
         "showHeader": true
@@ -419,8 +512,16 @@
     {
       "type": "table",
       "title": "ONVIF Service Payloads - SOAP & Service Events",
-      "gridPos": {"x": 0, "y": 100, "w": 24, "h": 8},
-      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "gridPos": {
+        "x": 0,
+        "y": 100,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
       "targets": [
         {
           "format": "table",
@@ -477,7 +578,9 @@
         "footer": {
           "countRows": false,
           "fields": "",
-          "reducer": ["sum"],
+          "reducer": [
+            "sum"
+          ],
           "show": false
         },
         "showHeader": true
@@ -507,8 +610,16 @@
     {
       "type": "table",
       "title": "Cowrie Service Detailed Payloads - Filtered by Event Type",
-      "gridPos": {"x": 0, "y": 114, "w": 24, "h": 8},
-      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "gridPos": {
+        "x": 0,
+        "y": 114,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
       "targets": [
         {
           "format": "table",
@@ -582,7 +693,9 @@
         "footer": {
           "countRows": false,
           "fields": "",
-          "reducer": ["sum"],
+          "reducer": [
+            "sum"
+          ],
           "show": false
         },
         "showHeader": true
@@ -613,8 +726,16 @@
     {
       "type": "table",
       "title": "Recent All Logs (Unified)",
-      "gridPos": {"x": 0, "y": 84, "w": 24, "h": 8},
-      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "gridPos": {
+        "x": 0,
+        "y": 84,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
       "targets": [
         {
           "format": "table",
@@ -626,8 +747,16 @@
     {
       "type": "table",
       "title": "All Service Payloads - Detailed View",
-      "gridPos": {"x": 0, "y": 128, "w": 24, "h": 8},
-      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "gridPos": {
+        "x": 0,
+        "y": 128,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
       "targets": [
         {
           "format": "table",
@@ -702,7 +831,9 @@
         "footer": {
           "countRows": false,
           "fields": "",
-          "reducer": ["sum"],
+          "reducer": [
+            "sum"
+          ],
           "show": false
         },
         "showHeader": true
@@ -733,8 +864,16 @@
     {
       "type": "barchart",
       "title": "Top Usernames Attempted",
-      "gridPos": {"x": 0, "y": 60, "w": 12, "h": 8},
-      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "gridPos": {
+        "x": 0,
+        "y": 60,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
       "targets": [
         {
           "format": "table",
@@ -742,13 +881,23 @@
           "refId": "A"
         }
       ],
-      "options": {"orientation": "auto"}
+      "options": {
+        "orientation": "auto"
+      }
     },
     {
       "type": "barchart",
       "title": "Top Passwords Attempted",
-      "gridPos": {"x": 12, "y": 60, "w": 12, "h": 8},
-      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "gridPos": {
+        "x": 12,
+        "y": 60,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
       "targets": [
         {
           "format": "table",
@@ -756,13 +905,23 @@
           "refId": "A"
         }
       ],
-      "options": {"orientation": "auto"}
+      "options": {
+        "orientation": "auto"
+      }
     },
     {
       "type": "barchart",
       "title": "Top Payloads by Service",
-      "gridPos": {"x": 0, "y": 68, "w": 24, "h": 8},
-      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "gridPos": {
+        "x": 0,
+        "y": 68,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
       "targets": [
         {
           "format": "table",
@@ -770,7 +929,9 @@
           "refId": "A"
         }
       ],
-      "options": {"orientation": "auto"},
+      "options": {
+        "orientation": "auto"
+      },
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -800,8 +961,16 @@
     {
       "type": "table",
       "title": "Top Web Service Payloads",
-      "gridPos": {"x": 0, "y": 76, "w": 12, "h": 8},
-      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "gridPos": {
+        "x": 0,
+        "y": 76,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
       "targets": [
         {
           "format": "table",
@@ -850,8 +1019,16 @@
     {
       "type": "table",
       "title": "Top RTSP Service Payloads",
-      "gridPos": {"x": 12, "y": 76, "w": 12, "h": 8},
-      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "gridPos": {
+        "x": 12,
+        "y": 76,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
       "targets": [
         {
           "format": "table",
@@ -900,8 +1077,16 @@
     {
       "type": "table",
       "title": "Top ONVIF Service Payloads",
-      "gridPos": {"x": 0, "y": 92, "w": 12, "h": 8},
-      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "gridPos": {
+        "x": 0,
+        "y": 92,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
       "targets": [
         {
           "format": "table",
@@ -950,8 +1135,16 @@
     {
       "type": "table",
       "title": "Top Cowrie Service Payloads",
-      "gridPos": {"x": 12, "y": 92, "w": 12, "h": 8},
-      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "gridPos": {
+        "x": 12,
+        "y": 92,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
       "targets": [
         {
           "format": "table",
@@ -1000,12 +1193,20 @@
     {
       "type": "table",
       "title": "Custom Payloads - Last 10 (Occurrence = 1)",
-      "gridPos": {"x": 0, "y": 100, "w": 24, "h": 8},
-      "datasource": {"type": "mysql", "uid": "PF7F25038E8A7BA3D"},
+      "gridPos": {
+        "x": 0,
+        "y": 100,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT service, payload_type, LEFT(payload_content, 100) as payload_preview, threat_level, is_suspicious, occurrence_count, first_seen, last_seen FROM unique_payloads WHERE (occurrence_count = 1) OR (service = 'cowrie' AND occurrence_count <= 5) ORDER BY last_seen DESC LIMIT 10;",
+          "rawSql": "SELECT service, payload_type, LEFT(payload_content, 100) as payload_preview, occurrence_count, first_seen, last_seen FROM unique_payloads WHERE (occurrence_count = 1) OR (service = 'cowrie' AND occurrence_count <= 5) ORDER BY last_seen DESC LIMIT 10;",
           "refId": "A"
         }
       ],
@@ -1047,16 +1248,20 @@
         "showHeader": true
       }
     }
-
-
   ],
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["sweetcam", "honeypot"],
+  "tags": [
+    "sweetcam",
+    "honeypot"
+  ],
   "templating": {
     "list": []
   },
-  "time": {"from": "now-24h", "to": "now"},
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
   "timepicker": {
     "refresh_intervals": [
       "5s",
@@ -1090,4 +1295,4 @@
   "refresh": "30s",
   "public": true,
   "publicDashboardAccessToken": "sweetcam-public-token"
-} 
+}

@@ -267,7 +267,6 @@ class DatabaseLogger {
             file_size: logData.file_size || null,
             geoip_country: logData.geoip_country || null,
             geoip_city: logData.geoip_city || null,
-            threat_level: logData.threat_level || null,
             alert_type: logData.alert_type || null,
             message: logData.message || null,
             raw_data: logData.raw_data ? JSON.stringify(logData.raw_data) : null
@@ -277,8 +276,8 @@ class DatabaseLogger {
             INSERT INTO cowrie_service_logs 
             (timestamp, event_type, log_level, ip_address, brand, port, username, 
              password, session_id, command, file_path, file_size, geoip_country, 
-             geoip_city, threat_level, alert_type, message, raw_data)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             geoip_city, alert_type, message, raw_data)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const params = [
@@ -296,7 +295,7 @@ class DatabaseLogger {
             logEntry.file_size,
             logEntry.geoip_country,
             logEntry.geoip_city,
-            logEntry.threat_level,
+            
             logEntry.alert_type,
             logEntry.message,
             logEntry.raw_data
