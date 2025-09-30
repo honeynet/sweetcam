@@ -1,0 +1,161 @@
+doctype html
+html(lang="en")
+  head
+    meta(charset="UTF-8")
+    title Login
+    style.
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: linear-gradient(to bottom, #eee 0%, #222 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-family: Arial, sans-serif;
+        position: relative;
+      }
+      .lang-select {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        font-size: 13px;
+        border-radius: 2px;
+        border: 1px solid #aaa;
+        background: #fff;
+        padding: 2px 8px;
+        z-index: 10;
+      }
+      .top-bar {
+        width: 650px;
+        display: flex;
+        align-items: flex-start;
+        margin-bottom: 10px;
+      }
+      .lens-img {
+        width: 180px;
+        height: 150px;
+        margin-top: 2px;
+      }
+      .form-row {
+        display: flex;
+        align-items: center;
+        margin: 10px 0;
+        width: 340px;
+      }
+      .form-label {
+        width: 80px;
+        text-align: right;
+        font-size: 15px;
+        color: #222;
+        margin-right: 8px;
+      }
+      .form-input {
+        flex: 1;
+        padding: 4px 8px;
+        font-size: 15px;
+        border: 1px solid #aaa;
+        border-radius: 4px;
+        border-color: #222;
+        background: #fff;
+      }
+      .button-row {
+        display: flex;
+        justify-content: center;
+        gap: 16px;
+        margin: 12px 0 0 0;
+        width: 260px;
+      }
+      .login-btn, .exit-btn {
+        width: 80px;
+        padding: 4px 0;
+        font-size: 15px;
+        border: 1px solid #888;
+        border-radius: 2px;
+        background: #eaeaea;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      .login-btn:hover, .exit-btn:hover {
+        background: #d6d6d6;
+      }
+      .error-message {
+        color: red;
+        font-size: 14px;
+        margin-top: 10px;
+        height: 20px;
+        text-align: center;
+        width: 100%;
+        font-weight: bold;
+        display: block;
+      }
+
+
+  body
+    select.lang-select(name='language' onchange='changeLanguage(this.value)')
+      option(value='en' selected=locale === 'en')= __('language.english')
+      option(value='es' selected=locale === 'es')= __('language.spanish')
+
+    
+    .top-bar
+      img.lens-img(src="/brands/login-vstarcam.png" alt="Lens")
+
+    form#loginForm
+      .form-row
+        label.form-label(for="username")= __('login.username')
+        input.form-input(type="text" id="username" name="username" required)
+      .form-row
+        label.form-label(for="password")= __('login.password')
+        input.form-input(type="password" id="password" name="password" required)
+      .button-row
+        button.login-btn(type="submit")= __('login.loginButton')
+      div#errorMessage.error-message
+
+    script(src="https://code.jquery.com/jquery-3.6.0.min.js")
+    script(src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js")
+    script.
+      function changeLanguage(lang) {
+        window.location.href = '/set-language/' + lang;
+      }
+      $(document).ready(function() {
+        $('#loginForm').submit(function(e) {
+          e.preventDefault();
+          const username = $('input[name="username"]').val();
+          const password = $('input[name="password"]').val();
+          const $errorMessage = $('#errorMessage');
+
+          
+          $errorMessage.text('');
+
+          
+          const isAdminMode = window.location.pathname === '/admin/login' || #{isAdminMode || false};
+          const loginUrl = isAdminMode ? '/admin/login' : '/login';
+          
+          axios.post(loginUrl, {
+            username: username,
+            password: password
+          })
+          .then(response => {
+            if (response.data.message === "Login successful" || response.data.message === "Admin login successful") {
+              window.location.href = '/';
+            } else {
+              $errorMessage.text('Login failed - please try again.');
+            }
+          })
+          .catch(error => {
+            if (error.response) {
+              let message = 'An unknown error occurred.';
+              if (error.response.status === 404) message = 'User not found.';
+              if (error.response.status === 401) message = 'Wrong password.';
+              if (error.response.status === 403) message = 'Too many attempts. Try again later.';
+              $errorMessage.text(message);
+              console.log('Error displayed:', message); 
+            }
+          });
+        });
+        
+        
+        $('input[name="username"], input[name="password"]').on('input', function() {
+          $('#errorMessage').text('');
+        });
+      });

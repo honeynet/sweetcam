@@ -1,0 +1,25 @@
+{
+    "timeout": 1000,
+    "xRotationAngle": 0,
+    "yRotationAngle": 0,
+    "width": 0.3,
+    "height": 0.3,
+    "zoomRatio": 100,
+    "brandImagePath": "/brands/Axis.png",
+    "brandImageWidth": "30%",
+    "brand": "Axis",
+    "model": "M3047-P",
+    "type": "Network Camera",
+    "resolution": "360° panoramic",
+    "features": {
+        "nightVision": true,
+        "motionDetection": true,
+        "audio": true
+    },
+    "specifications": {
+        "sensor": "1/2.8\" Progressive scan RGB CMOS",
+        "lens": "1.6 mm, F2.0",
+        "fps": "25/30 fps (50/60 Hz)",
+        "compression": "H.264, MJPEG"
+    }
+} 

@@ -1,0 +1,27 @@
+{
+  "name": "onvif-honeypot",
+  "version": "1.0.0",
+  "description": "ONVIF Honeypot for SweetCam project",
+  "main": "onvif-server.js",
+  "scripts": {
+    "start": "node onvif-server.js",
+    "dev": "nodemon onvif-server.js"
+  },
+  "dependencies": {
+    "soap": "^1.0.0",
+    "express": "^4.18.2",
+    "dgram": "^1.0.1",
+    "uuid": "^9.0.0",
+    "winston": "^3.8.2",
+    "winston-daily-rotate-file": "^4.7.1",
+    "xml2js": "^0.6.0",
+    "dotenv": "^16.0.3",
+    "mysql2": "^3.2.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.20"
+  },
+  "keywords": ["onvif", "honeypot", "camera", "security"],
+  "author": "SweetCam Team",
+  "license": "ISC"
+} 

@@ -1,0 +1,1298 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "type": "dashboard",
+        "name": "Annotations",
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "enable": true,
+        "showIn": 0
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Total Logs Over Time",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT UNIX_TIMESTAMP(timestamp) AS time_sec, COUNT(*) AS count FROM (SELECT timestamp FROM web_service_logs WHERE $__timeFilter(timestamp) UNION ALL SELECT timestamp FROM rtsp_service_logs WHERE $__timeFilter(timestamp) UNION ALL SELECT timestamp FROM onvif_service_logs WHERE $__timeFilter(timestamp) UNION ALL SELECT timestamp FROM cowrie_service_logs WHERE $__timeFilter(timestamp)) AS combined_logs GROUP BY time_sec ORDER BY time_sec ASC;",
+          "refId": "A",
+          "timeColumn": "timestamp",
+          "metricColumn": "none"
+        }
+      ]
+    },
+    {
+      "type": "barchart",
+      "title": "Top Attacker IPs",
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT ip_address AS metric, COUNT(*) AS value FROM (SELECT ip_address FROM web_service_logs WHERE ip_address IS NOT NULL AND ip_address <> '' AND $__timeFilter(timestamp) UNION ALL SELECT ip_address FROM rtsp_service_logs WHERE ip_address IS NOT NULL AND ip_address <> '' AND $__timeFilter(timestamp) UNION ALL SELECT ip_address FROM onvif_service_logs WHERE ip_address IS NOT NULL AND ip_address <> '' AND $__timeFilter(timestamp) UNION ALL SELECT ip_address FROM cowrie_service_logs WHERE ip_address IS NOT NULL AND ip_address <> '' AND $__timeFilter(timestamp)) AS combined_ips GROUP BY ip_address ORDER BY value DESC LIMIT 10;",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "orientation": "auto"
+      }
+    },
+    {
+      "type": "piechart",
+      "title": "Events by Service",
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT NOW() AS time, 'Web Service' AS metric, COUNT(*) AS value FROM web_service_logs WHERE $__timeFilter(timestamp)\nUNION ALL\nSELECT NOW() AS time, 'RTSP Service' AS metric, COUNT(*) AS value FROM rtsp_service_logs WHERE $__timeFilter(timestamp)\nUNION ALL\nSELECT NOW() AS time, 'ONVIF Service' AS metric, COUNT(*) AS value FROM onvif_service_logs WHERE $__timeFilter(timestamp)\nUNION ALL\nSELECT NOW() AS time, 'Cowrie Service' AS metric, COUNT(*) AS value FROM cowrie_service_logs WHERE $__timeFilter(timestamp);",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "piechart",
+      "title": "Events by Brand",
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT NOW() AS time, brand AS metric, COUNT(*) AS value FROM (SELECT brand FROM web_service_logs WHERE brand IS NOT NULL AND brand NOT IN ('auto', 'test', '8080', '8088', '8086', '8087', '8089', '8090', 'curl/8.14.1') AND brand REGEXP '^[a-zA-Z]+$' AND $__timeFilter(timestamp) UNION ALL SELECT brand FROM rtsp_service_logs WHERE brand IS NOT NULL AND brand NOT IN ('auto', 'test', '8080', '8088', '8086', '8087', '8089', '8090', 'curl/8.14.1') AND brand REGEXP '^[a-zA-Z]+$' AND $__timeFilter(timestamp) UNION ALL SELECT brand FROM onvif_service_logs WHERE brand IS NOT NULL AND brand NOT IN ('auto', 'test', '8080', '8088', '8086', '8087', '8089', '8090', 'curl/8.14.1') AND brand REGEXP '^[a-zA-Z]+$' AND $__timeFilter(timestamp) UNION ALL SELECT brand FROM cowrie_service_logs WHERE brand IS NOT NULL AND brand NOT IN ('auto', 'test', '8080', '8088', '8086', '8087', '8089', '8090', 'curl/8.14.1') AND brand REGEXP '^[a-zA-Z]+$' AND $__timeFilter(timestamp)) AS combined_brands GROUP BY brand;",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "barchart",
+      "title": "Top Countries",
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT country AS metric, COUNT(*) AS value FROM ip_reputation WHERE country IS NOT NULL AND ip_address NOT IN ('172.18.0.1', '::ffff:172.18.0.1', '127.0.0.1', '::1', 'localhost') GROUP BY country ORDER BY value DESC LIMIT 10;",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "geomap",
+      "title": "Geo Attacker Distribution",
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 24,
+        "h": 12
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT country AS location, COUNT(*) AS value FROM ip_reputation WHERE country IS NOT NULL AND ip_address NOT IN ('172.18.0.1', '::ffff:172.18.0.1', '127.0.0.1', '::1', 'localhost') GROUP BY country;",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "view": {
+          "id": "world"
+        },
+        "controls": {
+          "showZoom": true,
+          "showAttribution": "true"
+        },
+        "basemap": {
+          "type": "carto"
+        },
+        "layers": [
+          {
+            "type": "markers",
+            "name": "Counts",
+            "config": {
+              "show": true,
+              "sizeConfig": {
+                "fixed": 6,
+                "field": "value"
+              },
+              "color": {
+                "scheme": "Turbo"
+              },
+              "location": {
+                "mode": "auto",
+                "field": "location"
+              },
+              "aggregation": "sum"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Connection per Protocol Over Time",
+      "gridPos": {
+        "x": 0,
+        "y": 36,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT UNIX_TIMESTAMP(hour_bucket) AS time_sec, COUNT(*) AS web_connections FROM (SELECT DATE_FORMAT(timestamp, '%Y-%m-%d %H:00:00') AS hour_bucket FROM web_service_logs WHERE $__timeFilter(timestamp)) AS subquery GROUP BY hour_bucket ORDER BY time_sec ASC;",
+          "refId": "A"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT UNIX_TIMESTAMP(hour_bucket) AS time_sec, COUNT(*) AS rtsp_connections FROM (SELECT DATE_FORMAT(timestamp, '%Y-%m-%d %H:00:00') AS hour_bucket FROM rtsp_service_logs WHERE $__timeFilter(timestamp)) AS subquery GROUP BY hour_bucket ORDER BY time_sec ASC;",
+          "refId": "B"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT UNIX_TIMESTAMP(hour_bucket) AS time_sec, COUNT(*) AS onvif_connections FROM (SELECT DATE_FORMAT(timestamp, '%Y-%m-%d %H:00:00') AS hour_bucket FROM onvif_service_logs WHERE $__timeFilter(timestamp)) AS subquery GROUP BY hour_bucket ORDER BY time_sec ASC;",
+          "refId": "C"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT UNIX_TIMESTAMP(hour_bucket) AS time_sec, COUNT(*) AS cowrie_connections FROM (SELECT DATE_FORMAT(timestamp, '%Y-%m-%d %H:00:00') AS hour_bucket FROM cowrie_service_logs WHERE $__timeFilter(timestamp)) AS subquery GROUP BY hour_bucket ORDER BY time_sec ASC;",
+          "refId": "D"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "type": "table",
+      "title": "Web Service Payloads - HTTP Requests & Responses",
+      "gridPos": {
+        "x": 0,
+        "y": 84,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT \n  timestamp,\n  event_type,\n  ip_address,\n  brand,\n  username,\n  COALESCE(request_path, 'No path') as request_path,\n  COALESCE(request_method, 'No method') as request_method,\n  COALESCE(response_code, 'No code') as response_code,\n  CASE \n    WHEN JSON_EXTRACT(payload, '$.request') IS NOT NULL THEN JSON_EXTRACT(payload, '$.request')\n    ELSE 'No request data' \n  END as request_data,\n  CASE \n    WHEN JSON_EXTRACT(payload, '$.response') IS NOT NULL THEN LEFT(JSON_EXTRACT(payload, '$.response'), 200) \n    ELSE 'No response data' \n  END as response_data,\n  message\nFROM web_service_logs \nWHERE $__timeFilter(timestamp)\nORDER BY timestamp DESC \nLIMIT 100;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "request_data"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 300
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "json"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "response_data"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 300
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "json"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {
+              "timestamp": "Timestamp",
+              "event_type": "Event Type",
+              "ip_address": "IP Address",
+              "brand": "Brand",
+              "username": "Username",
+              "request_path": "Request Path",
+              "request_method": "Method",
+              "response_code": "Response Code",
+              "payload_status": "Payload Status",
+              "raw_data_status": "Raw Data Status",
+              "message": "Message"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "RTSP Service Payloads - Stream & Connection Data",
+      "gridPos": {
+        "x": 0,
+        "y": 92,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT \n  timestamp,\n  event_type,\n  ip_address,\n  brand,\n  username,\n  password,\n  COALESCE(rtsp_method, 'No method') as rtsp_method,\n  COALESCE(stream_path, 'No path') as stream_path,\n  COALESCE(connection_id, 'No ID') as connection_id,\n  CASE \n    WHEN payload IS NOT NULL AND JSON_EXTRACT(payload, '$.request') IS NOT NULL THEN JSON_EXTRACT(payload, '$.request')\n    ELSE 'No request data' \n  END as request_data,\n  CASE \n    WHEN payload IS NOT NULL AND JSON_EXTRACT(payload, '$.response') IS NOT NULL THEN LEFT(JSON_EXTRACT(payload, '$.response'), 200) \n    ELSE 'No response data' \n  END as response_data,\n  message\nFROM rtsp_service_logs \nWHERE $__timeFilter(timestamp)\nORDER BY timestamp DESC \nLIMIT 100;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "request_data"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 300
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "json"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "response_data"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 300
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "json"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {
+              "timestamp": "Timestamp",
+              "event_type": "Event Type",
+              "ip_address": "IP Address",
+              "brand": "Brand",
+              "username": "Username",
+              "password": "Password",
+              "rtsp_method": "RTSP Method",
+              "stream_path": "Stream Path",
+              "connection_id": "Connection ID",
+              "request_data": "Request Data",
+              "response_data": "Response Data",
+              "message": "Message"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "ONVIF Service Payloads - SOAP & Service Events",
+      "gridPos": {
+        "x": 0,
+        "y": 100,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT \n  timestamp,\n  event_type,\n  ip_address,\n  brand,\n  COALESCE(soap_action, JSON_EXTRACT(raw_data, '$.request_headers.soapaction')) as soap_action,\n  COALESCE(request_method, JSON_EXTRACT(raw_data, '$.method')) as request_method,\n  COALESCE(request_url, JSON_EXTRACT(raw_data, '$.url')) as request_url,\n  COALESCE(response_status, JSON_EXTRACT(raw_data, '$.status_code')) as response_status,\n  LEFT(raw_data, 300) as raw_data_preview,\n  message\nFROM onvif_service_logs \nWHERE timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY)\nORDER BY timestamp DESC \nLIMIT 150;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "raw_data_preview"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 300
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "json"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {
+              "timestamp": "Timestamp",
+              "event_type": "Event Type",
+              "ip_address": "IP Address",
+              "brand": "Brand",
+              "soap_action": "SOAP Action",
+              "request_method": "Method",
+              "request_url": "Request URL",
+              "response_status": "Response Status",
+              "raw_data_preview": "Raw Data Preview",
+              "message": "message"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "Cowrie Service Detailed Payloads - Filtered by Event Type",
+      "gridPos": {
+        "x": 0,
+        "y": 114,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH deduplicated_commands AS (\n  SELECT \n    timestamp,\n    event_type,\n    ip_address,\n    brand,\n    username,\n    COALESCE(JSON_EXTRACT(raw_data, '$.input'), JSON_EXTRACT(raw_data, '$.command'), command, 'No command') as command,\n    COALESCE(JSON_EXTRACT(raw_data, '$.outfile'), JSON_EXTRACT(raw_data, '$.filename'), file_path, 'No path') as file_path,\n    COALESCE(JSON_EXTRACT(raw_data, '$.size'), file_size, 'No size') as file_size,\n    CASE \n      WHEN JSON_EXTRACT(raw_data, '$.session') IS NOT NULL THEN JSON_OBJECT('session_id', JSON_EXTRACT(raw_data, '$.session'), 'duration', JSON_EXTRACT(raw_data, '$.duration'), 'ttylog', JSON_EXTRACT(raw_data, '$.ttylog'), 'sensor', JSON_EXTRACT(raw_data, '$.sensor'))\n      WHEN JSON_EXTRACT(raw_data, '$.session_data') IS NOT NULL THEN JSON_EXTRACT(raw_data, '$.session_data')\n      WHEN session_id IS NOT NULL THEN JSON_OBJECT('session_id', session_id, 'duration', 'N/A', 'ttylog', 'N/A', 'sensor', 'N/A')\n      ELSE 'No session data' \n    END as session_data,\n    CASE \n      WHEN JSON_EXTRACT(raw_data, '$.ttylog') IS NOT NULL THEN CONCAT('TTY Log: ', JSON_EXTRACT(raw_data, '$.ttylog'), ' (', COALESCE(JSON_EXTRACT(raw_data, '$.size'), file_size, 'unknown'), ' bytes)')\n      WHEN JSON_EXTRACT(raw_data, '$.command_output') IS NOT NULL THEN LEFT(JSON_EXTRACT(raw_data, '$.command_output'), 200)\n      ELSE 'No command output' \n  END as command_output,\n    message,\n    JSON_EXTRACT(raw_data, '$.session') as session_id,\n    ROW_NUMBER() OVER (\n      PARTITION BY \n        JSON_EXTRACT(raw_data, '$.input'), \n        JSON_EXTRACT(raw_data, '$.session'), \n        ip_address, \n        timestamp\n      ORDER BY id ASC\n    ) as rn\n  FROM cowrie_service_logs \n  WHERE raw_data IS NOT NULL AND (\n    event_type = 'session_start' OR \n    event_type = 'session_end' OR \n    event_type = 'login_success' OR \n    event_type = 'auth_failure' OR \n    event_type = 'command_execution' OR \n    event_type = 'download_attempt' OR \n    event_type = 'upload_attempt' OR \n    event_type = 'service_event'\n  ) AND $__timeFilter(timestamp)\n)\nSELECT \n  timestamp,\n  event_type,\n  ip_address,\n  brand,\n  username,\n  command,\n  file_path,\n  file_size,\n  session_data,\n  command_output,\n  message\nFROM deduplicated_commands \nWHERE rn = 1\nORDER BY timestamp DESC \nLIMIT 100;"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "session_data"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 300
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "json"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "command_output"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 300
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "json"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {
+              "timestamp": "Timestamp",
+              "event_type": "Event Type",
+              "ip_address": "IP Address",
+              "brand": "Brand",
+              "username": "Username",
+              "command": "Command",
+              "file_path": "File Path",
+              "file_size": "File Size",
+              "session_data": "Session Data",
+              "command_output": "Command Output",
+              "message": "Message"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "Recent All Logs (Unified)",
+      "gridPos": {
+        "x": 0,
+        "y": 84,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT timestamp, 'web' AS service, event_type, COALESCE(ip_address, 'No IP') as ip_address, brand, message FROM web_service_logs WHERE $__timeFilter(timestamp)\nUNION ALL\nSELECT timestamp, 'rtsp' AS service, event_type, COALESCE(ip_address, 'No IP') as ip_address, brand, message FROM rtsp_service_logs WHERE $__timeFilter(timestamp)\nUNION ALL\nSELECT timestamp, 'onvif' AS service, event_type, COALESCE(ip_address, 'No IP') as ip_address, brand, message FROM onvif_service_logs WHERE $__timeFilter(timestamp)\nUNION ALL\nSELECT timestamp, 'cowrie' AS service, event_type, COALESCE(ip_address, 'No IP') as ip_address, brand, message FROM cowrie_service_logs WHERE $__timeFilter(timestamp)\nORDER BY timestamp DESC LIMIT 100;",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "All Service Payloads - Detailed View",
+      "gridPos": {
+        "x": 0,
+        "y": 128,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT \n  timestamp,\n  event_type,\n  ip_address,\n  brand,\n  username,\n  COALESCE(JSON_EXTRACT(payload, '$.request_path'), 'No path') as request_path,\n  COALESCE(JSON_EXTRACT(payload, '$.request_method'), 'No method') as request_method,\n  COALESCE(JSON_EXTRACT(payload, '$.response_code'), 'No code') as response_code,\n  CASE \n    WHEN JSON_EXTRACT(payload, '$.request') IS NOT NULL THEN JSON_EXTRACT(payload, '$.request')\n    ELSE 'No request data' \n  END as request_data,\n  CASE \n    WHEN JSON_EXTRACT(payload, '$.response') IS NOT NULL THEN LEFT(JSON_EXTRACT(payload, '$.response'), 200) \n    ELSE 'No response data' \n  END as response_data,\n  message\nFROM (\n  SELECT timestamp, event_type, ip_address, brand, username, payload, message FROM web_service_logs WHERE payload IS NOT NULL AND $__timeFilter(timestamp)\n  UNION ALL\n  SELECT timestamp, event_type, ip_address, brand, username, payload, message FROM rtsp_service_logs WHERE payload IS NOT NULL AND $__timeFilter(timestamp)\n  UNION ALL\n  SELECT timestamp, event_type, ip_address, brand, username, raw_data as payload, message FROM onvif_service_logs WHERE raw_data IS NOT NULL AND $__timeFilter(timestamp)\n  UNION ALL\n  SELECT timestamp, event_type, ip_address, brand, username, raw_data as payload, message FROM cowrie_service_logs WHERE raw_data IS NOT NULL AND $__timeFilter(timestamp)\n) AS combined_services\nORDER BY timestamp DESC \nLIMIT 100;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "request_data"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 300
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "json"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "response_data"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 300
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "json"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {
+              "timestamp": "Timestamp",
+              "event_type": "Event Type",
+              "ip_address": "IP Address",
+              "brand": "Brand",
+              "username": "Username",
+              "request_path": "Request Path",
+              "request_method": "Method",
+              "response_code": "Response Code",
+              "request_data": "Request Data",
+              "response_data": "Response Data",
+              "message": "Message"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "barchart",
+      "title": "Top Usernames Attempted",
+      "gridPos": {
+        "x": 0,
+        "y": 60,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT username AS metric, COUNT(*) AS value FROM (\n  SELECT username FROM web_service_logs WHERE username IS NOT NULL AND username <> '' AND username <> 'null' AND $__timeFilter(timestamp)\n  UNION ALL\n  SELECT username FROM rtsp_service_logs WHERE username IS NOT NULL AND username <> '' AND username <> 'null' AND $__timeFilter(timestamp)\n  UNION ALL\n  SELECT username FROM onvif_service_logs WHERE username IS NOT NULL AND username <> '' AND username <> 'null' AND $__timeFilter(timestamp)\n  UNION ALL\n  SELECT username FROM cowrie_service_logs WHERE username IS NOT NULL AND username <> '' AND username <> 'null' AND $__timeFilter(timestamp)\n) AS all_usernames GROUP BY username ORDER BY value DESC LIMIT 15;",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "orientation": "auto"
+      }
+    },
+    {
+      "type": "barchart",
+      "title": "Top Passwords Attempted",
+      "gridPos": {
+        "x": 12,
+        "y": 60,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT password AS metric, COUNT(*) AS value FROM (\n  SELECT password FROM web_service_logs WHERE password IS NOT NULL AND password <> '' AND password <> 'null' AND $__timeFilter(timestamp)\n  UNION ALL\n  SELECT password FROM rtsp_service_logs WHERE password IS NOT NULL AND password <> '' AND password <> 'null' AND $__timeFilter(timestamp)\n  UNION ALL\n  SELECT password FROM onvif_service_logs WHERE password IS NOT NULL AND password <> '' AND password <> 'null' AND $__timeFilter(timestamp)\n  UNION ALL\n  SELECT password FROM cowrie_service_logs WHERE password IS NOT NULL AND password <> '' AND password <> 'null' AND $__timeFilter(timestamp)\n) AS all_passwords GROUP BY password ORDER BY value DESC LIMIT 15;",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "orientation": "auto"
+      }
+    },
+    {
+      "type": "barchart",
+      "title": "Top Payloads by Service",
+      "gridPos": {
+        "x": 0,
+        "y": 68,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT 'Web Service' AS metric, COUNT(*) AS value FROM web_service_logs WHERE $__timeFilter(timestamp)\nUNION ALL\nSELECT 'RTSP Service' AS metric, COUNT(*) AS value FROM rtsp_service_logs WHERE $__timeFilter(timestamp)\nUNION ALL\nSELECT 'ONVIF Service' AS metric, COUNT(*) AS value FROM onvif_service_logs WHERE $__timeFilter(timestamp)\nUNION ALL\nSELECT 'Cowrie Service' AS metric, COUNT(*) AS value FROM cowrie_service_logs WHERE $__timeFilter(timestamp);",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "orientation": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "table",
+      "title": "Top Web Service Payloads",
+      "gridPos": {
+        "x": 0,
+        "y": 76,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT event_type, COUNT(*) as count, MAX(timestamp) as last_seen FROM web_service_logs WHERE $__timeFilter(timestamp) GROUP BY event_type ORDER BY count DESC LIMIT 10;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      }
+    },
+    {
+      "type": "table",
+      "title": "Top RTSP Service Payloads",
+      "gridPos": {
+        "x": 12,
+        "y": 76,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT event_type, COUNT(*) as count, MAX(timestamp) as last_seen FROM rtsp_service_logs WHERE $__timeFilter(timestamp) GROUP BY event_type ORDER BY count DESC LIMIT 10;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      }
+    },
+    {
+      "type": "table",
+      "title": "Top ONVIF Service Payloads",
+      "gridPos": {
+        "x": 0,
+        "y": 92,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT event_type, COUNT(*) as count, MAX(timestamp) as last_seen FROM onvif_service_logs WHERE $__timeFilter(timestamp) GROUP BY event_type ORDER BY count DESC LIMIT 10;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      }
+    },
+    {
+      "type": "table",
+      "title": "Top Cowrie Service Payloads",
+      "gridPos": {
+        "x": 12,
+        "y": 92,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT event_type, COUNT(*) as count, MAX(timestamp) as last_seen FROM cowrie_service_logs WHERE $__timeFilter(timestamp) GROUP BY event_type ORDER BY count DESC LIMIT 10;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      }
+    },
+    {
+      "type": "table",
+      "title": "Custom Payloads - Last 10 (Occurrence = 1)",
+      "gridPos": {
+        "x": 0,
+        "y": 100,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "PF7F25038E8A7BA3D"
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT service, payload_type, LEFT(payload_content, 100) as payload_preview, occurrence_count, first_seen, last_seen FROM unique_payloads WHERE (occurrence_count = 1) OR (service = 'cowrie' AND occurrence_count <= 5) ORDER BY last_seen DESC LIMIT 10;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      }
+    }
+  ],
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": [
+    "sweetcam",
+    "honeypot"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "30m",
+      "1h",
+      "2h",
+      "1d"
+    ],
+    "time_options": [
+      "5m",
+      "15m",
+      "1h",
+      "6h",
+      "12h",
+      "24h",
+      "2d",
+      "7d",
+      "30d"
+    ]
+  },
+  "timezone": "",
+  "title": "Sweetcam Overview",
+  "uid": "sweetcam-overview-v2",
+  "version": 37,
+  "description": "SweetCam Honeypot Dashboard - Fixed Top Payloads by Service Chart to Show Actual Services, Clean Layout with Auto-Refresh",
+  "refresh": "30s",
+  "public": true,
+  "publicDashboardAccessToken": "sweetcam-public-token"
+}

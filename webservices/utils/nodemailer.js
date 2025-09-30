@@ -1,13 +1,13 @@
 const nodemailer = require('nodemailer');
 
 const a = {
-    service: process.env.EMAIL_SERVICE,
-    host: process.env.EMAIL_HOST,
+    service: process.env.EMAIL_SERVICE || 'gmail',
+    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
     secure: true,
     port: 465,
     auth: {
-        user: process.env.EMAIL_ADDRESS,
-        pass: process.env.EMAIL_PASSWORD,
+        user: process.env.EMAIL_ADDRESS || 'default@example.com',
+        pass: process.env.EMAIL_PASSWORD || 'default-password',
     },
 }
 console.log(a)

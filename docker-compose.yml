@@ -1,11 +1,15 @@
-version: '3.8'
-
 volumes:
   cowrie-var:
     driver: local
   web-servie-log:
     driver: local
   rtsp-resource:
+    driver: local
+  rtsp-logs:
+    driver: local
+  grafana-data:
+    driver: local
+  mysql-data:
     driver: local
 
 services:
@@ -21,64 +25,615 @@ services:
       - ${COWRIE_LOCAL_PORT}:${COWRIE_DOCKER_PORT}
     volumes:
       - cowrie-var:/cowrie/cowrie-git/var
-      - ./cowrie-config/cowrie.cfg:/cowrie/cowrie-git/etc/cowrie.cfg
-      - ./cowrie-config/motd:/cowrie/cowrie-git/honeyfs/etc/motd
+      - ./cowrie/cowrie.cfg:/cowrie/cowrie-git/etc/cowrie.cfg:ro
+      - ./cowrie/userdb.txt:/cowrie/cowrie-git/etc/userdb.txt:ro
+
   mysql_service:
-    image: mysql:8.0.28
+    image: mysql:8.0
     container_name: mysql_service
     cap_add:
       - SYS_NICE
     restart: unless-stopped
     env_file: ./.env
     environment:
-      - MYSQL_ROOT_PASSWORD=$MYSQLDB_ROOT_PASSWORD
+      - MYSQL_ROOT_PASSWORD=$MYSQLDB_ROOT_PASSWORD 
       - MYSQL_DATABASE=$MYSQLDB_DATABASE
     ports:
-      - ${MYSQLDB_LOCAL_PORT}:${MYSQLDB_DOCKER_PORT}
+      - "3306:3306"
     volumes:
       - ./initialize.sql:/docker-entrypoint-initdb.d/initialize.sql
+      - mysql-data:/var/lib/mysql
+    command: --default-authentication-plugin=mysql_native_password --max-connections=200 --max-connect-errors=1000 --wait-timeout=28800 --interactive-timeout=28800
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   web_service:
     container_name: web_service
-    depends_on:
-      - mysql_service
-    build: ./webservices # Build the image from the Dockerfile under the webservices folder
+    build: 
+      context: ./webservices
+      dockerfile: Dockerfile
     restart: unless-stopped
     env_file: ./.env
     environment:
-      - DB_HOST=mysql_service
-      - DB_USER=$MYSQLDB_USER
-      - DB_PASSWORD=$MYSQLDB_ROOT_PASSWORD
-      - DB_NAME=$MYSQLDB_DATABASE
-      - DB_PORT=$MYSQLDB_DOCKER_PORT
-      - SESSION_SECRET=$SESSION_SECRET
-      - JWT_SECRET=$JWT_SECRET
-      - ADMIN_PATH=$ADMIN_PATH
-      - DEFAULT_ADMIN_NAME=$DEFAULT_ADMIN_NAME
-      - DEFAULT_ADMIN_PASSWORD=$DEFAULT_ADMIN_PASSWORD
-      - TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID
-      - TELEGRAM_TOKEN=$TELEGRAM_TOKEN
-      - EMAIL_ADDRESS=$EMAIL_ADDRESS
-      - EMAIL_PASSWORD=$EMAIL_PASSWORD
-      - EMAIL_ADDRESS_TARGET=$EMAIL_ADDRESS_TARGET
-      - EMAIL_SERVICE=$EMAIL_SERVICE
-      - EMAIL_HOST=$EMAIL_HOST
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+      - ADMIN_PATH=admin
+      - COWRIE_INGESTOR_ENABLED=true
+      - COWRIE_CONTAINER_NAME=cowrie-services
+      - COWRIE_LOG_PATH=/cowrie/cowrie-git/var/log/cowrie/cowrie.json
+      - COWRIE_PY=python3
     ports:
-      - ${NODE_LOCAL_PORT}:${NODE_DOCKER_PORT}
-    volumes:
-      - web-servie-log:/app/webservices/logs
+      - "3000:3000"
     stdin_open: true
     tty: true
-  rtsp_service:
-    build: ./rtspservices
-    container_name: rtsp_service
+    user: root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+      - ./docker-compose.yml:/app/docker-compose.yml
+      - ./logs:/app/logs
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+      cowrie_service:
+        condition: service_started
+      grafana:
+        condition: service_healthy
+
+  #RTSP
+  rtsp_main:
+    build:
+      context: ./rtspservices
+      dockerfile: Dockerfile
+    container_name: rtsp_main_service
     restart: unless-stopped
     env_file: ./.env
     environment:
-      - RTSP_LOCAL_PORT=$RTSP_LOCAL_PORT
-      - RTSP_DOCKER_PORT=$RTSP_DOCKER_PORT
-      - MTX_PROTOCOLS=$MTX_PROTOCOLS
+      - BRAND=auto
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+    cap_add:
+      - NET_BIND_SERVICE
     ports:
-      - ${RTSP_LOCAL_PORT}:${RTSP_DOCKER_PORT}
+      - "554:554"
+      - "8002:8002"
+      - "8003:8003"
+      - "8004:8004"
+      - "8005:8005"
     volumes:
-      - ./videos:/app/rtsp/videos
-      - rtsp-resource:/app/rtsp
+      - ./logs/rtspservices:/app/logs
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+
+  
+  rtsp_hikvision:
+    build:
+      context: ./rtspservices
+      dockerfile: Dockerfile
+    container_name: rtsp_hikvision_service
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - BRAND=hikvision
+      - RTSP_PORT=8554
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+    cap_add:
+      - NET_BIND_SERVICE
+    ports:
+      - "8554:8554"
+      - "8006:8002"
+      - "8007:8003"
+    volumes:
+      - ./logs/rtspservices:/app/logs
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+
+  rtsp_dahua:
+    build:
+      context: ./rtspservices
+      dockerfile: Dockerfile
+    container_name: rtsp_dahua_service
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - BRAND=dahua
+      - RTSP_PORT=8555
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+    cap_add:
+      - NET_BIND_SERVICE
+    ports:
+      - "8555:8555"
+      - "8008:8002"
+      - "8009:8003"
+    volumes:
+      - ./logs/rtspservices:/app/logs
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+
+  rtsp_axis:
+    build:
+      context: ./rtspservices
+      dockerfile: Dockerfile
+    container_name: rtsp_axis_service
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - BRAND=axis
+      - RTSP_PORT=8556
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+    cap_add:
+      - NET_BIND_SERVICE
+    ports:  
+      - "8556:8556"
+      - "8010:8002"
+      - "8011:8003"
+    volumes:
+      - ./logs/rtspservices:/app/logs
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+
+  rtsp_reolink:
+    build:
+      context: ./rtspservices
+      dockerfile: Dockerfile
+    container_name: rtsp_reolink_service
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - BRAND=reolink
+      - RTSP_PORT=8557
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+    cap_add:
+      - NET_BIND_SERVICE
+    ports:
+      - "8557:8557"
+      - "8012:8002"
+      - "8013:8003"
+    volumes:
+      - ./logs/rtspservices:/app/logs
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+      grafana:
+        condition: service_healthy
+
+  
+  rtsp_mobotix:
+    build:
+      context: ./rtspservices
+      dockerfile: Dockerfile
+    container_name: rtsp_mobotix_service
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - BRAND=mobotix
+      - RTSP_PORT=8558
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+    cap_add:
+      - NET_BIND_SERVICE
+    ports:
+      - "8558:8558"
+      - "8014:8002"
+      - "8015:8003"
+    volumes:
+      - ./logs/rtspservices:/app/logs
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+
+
+  rtsp_vstarcam:
+    build:
+      context: ./rtspservices
+      dockerfile: Dockerfile
+    container_name: rtsp_vstarcam_service
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - BRAND=vstarcam
+      - RTSP_PORT=8559
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+    cap_add:
+      - NET_BIND_SERVICE
+    ports:
+      - "8559:8559"
+      - "8016:8002"
+      - "8017:8003"
+    volumes:
+      - ./logs/rtspservices:/app/logs
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+
+  axis_service:
+    build:
+      context: ./webservices
+      dockerfile: Dockerfile
+    container_name: axis_service
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - BRAND=axis
+      - PORT=10000
+      - ADMIN_PATH=admin
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+    ports:
+      - "10000:10000"
+    user: root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+      - ./logs:/app/logs
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+      grafana:
+        condition: service_healthy
+
+  dahua_service:
+    build:
+      context: ./webservices
+      dockerfile: Dockerfile
+    container_name: dahua_service
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - BRAND=dahua
+      - PORT=37777
+      - ADMIN_PATH=admin
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+    ports:
+      - "37777:37777"
+    user: root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+      - ./logs:/app/logs
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+      grafana:
+        condition: service_healthy
+
+  hikvision_service:
+    build:
+      context: ./webservices
+      dockerfile: Dockerfile
+    container_name: hikvision_service
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - BRAND=hikvision
+      - PORT=80
+      - ADMIN_PATH=admin
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+    ports:
+      - "80:80"
+    user: root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+      - ./logs:/app/logs
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+      grafana:
+        condition: service_healthy
+
+  mobotix_service:
+    build:
+      context: ./webservices
+      dockerfile: Dockerfile
+    container_name: mobotix_service
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - BRAND=mobotix
+      - PORT=443
+      - ADMIN_PATH=admin
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+    ports:
+      - "443:443"
+    user: root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+      - ./logs:/app/logs
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+      grafana:
+        condition: service_healthy
+
+  reolink_service:
+    build:
+      context: ./webservices
+      dockerfile: Dockerfile
+    container_name: reolink_service
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - BRAND=reolink
+      - PORT=8081
+      - ADMIN_PATH=admin
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+    ports:
+      - "8081:8081"
+    user: root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+      - ./logs:/app/logs
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+      grafana:
+        condition: service_healthy
+
+  vstarcam_service:
+    build:
+      context: ./webservices
+      dockerfile: Dockerfile
+    container_name: vstarcam_service
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - BRAND=vstarcam
+      - PORT=81
+      - ADMIN_PATH=admin
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}  
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+    ports:
+      - "81:81"
+    user: root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+      - ./logs:/app/logs
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+      grafana:
+        condition: service_healthy
+
+  #ONVIF
+  onvif_service:
+    build:
+      context: ./onvifservices
+      dockerfile: Dockerfile
+    container_name: onvif_service
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - ONVIF_BRAND=hikvision
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+      - ONVIF_HTTP_PORT=8080
+      - ONVIF_HTTP_ADDRESS=192.168.1.100
+    ports:
+      - "3702:3702/udp"
+      - "8080:8080"
+    cap_add:
+      - NET_BIND_SERVICE
+    volumes:
+      - ./logs/onvifservices:/app/logs
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+
+  onvif_dahua_service:
+    build:
+      context: ./onvifservices
+      dockerfile: Dockerfile
+    container_name: onvif_dahua_service
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - ONVIF_BRAND=dahua
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+      - ONVIF_HTTP_PORT=8086
+      - ONVIF_HTTP_ADDRESS=192.168.1.100
+    ports:
+      - "3703:3702/udp"
+      - "8086:8086"
+    cap_add:
+      - NET_BIND_SERVICE
+    volumes:
+      - ./logs/onvifservices:/app/logs
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+
+  onvif_axis_service:
+    build:
+      context: ./onvifservices
+      dockerfile: Dockerfile
+    container_name: onvif_axis_service
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - ONVIF_BRAND=axis
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+      - ONVIF_HTTP_PORT=8087
+      - ONVIF_HTTP_ADDRESS=192.168.1.100
+    ports:
+      - "3704:3702/udp"
+      - "8087:8087"
+    cap_add:
+      - NET_BIND_SERVICE
+    volumes:
+      - ./logs/onvifservices:/app/logs
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+
+  onvif_reolink_service:
+    build:
+      context: ./onvifservices
+      dockerfile: Dockerfile
+    container_name: onvif_reolink_service
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - ONVIF_BRAND=reolink
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+      - ONVIF_HTTP_PORT=8088
+      - ONVIF_HTTP_ADDRESS=192.168.1.100
+    ports:
+      - "3705:3702/udp"
+      - "8088:8088"
+    cap_add:
+      - NET_BIND_SERVICE
+    volumes:
+      - ./logs/onvifservices:/app/logs
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+
+  onvif_mobotix_service:
+    build:
+      context: ./onvifservices
+      dockerfile: Dockerfile
+    container_name: onvif_mobotix_service
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - ONVIF_BRAND=mobotix
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+      - ONVIF_HTTP_PORT=8089
+      - ONVIF_HTTP_ADDRESS=192.168.1.100
+    ports:
+      - "3706:3702/udp"
+      - "8089:8089"
+    cap_add:
+      - NET_BIND_SERVICE
+    volumes:
+      - ./logs/onvifservices:/app/logs
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+
+  onvif_vstarcam_service:
+    build:
+      context: ./onvifservices
+      dockerfile: Dockerfile
+    container_name: onvif_vstarcam_service
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - ONVIF_BRAND=vstarcam
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+      - ONVIF_HTTP_PORT=8090
+      - ONVIF_HTTP_ADDRESS=192.168.1.100
+    ports:
+      - "3707:3702/udp"
+      - "8090:8090"
+    cap_add:
+      - NET_BIND_SERVICE
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_FEATURE_TOGGLES_ENABLE=publicDashboards
+      - GF_PUBLIC_DASHBOARDS_ENABLED=true
+      - GF_PLUGINS_PREINSTALL=grafana-worldmap-panel
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/grafana.ini:/etc/grafana/grafana.ini
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      mysql_service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

@@ -1,0 +1,33 @@
+{
+  "name": "sweetcam-docker-manager",
+  "version": "1.0.0",
+  "description": "JavaScript version of SweetCam Docker Manager - A comprehensive tool for managing Docker services, camera setups, and health monitoring",
+  "main": "docker-manager.js",
+  "scripts": {
+    "start": "node docker-manager.js",
+    "health-check": "node docker-manager.js --health-check",
+    "status": "node docker-manager.js --status",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "docker",
+    "camera",
+    "management",
+    "sweetcam",
+    "onvif",
+    "rtsp",
+    "ssh"
+  ],
+  "author": "SweetCam Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.11.0",
+    "mysql2": "^3.14.3"
+  },
+  "bin": {
+    "docker-manager": "./docker-manager.js"
+  }
+}

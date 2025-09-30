@@ -1,0 +1,9 @@
+root:x:12345
+root:x:123456
+root:x:admin
+root:x:root
+Admin:x:admin
+Admin:x:Admin
+admin:x:12345
+Jimmy:x:1234567
+Nancy:x:1234567

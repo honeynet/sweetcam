@@ -1,8 +1,19 @@
-FROM aler9/rtsp-simple-server AS rtsp
-FROM alpine:3.12
-WORKDIR /app/rtsp
+FROM node:18-alpine
+WORKDIR /app
+
+#install ffmpeg for video processing
 RUN apk add --no-cache ffmpeg
-COPY --from=rtsp /mediamtx ./
-COPY mediamtx.yml ./
-RUN touch mediamtx.log
-ENTRYPOINT [ "./mediamtx" ]
+
+#copy package.json and install dependencies
+COPY package*.json ./
+RUN npm ci 
+
+#copy the RTSP server and fallback images
+COPY . .
+
+# Ensure fallback images are available
+RUN ls -la *.jpg *.png 2>/dev/null || echo "No image files found, will use fallback frame"
+
+EXPOSE 554 8002 8003 8004 8005
+
+CMD ["node", "rtsp-server.js"]

@@ -1,0 +1,140 @@
+doctype html
+html(lang="en")
+    head
+        meta(charset='UTF-8')
+        title= 'Login'
+        script(src='https://code.jquery.com/jquery-3.6.0.min.js')
+        style.
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                background-color: #ffffff;
+                margin: 0;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+            }
+            .login-container {
+                width: 360px;
+                text-align: center;
+            }
+            .brand-logo {
+                max-width: 360px;
+            }
+            h2 {
+                font-weight: 300;
+                color: #333;
+                margin-bottom: 30px;
+            }
+            .form-group {
+                margin-bottom: 20px;
+                text-align: left;
+            }
+            input[type=text], input[type=password] {
+                width: 100%;
+                padding: 12px;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                box-sizing: border-box;
+                font-size: 16px;
+            }
+            input[type=password] {
+                background-color: #fff9c4; 
+            }
+            button {
+                background-color: #003366; 
+                color: white;
+                padding: 12px 20px;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                width: 100%;
+                font-size: 16px;
+                font-weight: bold;
+                transition: background-color 0.3s;
+            }
+            button:hover {
+                background-color: #002244;
+            }
+            .options {
+                text-align: right;
+                margin-top: 10px;
+            }
+            .options a {
+                color: #003366;
+                text-decoration: none;
+                font-size: 14px;
+            }
+            .error-message {
+                color: red;
+                font-size: 14px;
+                height: 20px;
+                text-align: center;
+                font-weight: bold;
+                margin-top: 10px;
+                display: block;
+            }
+
+    body
+        .login-container
+            img.brand-logo(src=config.brandImagePath alt=config.brand)
+            .login-label(style='text-align:left; font-size:1.3em; color:#222; font-weight:400; margin-bottom:10px; margin-left:2px;') Login
+            div#errorMessage.error-message
+            form#loginForm
+                .form-group
+                    input(type='text' name='username' placeholder='Username' required style='background:#f5f5f5;')
+                .form-group
+                    input(type='password' name='password' placeholder='Password' required)
+                button(type='submit') Log in
+                .options
+                    a(href="#") Forgot password?
+
+        script.
+            $(document).ready(function() {
+                $('#loginForm').submit(function(e) {
+                    e.preventDefault();
+                    
+                    const username = $('input[name="username"]').val();
+                    const password = $('input[name="password"]').val();
+                    const $errorMessage = $('#errorMessage');
+
+                    
+                    $errorMessage.text('');
+
+                    
+                    const isAdminMode = window.location.pathname === '/admin/login' || #{isAdminMode || false};
+                    const loginUrl = isAdminMode ? '/admin/login' : '/login';
+                    
+                    $.ajax({
+                        url: loginUrl,
+                        method: 'POST',
+                        data: {
+                            username: username,
+                            password: password
+                        },
+                        success: function(response) {
+                            console.log('Login success:', response);
+                            if (response.message === "Login successful" || response.message === "Admin login successful") {
+                                window.location.href = '/';
+                            } else {
+                                $errorMessage.text('Login failed - please try again.');
+                            }
+                        },
+                        error: function(xhr, status, error) {
+                            console.log('Login error:', xhr.status, xhr.responseText);
+                            let message = 'An unknown error occurred.';
+                            if (xhr.status === 404) message = 'User not found.';
+                            if (xhr.status === 401) message = 'Wrong password.';
+                            if (xhr.status === 403) message = 'Too many attempts. Try again later.';
+                            
+                            $errorMessage.text(message);
+                            console.log('Error displayed:', message);
+                        }
+                    });
+                });
+                
+                
+                $('input[name="username"], input[name="password"]').on('input', function() {
+                    $('#errorMessage').text('');
+                });
+            }); 

@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# Port manager wrapper
+# This script makes it easier to use the port manager
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+NODE_SCRIPT="$SCRIPT_DIR/port-manager.js"
+
+#check if node.js is installed
+if ! command -v node &> /dev/null; then
+    echo "Node.js is not installed. Please install Node.js first."
+    exit 1
+fi
+
+#check if the port manager script exists
+if [ ! -f "$NODE_SCRIPT" ]; then
+    echo "Port manager script not found at $NODE_SCRIPT"
+    exit 1
+fi
+
+#make the script executable
+chmod +x "$NODE_SCRIPT"
+
+#pass all arguments to the node.js script
+node "$NODE_SCRIPT" "$@" 
