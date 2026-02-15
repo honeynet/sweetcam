@@ -6,7 +6,15 @@
     "loginButton": "Login",
     "usernameError": "Username not found",
     "passwordError": "Wrong password",
-    "rateError": "Too many attempts, try again later"
+    "rateError": "Too many attempts, try again later",
+    "forgotPassword": "Forgot Password?",
+    "resetPassword": "Reset Password",
+    "securityQuestion": "Security Question",
+    "securityAnswer": "Answer",
+    "securityCode": "Security Code",
+    "enterEmail": "Enter your email",
+    "resetLinkSent": "Password reset link has been sent to your email",
+    "resetSuccess": "Password has been reset successfully"
   },
   "main": {
     "camera": "Camera",
@@ -65,4 +73,4 @@
     "english": "English",
     "spanish": "Español"
   }
-} 
+}

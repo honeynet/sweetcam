@@ -158,6 +158,9 @@ html
                             span#passwordErrorMessage.error-message= __('login.passwordError')
                             span#rateErrorMessage.error-message= __('login.rateError')
                         button.login-btn(type='submit')= __('login.loginButton')
+                        .forgot-password(style="margin-top: 15px; text-align: center;")
+                            a(href="/forgot-password" style="color: #d32f2f; text-decoration: none; font-size: 14px;")= __('login.forgotPassword')
+
         script.
             
             function changeLanguage(lang) {

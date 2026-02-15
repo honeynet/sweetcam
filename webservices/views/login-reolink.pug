@@ -149,6 +149,9 @@ html(lang="en")
             i.fas.fa-key
             input(type="password", name="password", id="password", placeholder="Password", required)
           button(type="submit") Login
+          .forgot-password-link(style="margin-top: 15px; width: 310px; text-align: right;")
+            a(href="/forgot-password" style="color: #b0b8c1; text-decoration: none; font-size: 14px;")= __('login.forgotPassword')
+
 
     script(src="https://code.jquery.com/jquery-3.6.0.min.js")
     script.
