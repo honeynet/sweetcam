@@ -6,7 +6,15 @@
     "loginButton": "Iniciar Sesión",
     "usernameError": "Usuario no encontrado",
     "passwordError": "Contraseña incorrecta",
-    "rateError": "Demasiados intentos, inténtalo más tarde"
+    "rateError": "Demasiados intentos, inténtalo más tarde",
+    "forgotPassword": "¿Has olvidado tu contraseña?",
+    "resetPassword": "Restablecer contraseña",
+    "securityQuestion": "Pregunta de seguridad",
+    "securityAnswer": "Respuesta",
+    "securityCode": "Código de seguridad",
+    "enterEmail": "Introduce tu correo electrónico",
+    "resetLinkSent": "Se ha enviado un enlace de restablecimiento a tu correo",
+    "resetSuccess": "La contraseña se ha restablecido con éxito"
   },
   "main": {
     "camera": "Cámara",
@@ -65,4 +73,4 @@
     "english": "English",
     "spanish": "Español"
   }
-} 
+}

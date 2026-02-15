@@ -222,6 +222,8 @@ html(lang="en")
           i.fas.fa-lock
           input(type='password' name='password' placeholder=__('login.password') required)
         button(type='submit')= __('login.loginButton')
+        .options
+          a(href="/forgot-password")= __('login.forgotPassword')
     script.
       function changeLanguage(lang) {
         window.location.href = '/set-language/' + lang;

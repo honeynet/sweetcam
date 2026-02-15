@@ -109,6 +109,9 @@ html(lang="en")
         input.form-input(type="password" id="password" name="password" required)
       .button-row
         button.login-btn(type="submit")= __('login.loginButton')
+      .forgot-password-row(style="text-align: center; margin-top: 10px;")
+        a(href="/forgot-password" style="color: #444; text-decoration: none; font-size: 13px;")= __('login.forgotPassword')
+
       div#errorMessage.error-message
 
     script(src="https://code.jquery.com/jquery-3.6.0.min.js")

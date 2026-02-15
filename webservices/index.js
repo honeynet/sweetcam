@@ -428,6 +428,60 @@ app.get('/admin/login', (req, res) => {
     });
 });
 
+app.get('/forgot-password', (req, res) => {
+    const cameraType = getCameraType(req);
+    const config = sweetcamServices.getCameraConfig(cameraType);
+    const port = process.env.PORT || req.connection.server.address().port;
+
+    honeypotLogger.logServiceAccess(
+        req.ip,
+        'GET',
+        '/forgot-password',
+        200,
+        req.get('User-Agent'),
+        cameraType,
+        port,
+        req.sessionID
+    );
+
+    res.render(`forgot-password-${cameraType}`, {
+        config: config,
+        locale: req.session.locale || 'en'
+    });
+});
+
+app.post('/forgot-password', async (req, res) => {
+    try {
+        const cameraType = getCameraType(req);
+        const port = process.env.PORT || req.connection.server.address().port;
+        const payload = req.body;
+
+        // Log the reset attempt as a suspicious activity
+        honeypotLogger.logHTTPRequest(
+            req.ip,
+            'POST',
+            '/forgot-password',
+            200,
+            req.get('User-Agent'),
+            cameraType,
+            port,
+            req.sessionID,
+            { body: payload },
+            { message: "Reset request received" }
+        );
+
+        // Return success to keep the attacker engaged
+        res.status(200).send({
+            message: "Reset request processed successfully",
+            brand: cameraType
+        });
+    } catch (error) {
+        console.error('Forgot password error:', error);
+        honeypotLogger.logError(error, 'forgot_password_endpoint', req.sessionID);
+        res.status(500).send({ error: "Internal server error" });
+    }
+});
+
 app.post('/login', async (req, res) => { //login endpoint
     try {
         const cameraType = getCameraType(req);
