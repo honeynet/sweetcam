@@ -294,3 +294,27 @@ FROM cowrie_service_logs;
 CREATE USER IF NOT EXISTS 'grafana'@'%' IDENTIFIED BY 'grafana_pass';
 GRANT SELECT ON sweetcam.* TO 'grafana'@'%';
 FLUSH PRIVILEGES;
+
+-- Table for camera profiles from the generator
+CREATE TABLE IF NOT EXISTS `camera_profiles`
+(
+    `id`                 bigint        NOT NULL AUTO_INCREMENT,
+    `vendor`             varchar(50)   NOT NULL,
+    `model`              varchar(100)  NOT NULL,
+    `firmware`           varchar(100)  DEFAULT NULL,
+    `server`             varchar(100)  DEFAULT NULL,
+    `ports`              json          NOT NULL,
+    `rtsp_path`          varchar(255)  DEFAULT NULL,
+    `resolution`         varchar(50)   DEFAULT NULL,
+    `frame_rate`         varchar(50)   DEFAULT NULL,
+    `video_mode`         varchar(100)  DEFAULT NULL,
+    `compression`        varchar(50)   DEFAULT NULL,
+    `status`             varchar(20)   NOT NULL DEFAULT 'Online',
+    `created_at`         TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`         TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    INDEX `idx_vendor` (`vendor`),
+    INDEX `idx_model` (`model`),
+    INDEX `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+

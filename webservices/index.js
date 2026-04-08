@@ -316,116 +316,147 @@ app.get('/api/images', requireAuth, (req, res) => {
 });
 
 //api endpoint to get camera information
-app.get('/api/camera-info', requireAuth, (req, res) => {
-    const cameraType = getCameraType(req);
-    const port = process.env.PORT || req.connection.server.address().port;
-    const config = sweetcamServices.getCameraConfig(cameraType);
-    
-    honeypotLogger.logServiceAccess(
-        req.ip,
-        req.method,
-        req.url,
-        res.statusCode,
-        req.get('User-Agent'),
-        cameraType,
-        port,
-        req.sessionID
-    );
-    
-    //add live status
-    const cameraInfo = {
-        ...config,
-        status: "Online",
-        uptime: "Live",
-        lastRestart: new Date().toLocaleString()
-    };
-    
-    res.json(cameraInfo);
+app.get('/api/camera-info', requireAuth, async (req, res) => {
+    try {
+        const cameraType = getCameraType(req);
+        const port = process.env.PORT || req.connection.server.address().port;
+        const config = await sweetcamServices.getMergedCameraConfig(cameraType);
+
+        honeypotLogger.logServiceAccess(
+            req.ip,
+            req.method,
+            req.url,
+            res.statusCode,
+            req.get('User-Agent'),
+            cameraType,
+            port,
+            req.sessionID
+        );
+
+        const cameraInfo = {
+            ...config,
+            firmwareVersion: config.firmware || "N/A",
+            ipAddress: config.ipAddress || "N/A",
+            macAddress: config.macAddress || "N/A",
+            status: config.status || "Online",
+            uptime: config.uptime || "Live",
+            lastRestart: config.lastRestart || new Date().toLocaleString()
+        };
+
+        res.json(cameraInfo);
+    } catch (error) {
+        console.error('Error loading camera info:', error);
+        honeypotLogger.logError(error, 'api_camera_info', req.sessionID);
+        res.status(500).json({ error: 'Failed to load camera info' });
+    }
 });
 
 //mount admin routes after main routes to avoid conflicts
 
 //routes
-app.get('/', requireAuth, (req, res) => {
-    //get camera type from server port
-    const cameraType = getCameraType(req);
-    const port = process.env.PORT || req.connection.server.address().port;
-    const config = sweetcamServices.getCameraConfig(cameraType);
-    
-    honeypotLogger.logServiceAccess(
-        req.ip,
-        req.method,
-        req.url,
-        res.statusCode,
-        req.get('User-Agent'),
-        cameraType,
-        port,
-        req.sessionID
-    );
-    
-    res.render(cameraType, { 
-        config: config, 
-        userName: req.session.username,
-        model: config.model,
-        brand: config.brand,
-        brandImagePath: config.brandImagePath,
-        brandImageWidth: config.brandImageWidth,
-        locale: req.session.locale || 'en',
-        isAdmin: req.session.isAdmin || false
-    });
+app.get('/', requireAuth, async (req, res) => {
+    try {
+        const cameraType = getCameraType(req);
+        const port = process.env.PORT || req.connection.server.address().port;
+        const config = await sweetcamServices.getMergedCameraConfig(cameraType);
+
+        honeypotLogger.logServiceAccess(
+            req.ip,
+            req.method,
+            req.url,
+            res.statusCode,
+            req.get('User-Agent'),
+            cameraType,
+            port,
+            req.sessionID
+        );
+
+        res.render(cameraType, { 
+            config: config,
+            userName: req.session.username,
+            model: config.model,
+            brand: config.brand,
+            brandImagePath: config.brandImagePath,
+            brandImageWidth: config.brandImageWidth,
+            firmware: config.firmware,
+            resolution: config.resolution,
+            frame_rate: config.frame_rate,
+            video_mode: config.video_mode,
+            compression: config.compression,
+            status: config.status,
+            locale: req.session.locale || 'en',
+            isAdmin: req.session.isAdmin || false
+        });
+    } catch (error) {
+        console.error('Error rendering main camera page:', error);
+        honeypotLogger.logError(error, 'main_page_render', req.sessionID);
+        res.status(500).send('Failed to load camera page');
+    }
 });
 
-app.get('/login', (req, res) => {
-    //if user is already logged in, redirect to home page
+app.get('/login', async (req, res) => {
     if (req.session && req.session.username) {
         return res.redirect('/');
     }
-    const cameraType = getCameraType(req);
-    const config = sweetcamServices.getCameraConfig(cameraType);
-    const port = process.env.PORT || req.connection.server.address().port;
-    
-    honeypotLogger.logServiceAccess(
-        req.ip,
-        req.method,
-        req.url,
-        res.statusCode,
-        req.get('User-Agent'),
-        cameraType,
-        port,
-        req.sessionID
-    );
-    
-    res.render(`login-${cameraType}`, { 
-        config: config,
-        locale: req.session.locale || 'en',
-        isAdminMode: false
-    });
+
+    try {
+        const cameraType = getCameraType(req);
+        const config = await sweetcamServices.getMergedCameraConfig(cameraType);
+        const port = process.env.PORT || req.connection.server.address().port;
+
+        honeypotLogger.logServiceAccess(
+            req.ip,
+            req.method,
+            req.url,
+            res.statusCode,
+            req.get('User-Agent'),
+            cameraType,
+            port,
+            req.sessionID
+        );
+
+        res.render(`login-${cameraType}`, { 
+            config: config,
+            locale: req.session.locale || 'en',
+            isAdminMode: false
+        });
+    } catch (error) {
+        console.error('Error rendering login page:', error);
+        honeypotLogger.logError(error, 'login_page_render', req.sessionID);
+        res.status(500).send('Failed to load login page');
+    }
 });
 
-app.get('/admin/login', (req, res) => {
-    //if user is already logged in, redirect to home page
+app.get('/admin/login', async (req, res) => {
     if (req.session && req.session.username) {
         return res.redirect('/');
     }
-    const cameraType = getCameraType(req);
-    const config = sweetcamServices.getCameraConfig(cameraType);
-    const port = process.env.PORT || req.connection.server.address().port;
-    
-    honeypotLogger.logServiceAccess(
-        req.ip,
-        'GET',
-        '/admin/login',
-        200,
-        req.get('User-Agent'),
-        cameraType,
-        port
-    );
-    
-    res.render(`login-${cameraType}`, { 
-        config: config,
-        locale: req.session.locale || 'en',
-        isAdminMode: true
-    });
+
+    try {
+        const cameraType = getCameraType(req);
+        const config = await sweetcamServices.getMergedCameraConfig(cameraType);
+        const port = process.env.PORT || req.connection.server.address().port;
+
+        honeypotLogger.logServiceAccess(
+            req.ip,
+            'GET',
+            '/admin/login',
+            200,
+            req.get('User-Agent'),
+            cameraType,
+            port
+        );
+
+        res.render(`login-${cameraType}`, { 
+            config: config,
+            locale: req.session.locale || 'en',
+            isAdminMode: true
+        });
+    } catch (error) {
+        console.error('Error rendering admin login page:', error);
+        honeypotLogger.logError(error, 'admin_login_page_render', req.sessionID);
+        res.status(500).send('Failed to load admin login page');
+    }
 });
 
 app.post('/login', async (req, res) => { //login endpoint

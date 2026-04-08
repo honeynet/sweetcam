@@ -45,15 +45,20 @@ adminRouter.patch(`/${prefix}/password`, requireAdminAuth, async (req, res) => {
     return res.status(200).send({message: "password update succeed"}).end()
 })
 
-adminRouter.get(`/${prefix}/picture`, requireAdminAuth, (req, res) => {
-    const cameraType = getCameraTypeByPort(80); // Default to hikvision for admin
-    const config = {
-        ...sweetcamServices.getCamPictureConfig(cameraType),
-        ...sweetcamServices.getBrandConfig(cameraType),
-        userName: req.adminUser ? req.adminUser.name : "admin"
+adminRouter.get(`/${prefix}/picture`, requireAdminAuth, async (req, res) => {
+    try {
+        const cameraType = getCameraTypeByPort(80); // Default to hikvision for admin
+        const config = {
+            ...(await sweetcamServices.getCamPictureConfig(cameraType)),
+            ...(await sweetcamServices.getBrandConfig(cameraType)),
+            userName: req.adminUser ? req.adminUser.name : "admin"
+        };
+        res.render("picture", config);
+    } catch (error) {
+        console.error('Error rendering picture page:', error);
+        res.status(500).send({ error: 'Failed to load picture page' });
     }
-    res.render("picture", config);
-})
+});
 
 adminRouter.get(`/${prefix}/payloads`, requireAdminAuth, (req, res) => {
     res.render("payloads", {
@@ -62,15 +67,20 @@ adminRouter.get(`/${prefix}/payloads`, requireAdminAuth, (req, res) => {
 })
 
 
-adminRouter.get(`/${prefix}/video`, requireAdminAuth, (req, res) => {
-    const cameraType = getCameraTypeByPort(80); // Default to hikvision for admin
-    const config = {
-        ...sweetcamServices.getCamVideoConfig(cameraType),
-        ...sweetcamServices.getBrandConfig(cameraType),
-        userName: req.adminUser ? req.adminUser.name : "admin"
+adminRouter.get(`/${prefix}/video`, requireAdminAuth, async (req, res) => {
+    try {
+        const cameraType = getCameraTypeByPort(80); // Default to hikvision for admin
+        const config = {
+            ...(await sweetcamServices.getCamVideoConfig(cameraType)),
+            ...(await sweetcamServices.getBrandConfig(cameraType)),
+            userName: req.adminUser ? req.adminUser.name : "admin"
+        };
+        res.render("video", config);
+    } catch (error) {
+        console.error('Error rendering video page:', error);
+        res.status(500).send({ error: 'Failed to load video page' });
     }
-    res.render("video", config)
-})
+});
 
 
 adminRouter.post(`/${prefix}/user`, requireAdminAuth, async (req, res) => {
@@ -87,11 +97,16 @@ adminRouter.patch(`/${prefix}/config/cam-picture`, requireAdminAuth, (req, res) 
     res.status(200).send({ message: `${name} has been updated to ${value}` })
 })
 
-adminRouter.get(`/${prefix}/config/cam-picture`, requireAdminAuth, (req, res) => {
-    const cameraType = getCameraTypeByPort(80); // Default to hikvision for admin
-    const camPictureConfig = sweetcamServices.getCamPictureConfig(cameraType)
-    res.json(camPictureConfig)
-})
+adminRouter.get(`/${prefix}/config/cam-picture`, requireAdminAuth, async (req, res) => {
+    try {
+        const cameraType = getCameraTypeByPort(80); // Default to hikvision for admin
+        const camPictureConfig = await sweetcamServices.getCamPictureConfig(cameraType);
+        res.json(camPictureConfig);
+    } catch (error) {
+        console.error('Error getting camera picture config:', error);
+        res.status(500).json({ error: 'Failed to get camera picture config' });
+    }
+});
 
 
 adminRouter.patch(`/${prefix}/cam-video`, requireAdminAuth, (req, res) => {
@@ -100,11 +115,16 @@ adminRouter.patch(`/${prefix}/cam-video`, requireAdminAuth, (req, res) => {
     res.status(200).send({ message: `${name} has been updated to ${value}` })
 })
 
-adminRouter.get(`/${prefix}/cam-video`, requireAdminAuth, (req, res) => {
-    const cameraType = getCameraTypeByPort(80); // Default to hikvision for admin
-    const camVideoConfig = sweetcamServices.getCamVideoConfig(cameraType)
-    res.json(camVideoConfig)
-})
+adminRouter.get(`/${prefix}/cam-video`, requireAdminAuth, async (req, res) => {
+    try {
+        const cameraType = getCameraTypeByPort(80); // Default to hikvision for admin
+        const camVideoConfig = await sweetcamServices.getCamVideoConfig(cameraType);
+        res.json(camVideoConfig);
+    } catch (error) {
+        console.error('Error getting camera video config:', error);
+        res.status(500).json({ error: 'Failed to get camera video config' });
+    }
+});
 
 
 adminRouter.post(`/${prefix}/brands`, requireAdminAuth, adminServices.uploadBrands, (req, res) => {

@@ -622,18 +622,17 @@ html(lang="en")
             function populateCameraInfo(data) {
                 const fieldMappings = {
                     'camera-model': data.model || 'N/A',
-                    'firmware-version': data.firmwareVersion || 'N/A',
+                    'firmware-version': data.firmware || data.firmwareVersion || 'N/A',
                     'ip-address': data.ipAddress || 'N/A',
                     'mac-address': data.macAddress || 'N/A',
                     'resolution': data.resolution || 'N/A',
-                    'frame-rate': data.specifications?.fps || 'N/A',
-                    'compression': data.specifications?.compression || 'N/A',
+                    'frame-rate': data.frame_rate || data.specifications?.fps || 'N/A',
+                    'compression': data.compression || data.specifications?.compression || 'N/A',
                     'status': data.status || 'Online',
                     'uptime': data.uptime || 'Live',
                     'last-restart': data.lastRestart || 'N/A'
                 };
 
-                
                 Object.keys(fieldMappings).forEach(fieldId => {
                     const element = document.getElementById(fieldId);
                     if (element) {

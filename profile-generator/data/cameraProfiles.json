@@ -1,0 +1,278 @@
+{
+  "Hikvision": {
+    "models": {
+      "DS-2CD3T52H2-K": {
+        "firmware": [
+          "V5.5.82 build 190116",
+          "V5.6.0 build 200305",
+          "V5.6.2 build 210112"
+        ],
+        "servers": [
+          "App-webs/"
+        ],
+        "ports": [
+          [80, 554],
+          [80, 554, 8000],
+          [80, 443, 554, 8000],
+          [80, 554, 8000, 8200],
+          [80, 443, 554, 8000, 8200]
+        ],
+        "rtsp": [
+          "/Streaming/Channels/101",
+          "/Streaming/Channels/102"
+        ],
+        "video_modes": [
+          {
+            "resolution": "2560x1440",
+            "frame_rate": "25fps",
+            "compression": "H.265"
+          },
+          {
+            "resolution": "2560x1440",
+            "frame_rate": "20fps",
+            "compression": "H.264"
+          },
+          {
+            "resolution": "1920x1080",
+            "frame_rate": "30fps",
+            "compression": "H.264"
+          },
+          {
+            "resolution": "1920x1080",
+            "frame_rate": "25fps",
+            "compression": "H.265"
+          }
+        ]
+      },
+
+      "DS-2CD2143G0-I": {
+        "firmware": [
+          "V5.5.80 build 180910",
+          "V5.5.83 build 190221",
+          "V5.6.1 build 200107"
+        ],
+        "servers": [
+          "App-webs/"
+        ],
+        "ports": [
+          [80, 554],
+          [80, 554, 8000],
+          [80, 443, 554, 8000],
+          [80, 554, 8000, 8200],
+          [80, 443, 554, 8000, 8200]
+        ],
+        "rtsp": [
+          "/Streaming/Channels/101",
+          "/Streaming/Channels/102"
+        ],
+        "video_modes": [
+          {
+            "resolution": "2688x1520",
+            "frame_rate": "30fps",
+            "compression": "H.265"
+          },
+          {
+            "resolution": "2688x1520",
+            "frame_rate": "25fps",
+            "compression": "H.264"
+          },
+          {
+            "resolution": "1920x1080",
+            "frame_rate": "30fps",
+            "compression": "H.264"
+          },
+          {
+            "resolution": "1280x720",
+            "frame_rate": "30fps",
+            "compression": "H.264"
+          }
+        ]
+      }
+    }
+  },
+
+  "Dahua": {
+    "models": {
+      "IPC-HFW2431S-S-S2": {
+        "firmware": [
+          "2.800.0000000.8.R",
+          "2.820.0000000.12.R",
+          "2.840.0000000.18.R"
+        ],
+        "servers": [
+          "lighttpd/1.4.45",
+          "webserver"
+        ],
+        "ports": [
+          [80, 554],
+          [80, 554, 37777],
+          [80, 554, 37777, 8080],
+          [80, 443, 554, 37777],
+          [80, 443, 554, 37777, 8080]
+        ],
+        "rtsp": [
+          "/cam/realmonitor?channel=1&subtype=0",
+          "/cam/realmonitor?channel=1&subtype=1"
+        ],
+        "video_modes": [
+          {
+            "resolution": "2688x1520",
+            "frame_rate": "20fps",
+            "compression": "H.265"
+          },
+          {
+            "resolution": "2688x1520",
+            "frame_rate": "20fps",
+            "compression": "H.264"
+          },
+          {
+            "resolution": "2560x1440",
+            "frame_rate": "30fps",
+            "compression": "H.265"
+          },
+          {
+            "resolution": "2560x1440",
+            "frame_rate": "25fps",
+            "compression": "H.264"
+          },
+          {
+            "resolution": "1920x1080",
+            "frame_rate": "30fps",
+            "compression": "H.264"
+          }
+        ]
+      },
+
+      "IPC-HDBW2231E-S-S2": {
+        "firmware": [
+          "2.622.0000000.5.R",
+          "2.680.0000000.7.R",
+          "2.800.0000000.3.R"
+        ],
+        "servers": [
+          "lighttpd/1.4.45"
+        ],
+        "ports": [
+          [80, 554],
+          [80, 554, 37777],
+          [80, 554, 37777, 8080],
+          [80, 443, 554, 37777],
+          [80, 443, 554, 37777, 8080]
+        ],
+        "rtsp": [
+          "/cam/realmonitor?channel=1&subtype=0",
+          "/cam/realmonitor?channel=1&subtype=1"
+        ],
+        "video_modes": [
+          {
+            "resolution": "1920x1080",
+            "frame_rate": "30fps",
+            "compression": "H.265"
+          },
+          {
+            "resolution": "1920x1080",
+            "frame_rate": "25fps",
+            "compression": "H.264"
+          },
+          {
+            "resolution": "1280x720",
+            "frame_rate": "30fps",
+            "compression": "H.264"
+          }
+        ]
+      }
+    }
+  },
+
+  "Axis": {
+    "models": {
+      "M3046-V": {
+        "firmware": [
+          "8.40.1",
+          "9.20.3",
+          "10.12.65"
+        ],
+        "servers": [
+          "nginx/1.14.0",
+          "nginx"
+        ],
+        "ports": [
+          [80, 554],
+          [80, 443, 554],
+          [443, 554],
+          [80, 554, 8080],
+          [80, 443, 554, 8080]
+        ],
+        "rtsp": [
+          "/axis-media/media.amp",
+          "/axis-media/media.amp?videocodec=h264"
+        ],
+        "video_modes": [
+          {
+            "resolution": "2688x1520",
+            "frame_rate": "30fps",
+            "compression": "H.264"
+          },
+          {
+            "resolution": "2688x1520",
+            "frame_rate": "25fps",
+            "compression": "H.264"
+          },
+          {
+            "resolution": "2304x1296",
+            "frame_rate": "30fps",
+            "compression": "MJPEG"
+          },
+          {
+            "resolution": "1920x1080",
+            "frame_rate": "30fps",
+            "compression": "H.264"
+          }
+        ]
+      }
+    }
+  },
+
+  "Foscam": {
+    "models": {
+      "FI9900P": {
+        "firmware": [
+          "2.52.2.43",
+          "2.84.2.16",
+          "2.84.2.24"
+        ],
+        "servers": [
+          "GoAhead-Webs"
+        ],
+        "ports": [
+          [80, 554],
+          [88, 554],
+          [80, 554, 8888],
+          [80, 443, 554],
+          [88, 554, 8888, 5000]
+        ],
+        "rtsp": [
+          "/videoMain",
+          "/videoSub"
+        ],
+        "video_modes": [
+          {
+            "resolution": "1920x1080",
+            "frame_rate": "30fps",
+            "compression": "H.264"
+          },
+          {
+            "resolution": "1920x1080",
+            "frame_rate": "25fps",
+            "compression": "H.264"
+          },
+          {
+            "resolution": "1280x720",
+            "frame_rate": "30fps",
+            "compression": "H.264"
+          }
+        ]
+      }
+    }
+  }
+}

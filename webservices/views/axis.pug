@@ -736,21 +736,19 @@ html(lang="en")
             
             async function loadSystemInfo() {
                 try {
-                    const res = await fetch('/config/axis.json');
+                    const res = await fetch('/api/camera-info');
                     const data = await res.json();
-                    
-                    
+
                     if (data.model) document.getElementById('model-value').textContent = data.model;
                     if (data.type) document.getElementById('type-value').textContent = data.type;
                     if (data.resolution) document.getElementById('resolution-value').textContent = data.resolution;
                     if (data.specifications) {
-                      if (data.specifications.sensor) document.getElementById('sensor-value').textContent = data.specifications.sensor;
-                      if (data.specifications.lens) document.getElementById('lens-value').textContent = data.specifications.lens;
-                      if (data.specifications.fps) document.getElementById('fps-value').textContent = data.specifications.fps;
-                      if (data.specifications.compression) document.getElementById('compression-value').textContent = data.specifications.compression;
+                    if (data.specifications.sensor) document.getElementById('sensor-value').textContent = data.specifications.sensor;
+                    if (data.specifications.lens) document.getElementById('lens-value').textContent = data.specifications.lens;
+                    if (data.specifications.fps) document.getElementById('fps-value').textContent = data.specifications.fps;
+                    if (data.specifications.compression) document.getElementById('compression-value').textContent = data.specifications.compression;
                     }
                 } catch (e) {
-                    
                     const errorElement = document.createElement('li');
                     errorElement.textContent = labels.error;
                     const systemInfoList = document.getElementById('system-info-list');
