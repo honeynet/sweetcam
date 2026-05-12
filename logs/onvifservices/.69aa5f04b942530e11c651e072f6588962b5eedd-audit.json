@@ -6,9 +6,9 @@
     "auditLog": "/app/logs/.69aa5f04b942530e11c651e072f6588962b5eedd-audit.json",
     "files": [
         {
-            "date": 1774446349618,
-            "name": "/app/logs/onvif-app-2026-03-25.log",
-            "hash": "1bd13a5b36e5f35ee968b2a4e1ce228c9b7f124fbc98fb55726f118db44b82de"
+            "date": 1778625997571,
+            "name": "/app/logs/onvif-app-2026-05-12.log",
+            "hash": "39c9b76fef600cc812b2c6e118b5bb32b41f8ff9ff6eff680328e9e68985c10b"
         }
     ],
     "hashType": "sha256"

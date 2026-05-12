@@ -94,6 +94,7 @@ services:
     restart: unless-stopped
     env_file: ./.env
     environment:
+      - REQUIRE_RTSP_AUTH=true
       - BRAND=auto
       - DB_HOST=${DB_HOST}
       - DB_USER=${DB_USER}
@@ -123,6 +124,7 @@ services:
     restart: unless-stopped
     env_file: ./.env
     environment:
+      - REQUIRE_RTSP_AUTH=true
       - BRAND=hikvision
       - RTSP_PORT=8554
       - DB_HOST=${DB_HOST}
@@ -150,6 +152,7 @@ services:
     restart: unless-stopped
     env_file: ./.env
     environment:
+      - REQUIRE_RTSP_AUTH=false
       - BRAND=dahua
       - RTSP_PORT=8555
       - DB_HOST=${DB_HOST}

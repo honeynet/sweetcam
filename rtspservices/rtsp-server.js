@@ -12,6 +12,7 @@ const { rtspLogger } = require('./utils/logger');
 //get configuration from environment variables
 const BRAND = process.env.BRAND || 'auto';
 const RTSP_PORT = parseInt(process.env.RTSP_PORT) || 554;
+const REQUIRE_RTSP_AUTH = process.env.REQUIRE_RTSP_AUTH !== 'false';
 
 //database configuration for mysql2 pool
 const poolConfig = {
@@ -251,7 +252,7 @@ a=control:trackID=1\r
             }
             
             //authentication check (only for DESCRIBE and later methods)
-            if (method === 'DESCRIBE' || method === 'SETUP' || method === 'PLAY' || method === 'PAUSE' || method === 'TEARDOWN') {
+            if ( REQUIRE_RTSP_AUTH && (method === 'DESCRIBE' || method === 'SETUP' || method === 'PLAY' || method === 'PAUSE' || method === 'TEARDOWN')) {
                 if (authenticatedSession && authenticatedSession.authenticated) {
                     //using authenticated session - no need to re-authenticate
                     console.log('Using existing authenticated session for:', sessionId);
@@ -403,14 +404,20 @@ a=control:trackID=1\r
             
             if (method === 'OPTIONS') {
                 //send brand-specific OPTIONS response
-                let response;
-                if (brand === 'dahua') {
-                    response = brandConfig.patterns.options.pattern1;
-                } else if (cseq === '42') {
-                    response = brandConfig.patterns.options.pattern2(cseq);
-                } else {
-                    response = brandConfig.patterns.options.pattern1;
-                }
+                const response =
+                    `RTSP/1.0 200 OK\r\n` +
+                    `CSeq: ${cseq}\r\n` +
+                    `Public: OPTIONS, DESCRIBE, SETUP, PLAY, PAUSE, TEARDOWN\r\n` +
+                    `\r\n`;
+                
+                // let response;
+                // if (brand === 'dahua') {
+                //     response = brandConfig.patterns.options.pattern1;
+                // } else if (cseq === '42') {
+                //     response = brandConfig.patterns.options.pattern2(cseq);
+                // } else {
+                //     response = brandConfig.patterns.options.pattern1;
+                // }
                 
                 //log the request/response with payloads (without duplicating credentials)
                 const session = this.sessions.get(sessionId);
