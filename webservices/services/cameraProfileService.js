@@ -54,7 +54,9 @@ const getRandomProfileByVendor = async (vendor) => {
 
 const getProfileForCameraType = async (cameraType = "hikvision") => {
     const vendor = getVendorForCameraType(cameraType);
-    return await getRandomProfileByVendor(vendor);
+    const profile = await getRandomProfileByVendor(vendor);
+    console.log(`[PROFILE] cameraType=${cameraType}, vendor=${vendor}, profileId=${profile?.id}, model=${profile?.model}`);
+    return profile;
 };
 
 const getProfileById = async (id) => {
