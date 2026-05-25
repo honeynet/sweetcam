@@ -14,6 +14,15 @@ const BRAND = process.env.BRAND || 'auto';
 const RTSP_PORT = parseInt(process.env.RTSP_PORT) || 554;
 const REQUIRE_RTSP_AUTH = process.env.REQUIRE_RTSP_AUTH !== 'false';
 
+const CAMERA_TYPE_TO_VENDOR = {
+    hikvision: 'Hikvision',
+    dahua: 'Dahua',
+    axis: 'Axis',
+    reolink: 'Reolink',
+    mobotix: 'Mobotix',
+    vstarcam: 'VStarcam'
+};
+
 //database configuration for mysql2 pool
 const poolConfig = {
     host: dbConfig.HOST,
@@ -100,6 +109,7 @@ class RTSPServer {
     constructor() {
         this.sessions = new Map(); 
         this.streams = new Map();
+        this.profileCache = new Map();
         this.sessionCounter = 0;
         this.brandDetector = new BrandDetector();
         this.forcedBrand = BRAND !== 'auto' ? BRAND : null;
@@ -115,7 +125,8 @@ class RTSPServer {
                 name: `${brand} Video stream`,
                 rtpPort: 8002,
                 rtcpPort: 8003,
-                brand: brand
+                brand: brand,
+                path: `/${brand}`
             });
         });
         
@@ -124,7 +135,8 @@ class RTSPServer {
             name: 'Video stream',
             rtpPort: 8002,
             rtcpPort: 8003,
-            brand: this.forcedBrand || 'hikvision'
+            brand: this.forcedBrand || 'hikvision',
+            path: '/stream'
         });
     }
 
@@ -132,17 +144,191 @@ class RTSPServer {
         return `session_${++this.sessionCounter}`;
     }
 
-    generateSDP(name = 'Video stream', serverAddress = '127.0.0.1', brand = 'hikvision') { 
-        const brandConfig = this.brandDetector.getBrandConfig(brand);
+    getVendorForBrand(brand = 'hikvision') {
+        return CAMERA_TYPE_TO_VENDOR[brand] || 'Hikvision';
+    }
+
+    normalizeRtspPath(rtspPath) {
+        if (!rtspPath) return null;
+        const trimTrailingSlash = value => value.length > 1 ? value.replace(/\/+$/, '') : value;
+
+        try {
+            if (rtspPath.startsWith('rtsp://')) {
+                const pathname = new URL(rtspPath).pathname || '/';
+                return trimTrailingSlash(pathname.replace(/\/trackID=\d+$/, ''));
+            }
+        } catch (error) {
+            // Fall through to plain-path normalization.
+        }
+
+        const pathOnly = rtspPath.split('?')[0].replace(/\/trackID=\d+$/, '');
+        const normalizedPath = pathOnly.startsWith('/') ? pathOnly : `/${pathOnly}`;
+        return trimTrailingSlash(normalizedPath);
+    }
+
+    parseFrameRate(frameRate) {
+        if (!frameRate) return parseInt(process.env.RTSP_FRAME_RATE, 10) || 15;
+
+        const match = String(frameRate).match(/\d+/);
+        return match ? parseInt(match[0], 10) : (parseInt(process.env.RTSP_FRAME_RATE, 10) || 15);
+    }
+
+    getDefaultStream(brand = 'hikvision') {
+        return {
+            name: `${brand} Video stream`,
+            rtpPort: 8002,
+            rtcpPort: 8003,
+            brand,
+            path: `/${brand}`,
+            profile: null,
+            frameRate: parseInt(process.env.RTSP_FRAME_RATE, 10) || 15
+        };
+    }
+
+    buildProfileStream(brand, profile) {
+        if (!profile) return null;
+
+        const profilePath = this.normalizeRtspPath(profile.rtsp_path);
+        return {
+            name: `${profile.vendor || brand} ${profile.model || 'Video'} stream`,
+            rtpPort: 8002,
+            rtcpPort: 8003,
+            brand,
+            path: profilePath || `/${brand}`,
+            profile,
+            frameRate: this.parseFrameRate(profile.frame_rate)
+        };
+    }
+
+    async getProfileForBrand(brand = 'hikvision') {
+        if (this.profileCache.has(brand)) {
+            return this.profileCache.get(brand);
+        }
+
+        const vendor = this.getVendorForBrand(brand);
+
+        try {
+            const [profiles] = await pool.promise().query(
+                `SELECT id, vendor, model, firmware, server, ports, rtsp_path, resolution, frame_rate, video_mode, compression, status
+                 FROM camera_profiles
+                 WHERE LOWER(vendor) = LOWER(?) AND status = 'Online'
+                 ORDER BY RAND()
+                 LIMIT 1`,
+                [vendor]
+            );
+
+            const profile = profiles[0] || null;
+            this.profileCache.set(brand, profile);
+
+            if (profile) {
+                console.log(`[RTSP PROFILE] brand=${brand}, vendor=${vendor}, profileId=${profile.id}, path=${profile.rtsp_path || 'default'}`);
+            }
+
+            return profile;
+        } catch (error) {
+            console.error(`Could not load RTSP camera profile for ${vendor}: ${error.message}`);
+            this.profileCache.set(brand, null);
+            return null;
+        }
+    }
+
+    async getProfileForBrandPath(brand = 'hikvision', path = '/') {
+        const vendor = this.getVendorForBrand(brand);
+        const normalizedPath = this.normalizeRtspPath(path);
+
+        if (!normalizedPath) return null;
+
+        try {
+            const [profiles] = await pool.promise().query(
+                `SELECT id, vendor, model, firmware, server, ports, rtsp_path, resolution, frame_rate, video_mode, compression, status
+                 FROM camera_profiles
+                 WHERE LOWER(vendor) = LOWER(?)
+                   AND status = 'Online'
+                   AND SUBSTRING_INDEX(rtsp_path, CHAR(63), 1) = ?
+                 ORDER BY id DESC
+                 LIMIT 1`,
+                [vendor, normalizedPath]
+            );
+
+            const profile = profiles[0] || null;
+
+            if (profile) {
+                console.log(`[RTSP PROFILE] matched requested path brand=${brand}, vendor=${vendor}, profileId=${profile.id}, path=${profile.rtsp_path}`);
+            }
+
+            return profile;
+        } catch (error) {
+            console.error(`Could not load RTSP camera profile for ${vendor} path ${normalizedPath}: ${error.message}`);
+            return null;
+        }
+    }
+
+    async resolveStream(path, brand, method) {
+        const normalizedPath = this.normalizeRtspPath(path) || '/';
+        const exactProfile = await this.getProfileForBrandPath(brand, normalizedPath);
+        if (exactProfile) {
+            return this.buildProfileStream(brand, exactProfile);
+        }
+
+        const profile = await this.getProfileForBrand(brand);
+        const profileStream = this.buildProfileStream(brand, profile);
+
+        if (profileStream) {
+            const profilePath = this.normalizeRtspPath(profileStream.path);
+            const brandPath = `/${brand}`;
+
+            if (
+                normalizedPath === profilePath ||
+                normalizedPath === brandPath ||
+                normalizedPath === '/stream' ||
+                (method !== 'DESCRIBE' && (normalizedPath.startsWith(profilePath) || profilePath.startsWith(normalizedPath)))
+            ) {
+                return profileStream;
+            }
+        }
+
+        const stream = this.streams.get(normalizedPath);
+        if (stream) return stream;
+
+        if (method !== 'DESCRIBE') {
+            for (const [streamPath, streamData] of this.streams) {
+                if (normalizedPath.startsWith(streamPath) || streamPath.startsWith(normalizedPath)) {
+                    return streamData;
+                }
+            }
+        }
+
+        if (normalizedPath === `/${brand}` || normalizedPath === '/stream') {
+            return this.getDefaultStream(brand);
+        }
+
+        return null;
+    }
+
+    addServerHeader(response, serverName) {
+        if (!serverName || response.includes('\r\nServer:')) {
+            return response;
+        }
+
+        return response.replace('\r\nCSeq:', `\r\nServer: ${serverName}\r\nCSeq:`);
+    }
+
+    generateSDP(stream, serverAddress = '127.0.0.1') {
+        const streamConfig = typeof stream === 'string'
+            ? { name: stream, frameRate: parseInt(process.env.RTSP_FRAME_RATE, 10) || 15 }
+            : stream;
+        const streamName = streamConfig?.name || 'Video stream';
+        const frameRate = streamConfig?.frameRate || parseInt(process.env.RTSP_FRAME_RATE, 10) || 15;
+
         return `v=0\r
 o=- 0 0 IN IP4 ${serverAddress}\r
-s=${name}\r
+s=${streamName}\r
 c=IN IP4 ${serverAddress}\r
 t=0 0\r
 a=control:*\r
 m=video 8002 RTP/AVP 26\r
 a=rtpmap:26 JPEG/90000\r
-a=framerate:30.0\r
+a=framerate:${frameRate}.0\r
 a=control:trackID=1\r
 `;
     }
@@ -168,15 +354,11 @@ a=control:trackID=1\r
             try {
                 const urlObj = new URL(url);
                 let path = urlObj.pathname;
-                if (path.includes('=')) {
-                    path = path.split('=')[0];
-                }
-                return path;
+                return path.replace(/\/trackID=\d+$/, '');
             } catch (e) {
                 let path = url.replace(/^rtsp:\/\/[^\/]+/, '');
-                if (path.includes('=')) {
-                    path = path.split('=')[0];
-                }
+                path = path.split('?')[0];
+                path = path.replace(/\/trackID=\d+$/, '');
                 return path || '/';
             }
         }
@@ -184,9 +366,6 @@ a=control:trackID=1\r
         let path = url;
         path = path.split('?')[0];
         path = path.replace(/\/trackID=\d+$/, '');
-        if (path.includes('=')) {
-            path = path.split('=')[0];
-        }
         return path;
     }
 
@@ -429,12 +608,15 @@ a=control:trackID=1\r
             }
             
             if (method === 'OPTIONS') {
+                const profile = await this.getProfileForBrand(brand);
                 //send brand-specific OPTIONS response
-                const response =
+                const response = this.addServerHeader(
                     `RTSP/1.0 200 OK\r\n` +
                     `CSeq: ${cseq}\r\n` +
                     `Public: OPTIONS, DESCRIBE, SETUP, PLAY, PAUSE, TEARDOWN\r\n` +
-                    `\r\n`;
+                    `\r\n`,
+                    profile?.server
+                );
                 
                 // let response;
                 // if (brand === 'dahua') {
@@ -477,17 +659,8 @@ a=control:trackID=1\r
                 const streamPath = Array.from(this.streams.keys())[0];
                 path = streamPath;
             }
-            
-            let stream = this.streams.get(path);
-            
-            if (!stream && (method === 'SETUP' || method === 'PLAY' || method === 'PAUSE' || method === 'TEARDOWN')) {
-                for (const [streamPath, streamData] of this.streams) {
-                    if (path.startsWith(streamPath) || streamPath.startsWith(path)) {
-                        stream = streamData;
-                        break;
-                    }
-                }
-            }
+
+            let stream = await this.resolveStream(path, brand, method);
 
             if (!stream && method !== 'DESCRIBE') {
                 const notFoundResponse = `RTSP/1.0 404 Not Found\r\nCSeq: ${cseq}\r\n\r\n`;
@@ -539,9 +712,11 @@ a=control:trackID=1\r
                         return;
                     }
                     const serverAddress = socket.localAddress || '127.0.0.1';
-                    const sdp = this.generateSDP(stream.name, serverAddress, stream.brand);
-                    const baseURL = `rtsp://${serverAddress}:${RTSP_PORT}${path}/`;
-                    const sdpResponse = `RTSP/1.0 200 OK\r\nCSeq: ${cseq}\r\nContent-Type: application/sdp\r\nContent-Base: ${baseURL}\r\nContent-Length: ${Buffer.byteLength(sdp)}\r\n\r\n${sdp}`;
+                    const sdp = this.generateSDP(stream, serverAddress);
+                    const streamPath = stream.path || path;
+                    const baseURL = `rtsp://${serverAddress}:${RTSP_PORT}${streamPath}/`;
+                    const serverHeader = stream.profile?.server ? `Server: ${stream.profile.server}\r\n` : '';
+                    const sdpResponse = `RTSP/1.0 200 OK\r\nCSeq: ${cseq}\r\n${serverHeader}Content-Type: application/sdp\r\nContent-Base: ${baseURL}\r\nContent-Length: ${Buffer.byteLength(sdp)}\r\n\r\n${sdp}`;
                     
                     rtspLogger.logRTSPSessionWithPayload(
                         socket.remoteAddress, 
@@ -580,7 +755,10 @@ a=control:trackID=1\r
                     }
                     
                     this.sessions.set(sessionId2, {
-                        path: stream ? stream.name : '/stream',
+                        path: stream ? stream.path : '/stream',
+                        streamName: stream ? stream.name : 'Video stream',
+                        profile: stream ? stream.profile : null,
+                        frameRate: stream ? stream.frameRate : (parseInt(process.env.RTSP_FRAME_RATE, 10) || 15),
                         state: 'setup',
                         rtpPort: serverRtpPort,
                         clientRtpPort: transport.rtpPort,
@@ -617,8 +795,8 @@ a=control:trackID=1\r
                         password
                     );
                     
-                    rtspLogger.logRTSPStreamSetup(socket.remoteAddress, sessionId2, stream ? stream.name : '/stream', transport, brand, RTSP_PORT, username, password);
-                    rtspLogger.logRTSPSession(socket.remoteAddress, sessionId2, 'created', stream ? stream.name : '/stream', brand, RTSP_PORT, username, password);
+                    rtspLogger.logRTSPStreamSetup(socket.remoteAddress, sessionId2, stream ? stream.path : '/stream', transport, brand, RTSP_PORT, username, password);
+                    rtspLogger.logRTSPSession(socket.remoteAddress, sessionId2, 'created', stream ? stream.path : '/stream', brand, RTSP_PORT, username, password);
                     rtspLogger.logRTSPResponse(socket.remoteAddress, method, 200, sessionId2, brand, RTSP_PORT, username, password);
                     socket.write(setupResponse);
                     break;
@@ -951,7 +1129,7 @@ a=control:trackID=1\r
         
         const ssrc = 0x12345678;
         const clockRate = 90000;
-        const frameRate = parseInt(process.env.RTSP_FRAME_RATE, 10) || 15;
+        const frameRate = session.frameRate || parseInt(process.env.RTSP_FRAME_RATE, 10) || 15;
         const frameWidth = parseInt(process.env.RTSP_FRAME_WIDTH, 10) || 640;
         const frameHeight = parseInt(process.env.RTSP_FRAME_HEIGHT, 10) || 272;
         const timestampIncrement = clockRate / frameRate;
