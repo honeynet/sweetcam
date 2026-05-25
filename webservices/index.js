@@ -504,6 +504,124 @@ function requireAuth(req, res, next) {
     next();
 }
 
+function requireCameraStreamAccess(req, res, next) {
+    const cameraType = getCameraType(req);
+
+    if (isNoAuthWebBrand(cameraType)) {
+        return next();
+    }
+
+    return requireAuth(req, res, next);
+}
+
+let cachedMjpegFrames = null;
+
+function getMjpegFrames() {
+    if (cachedMjpegFrames) {
+        return cachedMjpegFrames;
+    }
+
+    const framesDir = path.join(__dirname, 'public', 'mjpg');
+    const fallbackFrames = [
+        path.join(__dirname, 'public', 'images', 'test.jpg'),
+        path.join(__dirname, 'public', 'images', 'mini.jpg')
+    ];
+
+    try {
+        const frameFiles = fs.readdirSync(framesDir)
+            .filter(file => /\.(jpe?g)$/i.test(file))
+            .sort()
+            .map(file => path.join(framesDir, file));
+
+        cachedMjpegFrames = frameFiles.length > 0 ? frameFiles : fallbackFrames;
+    } catch (error) {
+        cachedMjpegFrames = fallbackFrames;
+    }
+
+    return cachedMjpegFrames.filter(framePath => fs.existsSync(framePath));
+}
+
+function getLatestMjpegFrame() {
+    const frames = getMjpegFrames();
+    if (frames.length === 0) return null;
+
+    const index = Math.floor(Date.now() / 500) % frames.length;
+    return frames[index];
+}
+
+function sendJpegSnapshot(req, res) {
+    const framePath = getLatestMjpegFrame();
+    if (!framePath) {
+        return res.status(404).send('No image source available');
+    }
+
+    res.setHeader('Content-Type', 'image/jpeg');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Connection', 'close');
+    return res.sendFile(framePath);
+}
+
+function streamMjpeg(req, res) {
+    const frames = getMjpegFrames();
+    if (frames.length === 0) {
+        return res.status(404).send('No MJPEG source available');
+    }
+
+    const boundary = 'sweetcam-mjpeg-boundary';
+    let frameIndex = 0;
+
+    res.writeHead(200, {
+        'Content-Type': `multipart/x-mixed-replace; boundary=${boundary}`,
+        'Cache-Control': 'no-store, no-cache, must-revalidate, private',
+        'Pragma': 'no-cache',
+        'Connection': 'close'
+    });
+
+    const sendFrame = () => {
+        if (res.destroyed || res.writableEnded) return;
+
+        const framePath = frames[frameIndex % frames.length];
+        frameIndex += 1;
+
+        fs.readFile(framePath, (error, frame) => {
+            if (error || res.destroyed || res.writableEnded) return;
+
+            res.write(`--${boundary}\r\n`);
+            res.write('Content-Type: image/jpeg\r\n');
+            res.write(`Content-Length: ${frame.length}\r\n\r\n`);
+            res.write(frame);
+            res.write('\r\n');
+        });
+    };
+
+    sendFrame();
+    const interval = setInterval(sendFrame, 500);
+
+    req.on('close', () => {
+        clearInterval(interval);
+    });
+}
+
+const mjpegStreamPaths = [
+    '/cgi-bin/mjpg/video.cgi',
+    '/axis-cgi/mjpg/video.cgi',
+    '/mjpg/video.mjpg'
+];
+
+const jpegSnapshotPaths = [
+    '/cgi-bin/snapshot.cgi',
+    '/axis-cgi/jpg/image.cgi'
+];
+
+mjpegStreamPaths.forEach(routePath => {
+    app.get(routePath, requireCameraStreamAccess, streamMjpeg);
+});
+
+jpegSnapshotPaths.forEach(routePath => {
+    app.get(routePath, requireCameraStreamAccess, sendJpegSnapshot);
+});
+
 
 //api endpoint to get images from public/images directory
 app.get('/api/images', requireAuth, (req, res) => {
