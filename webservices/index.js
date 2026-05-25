@@ -16,6 +16,9 @@ const { startCowrieIngestor } = require('./services/cowrie-ingestor');
 const app = express();
 let beginTimeOfLogin = 0;
 
+app.disable('x-powered-by');
+app.disable('etag');
+
 //configure i18n
 i18n.configure({
     locales: ['en', 'es'],
@@ -27,6 +30,11 @@ i18n.configure({
 });
 
 //middleware
+app.use((req, res, next) => {
+    res.removeHeader('X-Powered-By');
+    next();
+});
+
 app.use(session({
     secret: process.env.SESSION_SECRET || 'Wrong',
     resave: false,

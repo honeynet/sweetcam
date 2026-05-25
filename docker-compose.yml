@@ -360,6 +360,8 @@ services:
       - "0"
       - -x264-params
       - repeat-headers=1:scenecut=0
+      - -metadata
+      - title=Hikvision DS-2CD3T52H2-K stream
       - -f
       - rtsp
       - -rtsp_transport
@@ -404,6 +406,8 @@ services:
       - "0"
       - -x264-params
       - repeat-headers=1:scenecut=0
+      - -metadata
+      - title=Hikvision DS-2CD3T52H2-K substream
       - -f
       - rtsp
       - -rtsp_transport
@@ -448,6 +452,8 @@ services:
       - "0"
       - -x264-params
       - repeat-headers=1:scenecut=0
+      - -metadata
+      - title=Dahua IPC-HFW2431S-S-S2 stream
       - -f
       - rtsp
       - -rtsp_transport
@@ -492,6 +498,8 @@ services:
       - "0"
       - -x264-params
       - repeat-headers=1:scenecut=0
+      - -metadata
+      - title=AXIS M3046-V stream
       - -f
       - rtsp
       - -rtsp_transport
@@ -536,6 +544,8 @@ services:
       - "0"
       - -x264-params
       - repeat-headers=1:scenecut=0
+      - -metadata
+      - title=Reolink E1 Zoom stream
       - -f
       - rtsp
       - -rtsp_transport
@@ -580,6 +590,8 @@ services:
       - "0"
       - -x264-params
       - repeat-headers=1:scenecut=0
+      - -metadata
+      - title=Mobotix MX VT1A-2-IR stream
       - -f
       - rtsp
       - -rtsp_transport
@@ -624,6 +636,8 @@ services:
       - "0"
       - -x264-params
       - repeat-headers=1:scenecut=0
+      - -metadata
+      - title=VStarcam C7824WIP stream
       - -f
       - rtsp
       - -rtsp_transport
@@ -668,6 +682,8 @@ services:
       - "0"
       - -x264-params
       - repeat-headers=1:scenecut=0
+      - -metadata
+      - title=Foscam FI9900P main stream
       - -f
       - rtsp
       - -rtsp_transport
@@ -712,6 +728,8 @@ services:
       - "0"
       - -x264-params
       - repeat-headers=1:scenecut=0
+      - -metadata
+      - title=Foscam FI9900P substream
       - -f
       - rtsp
       - -rtsp_transport
