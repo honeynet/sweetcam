@@ -9,6 +9,11 @@
             "date": 1778625996409,
             "name": "/app/logs/rtsp-app-2026-05-12.log",
             "hash": "bf0f2af3c24279d0af6e8d2090eb5442c7ccf139f4d0ac68a793bbc657b915b8"
+        },
+        {
+            "date": 1779715387960,
+            "name": "/app/logs/rtsp-app-2026-05-25.log",
+            "hash": "25cf11e2c6b42cf8965400a5ceff5d242620aedfc74d50e7ff0401831e72b0b7"
         }
     ],
     "hashType": "sha256"

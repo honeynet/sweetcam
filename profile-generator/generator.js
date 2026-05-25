@@ -4,9 +4,7 @@ require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
 
 const mysql = require("mysql2/promise");
 
-// -----------------------------
 // Database configuration
-// -----------------------------
 const baseDbConfig = {
   host: process.env.DB_HOST || "mysql_service",
   port: Number(process.env.DB_PORT || 3306),
@@ -15,9 +13,7 @@ const baseDbConfig = {
   database: process.env.DB_NAME || "sweetcam",
 };
 
-// -----------------------------
 // Load camera profile data
-// -----------------------------
 function loadCameraData() {
   const dataPath = path.join(__dirname, "data", "cameraProfiles.json");
 
@@ -37,9 +33,7 @@ function loadCameraData() {
 
 const CAMERA_DATA = loadCameraData();
 
-// -----------------------------
 // Utility functions
-// -----------------------------
 function randomChoice(arr) {
   if (!Array.isArray(arr) || arr.length === 0) {
     throw new Error("randomChoice received an empty or invalid array.");
@@ -89,9 +83,7 @@ function buildVideoModeDisplay(videoMode) {
   return `${videoMode.resolution}@${videoMode.frame_rate}`;
 }
 
-// -----------------------------
 // Database connection helper
-// -----------------------------
 async function createDatabaseConnection() {
   const candidateHosts = [];
 
@@ -134,9 +126,7 @@ async function createDatabaseConnection() {
   throw lastError || new Error("Unable to connect to MySQL.");
 }
 
-// -----------------------------
 // Profile generation
-// -----------------------------
 function generateProfile() {
   const vendors = Object.keys(CAMERA_DATA);
   if (vendors.length === 0) {
@@ -177,9 +167,7 @@ function generateProfile() {
   };
 }
 
-// -----------------------------
 // Database insert
-// -----------------------------
 async function insertProfile(connection, profile) {
   const query = `
     INSERT INTO camera_profiles (
@@ -216,9 +204,6 @@ async function insertProfile(connection, profile) {
   return result.insertId;
 }
 
-// -----------------------------
-// Main
-// -----------------------------
 async function main() {
   const countArg = process.argv[2];
   const count = countArg ? Number(countArg) : 1;

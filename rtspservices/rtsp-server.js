@@ -192,21 +192,49 @@ a=control:trackID=1\r
 
     parseTransport(transportHeader) {
         if (!transportHeader) {
-            return { rtpPort: 8000, rtcpPort: 8001 };
+            return {
+                protocol: 'udp',
+                rtpPort: 8000,
+                rtcpPort: 8001,
+                rtpChannel: 0,
+                rtcpChannel: 1
+            };
         }
-        
-        const parts = transportHeader.split(';');
-        const clientPorts = parts.find(p => p.includes('client_port'));
+
+        const isTcp = transportHeader.toUpperCase().includes('RTP/AVP/TCP');
+        const interleavedMatch = transportHeader.match(/interleaved=(\d+)-(\d+)/i);
+
+        if (isTcp) {
+            return {
+                protocol: 'tcp',
+                rtpPort: null,
+                rtcpPort: null,
+                rtpChannel: interleavedMatch ? parseInt(interleavedMatch[1], 10) : 0,
+                rtcpChannel: interleavedMatch ? parseInt(interleavedMatch[2], 10) : 1
+            };
+        }
+
+        const clientPorts = transportHeader.split(';').find(p => p.includes('client_port'));
         if (clientPorts) {
             const match = clientPorts.match(/client_port=(\d+)-(\d+)/);
             if (match) {
-                const rtpPort = parseInt(match[1]);
-                const rtcpPort = parseInt(match[2]);
-                return { rtpPort, rtcpPort };
+                return {
+                    protocol: 'udp',
+                    rtpPort: parseInt(match[1], 10),
+                    rtcpPort: parseInt(match[2], 10),
+                    rtpChannel: 0,
+                    rtcpChannel: 1
+                };
             }
         }
-        
-        return { rtpPort: 8000, rtcpPort: 8001 };
+
+        return {
+            protocol: 'udp',
+            rtpPort: 8000,
+            rtcpPort: 8001,
+            rtpChannel: 0,
+            rtcpChannel: 1
+        };
     }
 
     async handleRequest(socket, data) {
@@ -261,7 +289,7 @@ a=control:trackID=1\r
                     let isNewAuthentication = true;
                     
                     //first try to get credentials from authorization header
-                    const authLine = dataStr.split('\r\n').find(line => line.startsWith('Authorization:'));
+                    const authLine = dataStr.split('\r\n').find(line => /^Authorization:/i.test(line));
                     if (authLine) {
                         credentials = parseAuthorization(authLine);
                     }
@@ -287,8 +315,7 @@ a=control:trackID=1\r
                     }
                     
                     if (!credentials) {
-                        const nonce = this.brandDetector.generateNonce();
-                        const response = brandConfig.patterns.unauthorized(nonce);
+                        const response = brandConfig.patterns.unauthorized(cseq);
                         
                         // Log unauthorized request (no credentials provided)
                         rtspLogger.logRTSPMethod(
@@ -307,8 +334,7 @@ a=control:trackID=1\r
                     try {
                         const isValid = await authenticateUser(credentials.username, credentials.password);
                         if (!isValid) {
-                            const nonce = this.brandDetector.generateNonce();
-                            const response = brandConfig.patterns.unauthorized(nonce);
+                            const response = brandConfig.patterns.unauthorized(cseq);
                             
                             // Log combined authentication failure
                             rtspLogger.logRTSPCombinedAuth(
@@ -559,6 +585,9 @@ a=control:trackID=1\r
                         rtpPort: serverRtpPort,
                         clientRtpPort: transport.rtpPort,
                         clientRtcpPort: transport.rtcpPort,
+                        transportProtocol: transport.protocol,
+                        rtpChannel: transport.rtpChannel,
+                        rtcpChannel: transport.rtcpChannel,
                         clientAddress: socket.remoteAddress,
                         socket: socket,
                         authenticated: true,
@@ -568,8 +597,12 @@ a=control:trackID=1\r
                         brand: stream ? stream.brand : brand
                     });
 
-                    const setupResponse = `RTSP/1.0 200 OK\r\nCSeq: ${cseq}\r\nTransport: RTP/AVP;unicast;client_port=${transport.rtpPort}-${transport.rtcpPort};server_port=${serverRtpPort}-${serverRtcpPort}\r\nSession: ${sessionId2}\r\n\r\n`;
-                    
+                    const responseTransport = transport.protocol === 'tcp'
+                        ? `RTP/AVP/TCP;unicast;interleaved=${transport.rtpChannel}-${transport.rtcpChannel}`
+                        : `RTP/AVP;unicast;client_port=${transport.rtpPort}-${transport.rtcpPort};server_port=${serverRtpPort}-${serverRtcpPort}`;
+
+                    const setupResponse = `RTSP/1.0 200 OK\r\nCSeq: ${cseq}\r\nTransport: ${responseTransport}\r\nSession: ${sessionId2}\r\n\r\n`;
+
                     rtspLogger.logRTSPSessionWithPayload(
                         socket.remoteAddress, 
                         method, 
@@ -879,44 +912,82 @@ a=control:trackID=1\r
         return Buffer.concat([jpegHeader, frameMarker, scanMarker, frameData, eoiMarker]);
     }
 
+    writeInterleaved(socket, channel, packet) {
+        const header = Buffer.alloc(4);
+        header[0] = 0x24;
+        header[1] = channel;
+        header.writeUInt16BE(packet.length, 2);
+        socket.write(Buffer.concat([header, packet]));
+    }
+
+    loadVideoFrames() {
+        const framesDir = process.env.RTSP_FRAME_DIR || path.join(__dirname, 'media', 'frames');
+        try {
+            const frameFiles = fs.readdirSync(framesDir)
+                .filter(file => /\.(jpe?g)$/i.test(file))
+                .sort()
+                .map(file => fs.readFileSync(path.join(framesDir, file)));
+
+            if (frameFiles.length > 0) {
+                console.log(`Loaded ${frameFiles.length} RTSP video frames from ${framesDir}`);
+                return frameFiles;
+            }
+        } catch (error) {
+            console.error(`Could not load RTSP video frames: ${error.message}`);
+        }
+
+        return null;
+    }
+
     startRTPStream(session) {
-        const rtp = dgram.createSocket('udp4');
-        const rtcp = dgram.createSocket('udp4');
+        const useTcp = session.transportProtocol === 'tcp';
+        const rtp = useTcp ? null : dgram.createSocket('udp4');
+        const rtcp = useTcp ? null : dgram.createSocket('udp4');
+
+        if (!useTcp) {
+            rtp.bind(session.rtpPort);
+            rtcp.bind(session.rtcpPort);
+        }
         
         const ssrc = 0x12345678;
         const clockRate = 90000;
-        const frameRate = 30;
+        const frameRate = parseInt(process.env.RTSP_FRAME_RATE, 10) || 15;
+        const frameWidth = parseInt(process.env.RTSP_FRAME_WIDTH, 10) || 640;
+        const frameHeight = parseInt(process.env.RTSP_FRAME_HEIGHT, 10) || 272;
         const timestampIncrement = clockRate / frameRate;
         const frameInterval = 1000 / frameRate;
         
-        let jpeg;
-        try {
-            const imagePath = path.join(__dirname, 'img.jpg');
-            jpeg = fs.readFileSync(imagePath);
-        } catch (e) {
-            console.error(`Could not load the default image: ${e.message}`);
+        let frames = this.loadVideoFrames();
+        if (!frames) {
+            let jpeg;
+            try {
+                const imagePath = path.join(__dirname, 'img.jpg');
+                jpeg = fs.readFileSync(imagePath);
+            } catch (e) {
+                console.error(`Could not load the default image: ${e.message}`);
             
-            const alternativeImages = ['img.png', 'test.jpg', 'mini.jpg'];
-            let imageFound = false;
+                const alternativeImages = ['img.png', 'test.jpg', 'mini.jpg'];
+                let imageFound = false;
             
-            for (const altImage of alternativeImages) {
-                try {
-                    const altImagePath = path.join(__dirname, altImage);
-                    jpeg = fs.readFileSync(altImagePath);
-                    console.log(`Using alternative image: ${altImage}`);
-                    imageFound = true;
-                    break;
-                } catch (altError) {
-                    continue;
+                for (const altImage of alternativeImages) {
+                    try {
+                        const altImagePath = path.join(__dirname, altImage);
+                        jpeg = fs.readFileSync(altImagePath);
+                        console.log(`Using alternative image: ${altImage}`);
+                        imageFound = true;
+                        break;
+                    } catch (altError) {
+                        continue;
+                    }
+                }
+            
+                if (!imageFound) {
+                    console.log('No image files found, creating fallback frame');
+                    jpeg = this.createFallbackFrame();
                 }
             }
-            
-            if (!imageFound) {
-                console.log('No image files found, creating fallback frame');
-                jpeg = this.createFallbackFrame();
-            }
+            frames = [jpeg];
         }
-
 
         session.rtpSocket = rtp;
         session.rtcpSocket = rtcp;
@@ -936,13 +1007,16 @@ a=control:trackID=1\r
                 if (session.rtpInterval) {
                     clearInterval(session.rtpInterval);
                 }
-                rtp.close();
-                rtcp.close();
+                if (rtp) rtp.close();
+                if (rtcp) rtcp.close();
                 return;
             }
 
             const now = Date.now();
             const elapsedMs = now - streamStartTime;
+            const frameIndex = session.videoFrameIndex || 0;
+            const jpeg = frames[frameIndex];
+            session.videoFrameIndex = (frameIndex + 1) % frames.length;
             
             const maxPacketSize = 1400; // Safe UDP packet size
             const jpegHeaderSize = 8;
@@ -958,14 +1032,10 @@ a=control:trackID=1\r
                 
                 const rtpHeader = Buffer.alloc(12);
                 rtpHeader[0] = 0x80;
-                rtpHeader[1] = 0x9A;
-                
-                //set fragmentation flags
-                if (fragmentIndex === 0) {
-                    rtpHeader[1] |= 0x80; //set start bit
-                }
+                rtpHeader[1] = 26; // JPEG payload type from SDP
+
                 if (fragmentIndex === totalFragments - 1) {
-                    rtpHeader[1] |= 0x40; //set end bit
+                    rtpHeader[1] |= 0x80; // RTP marker bit on final packet of frame
                 }
                 
                 rtpHeader.writeUInt16BE(seq & 0xFFFF, 2);
@@ -974,24 +1044,30 @@ a=control:trackID=1\r
 
                 const jpegHeader = Buffer.alloc(8);
                 jpegHeader[0] = 0;
-                jpegHeader[1] = 0;
-                jpegHeader[2] = 0;
-                jpegHeader[3] = 0;
+                jpegHeader[1] = (start >> 16) & 0xFF;
+                jpegHeader[2] = (start >> 8) & 0xFF;
+                jpegHeader[3] = start & 0xFF;
                 jpegHeader[4] = 0;
                 jpegHeader[5] = 80;
-                jpegHeader[6] = 160 / 8;
-                jpegHeader[7] = 160 / 8;
+                jpegHeader[6] = frameWidth / 8;
+                jpegHeader[7] = frameHeight / 8;
 
                 const rtpPacket = Buffer.concat([rtpHeader, jpegHeader, fragmentData]);
 
-                rtp.send(rtpPacket, 0, rtpPacket.length, session.clientRtpPort, session.clientAddress || '127.0.0.1', (err) => {
-                    if (err) {
-                        console.error('RTP send error:', err.message);
-                    } else {
-                        packetsSent++;
-                        octetsSent += rtpPacket.length;
-                    }
-                });
+                if (session.transportProtocol === 'tcp') {
+                    this.writeInterleaved(session.socket, session.rtpChannel, rtpPacket);
+                    packetsSent++;
+                    octetsSent += rtpPacket.length;
+                } else {
+                    rtp.send(rtpPacket, 0, rtpPacket.length, session.clientRtpPort, session.clientAddress || '127.0.0.1', (err) => {
+                        if (err) {
+                            console.error('RTP send error:', err.message);
+                        } else {
+                            packetsSent++;
+                            octetsSent += rtpPacket.length;
+                        }
+                    });
+                }
                 
                 seq++;
             }
@@ -1030,11 +1106,15 @@ a=control:trackID=1\r
             rtcpSR.writeUInt32BE(session.packetsSent || 0, 20);
             rtcpSR.writeUInt32BE(session.octetsSent || 0, 24);
 
-            rtcp.send(rtcpSR, 0, rtcpSR.length, session.clientRtcpPort, session.clientAddress || '127.0.0.1', (err) => {
-                if (err) {
-                    console.error('RTCP send error:', err.message);
-                }
-            });
+            if (useTcp) {
+                this.writeInterleaved(session.socket, session.rtcpChannel, rtcpSR);
+            } else {
+                rtcp.send(rtcpSR, 0, rtcpSR.length, session.clientRtcpPort, session.clientAddress || '127.0.0.1', (err) => {
+                    if (err) {
+                        console.error('RTCP send error:', err.message);
+                    }
+                });
+            }
         };
 
         sendRTCP();

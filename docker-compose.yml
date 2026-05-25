@@ -164,8 +164,8 @@ services:
       - NET_BIND_SERVICE
     ports:
       - "8555:8555"
-      - "8008:8002"
-      - "8009:8003"
+      - "8008:8002/udp"
+      - "8009:8003/udp"
     volumes:
       - ./logs/rtspservices:/app/logs
     depends_on:
