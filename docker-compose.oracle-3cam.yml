@@ -1,0 +1,44 @@
+services:
+  web_service:
+    environment:
+      - NO_AUTH_RTSP_BRANDS=dahua,axis
+      - NO_AUTH_WEB_BRANDS=dahua,axis
+      - PUBLIC_VIEWER_USERNAME=guest
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
+      - ONVIF_PUBLIC_HOST=${ONVIF_PUBLIC_HOST:-localhost}
+      - PUBLIC_ONVIF_HOST=${PUBLIC_ONVIF_HOST:-localhost}
+
+  dahua_service:
+    environment:
+      - NO_AUTH_WEB_BRANDS=dahua,axis
+      - PUBLIC_VIEWER_USERNAME=guest
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
+
+  axis_service:
+    environment:
+      - NO_AUTH_WEB_BRANDS=dahua,axis
+      - PUBLIC_VIEWER_USERNAME=guest
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
+
+  hikvision_service:
+    environment:
+      - NO_AUTH_WEB_BRANDS=dahua,axis
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
+
+  onvif_service:
+    environment:
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
+      - ONVIF_PUBLIC_HOST=${ONVIF_PUBLIC_HOST:-localhost}
+      - PUBLIC_ONVIF_HOST=${PUBLIC_ONVIF_HOST:-localhost}
+
+  onvif_dahua_service:
+    environment:
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
+      - ONVIF_PUBLIC_HOST=${ONVIF_PUBLIC_HOST:-localhost}
+      - PUBLIC_ONVIF_HOST=${PUBLIC_ONVIF_HOST:-localhost}
+
+  onvif_axis_service:
+    environment:
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
+      - ONVIF_PUBLIC_HOST=${ONVIF_PUBLIC_HOST:-localhost}
+      - PUBLIC_ONVIF_HOST=${PUBLIC_ONVIF_HOST:-localhost}

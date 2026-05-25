@@ -13,6 +13,9 @@ const { rtspLogger } = require('./utils/logger');
 const BRAND = process.env.BRAND || 'auto';
 const RTSP_PORT = parseInt(process.env.RTSP_PORT) || 554;
 const REQUIRE_RTSP_AUTH = process.env.REQUIRE_RTSP_AUTH !== 'false';
+const RTSP_MEDIA_MODE = (process.env.RTSP_MEDIA_MODE || 'mjpeg').toLowerCase();
+const RTSP_H264_UPSTREAM = (process.env.RTSP_H264_UPSTREAM || 'rtsp://rtsp_h264_media:8554').replace(/\/+$/, '');
+const H264_DESCRIBE_ONLY_MODES = new Set(['h264-prep', 'h264_describe_only', 'h264-describe-only']);
 
 const CAMERA_TYPE_TO_VENDOR = {
     hikvision: 'Hikvision',
@@ -173,6 +176,19 @@ class RTSPServer {
         return match ? parseInt(match[0], 10) : (parseInt(process.env.RTSP_FRAME_RATE, 10) || 15);
     }
 
+    isH264DescribeMode() {
+        return H264_DESCRIBE_ONLY_MODES.has(RTSP_MEDIA_MODE);
+    }
+
+    isH264MediaMode() {
+        return RTSP_MEDIA_MODE === 'h264' || this.isH264DescribeMode();
+    }
+
+    getUpstreamRtspUrl(stream) {
+        const streamPath = stream?.path || '/stream';
+        return `${RTSP_H264_UPSTREAM}${streamPath.startsWith('/') ? streamPath : `/${streamPath}`}`;
+    }
+
     getDefaultStream(brand = 'hikvision') {
         return {
             name: `${brand} Video stream`,
@@ -319,6 +335,21 @@ class RTSPServer {
             : stream;
         const streamName = streamConfig?.name || 'Video stream';
         const frameRate = streamConfig?.frameRate || parseInt(process.env.RTSP_FRAME_RATE, 10) || 15;
+
+        if (this.isH264MediaMode()) {
+            return `v=0\r
+o=- 0 0 IN IP4 ${serverAddress}\r
+s=${streamName}\r
+c=IN IP4 ${serverAddress}\r
+t=0 0\r
+a=control:*\r
+m=video 0 RTP/AVP 96\r
+a=rtpmap:96 H264/90000\r
+a=fmtp:96 packetization-mode=1;profile-level-id=42C01F\r
+a=framerate:${frameRate}.0\r
+a=control:trackID=1\r
+`;
+        }
 
         return `v=0\r
 o=- 0 0 IN IP4 ${serverAddress}\r
@@ -716,7 +747,8 @@ a=control:trackID=1\r
                     const streamPath = stream.path || path;
                     const baseURL = `rtsp://${serverAddress}:${RTSP_PORT}${streamPath}/`;
                     const serverHeader = stream.profile?.server ? `Server: ${stream.profile.server}\r\n` : '';
-                    const sdpResponse = `RTSP/1.0 200 OK\r\nCSeq: ${cseq}\r\n${serverHeader}Content-Type: application/sdp\r\nContent-Base: ${baseURL}\r\nContent-Length: ${Buffer.byteLength(sdp)}\r\n\r\n${sdp}`;
+                    const upstreamHeader = this.isH264MediaMode() ? `X-Upstream-RTSP: ${this.getUpstreamRtspUrl(stream)}\r\n` : '';
+                    const sdpResponse = `RTSP/1.0 200 OK\r\nCSeq: ${cseq}\r\n${serverHeader}${upstreamHeader}Content-Type: application/sdp\r\nContent-Base: ${baseURL}\r\nContent-Length: ${Buffer.byteLength(sdp)}\r\n\r\n${sdp}`;
                     
                     rtspLogger.logRTSPSessionWithPayload(
                         socket.remoteAddress, 
@@ -740,6 +772,27 @@ a=control:trackID=1\r
                     break;
                     
                 case 'SETUP':
+                    if (this.isH264DescribeMode()) {
+                        const pendingResponse = `RTSP/1.0 501 Not Implemented\r\nCSeq: ${cseq}\r\n\r\n`;
+
+                        rtspLogger.logRTSPSessionWithPayload(
+                            socket.remoteAddress,
+                            method,
+                            url,
+                            501,
+                            sessionId,
+                            brand,
+                            RTSP_PORT,
+                            requestPayload,
+                            { status: 501, headers: pendingResponse.split('\r\n'), body: pendingResponse },
+                            this.shouldLogCredentials(sessionId) ? this.getUsernameFromSession(sessionId) : null,
+                            this.shouldLogCredentials(sessionId) ? this.getPasswordFromSession(sessionId) : null
+                        );
+
+                        socket.write(pendingResponse);
+                        return;
+                    }
+
                     this.sessionCounter++;
                     const sessionId2 = this.sessionCounter.toString();
                     const transport = this.parseTransport(headers.Transport || '');

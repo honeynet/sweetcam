@@ -112,6 +112,8 @@ class ONVIFHoneypot {
             features: {},
             specifications: {}
           };
+          const rtspUri = this.soapService.getRtspUriSync();
+          const streamMetadata = this.soapService.getStreamMetadata();
         
           res.send(`
           <html>
@@ -151,6 +153,10 @@ class ONVIFHoneypot {
                     <span class="value">${deviceInfo.firmwareVersion}</span>
                   </div>
                   <div class="info-row">
+                    <span class="label">HTTP Server:</span>
+                    <span class="value">${brandConfig.server || 'Unknown'}</span>
+                  </div>
+                  <div class="info-row">
                     <span class="label">Serial Number:</span>
                     <span class="value">${deviceInfo.serialNumber}</span>
                   </div>
@@ -167,6 +173,18 @@ class ONVIFHoneypot {
                     <span class="value">${brandConfig.resolution || '1920x1080'}</span>
                   </div>
                   <div class="info-row">
+                    <span class="label">Video Mode:</span>
+                    <span class="value">${brandConfig.videoMode || `${streamMetadata.width}x${streamMetadata.height}@${streamMetadata.frameRate}fps`}</span>
+                  </div>
+                  <div class="info-row">
+                    <span class="label">RTSP URI:</span>
+                    <span class="value endpoint">${rtspUri}</span>
+                  </div>
+                  <div class="info-row">
+                    <span class="label">Status:</span>
+                    <span class="value">${brandConfig.status || 'Online'}</span>
+                  </div>
+                  <div class="info-row">
                     <span class="label">ONVIF Version:</span>
                     <span class="value">${brandConfig.onvifVersion || '2.4'}</span>
                   </div>
@@ -177,8 +195,8 @@ class ONVIFHoneypot {
                     <h4>Video Specifications</h4>
                     <p><strong>Sensor:</strong> ${brandConfig.specifications?.sensor || '1/3" CMOS'}</p>
                     <p><strong>Lens:</strong> ${brandConfig.specifications?.lens || '2.8mm'}</p>
-                    <p><strong>Frame Rate:</strong> ${brandConfig.specifications?.fps || '30fps@1080p'}</p>
-                    <p><strong>Compression:</strong> ${brandConfig.specifications?.compression || 'H.264'}</p>
+                    <p><strong>Frame Rate:</strong> ${brandConfig.specifications?.fps || `${streamMetadata.frameRate}fps`}</p>
+                    <p><strong>Compression:</strong> ${brandConfig.specifications?.compression || streamMetadata.compression}</p>
                   </div>
                   
                   <div class="feature-card">
@@ -221,7 +239,7 @@ class ONVIFHoneypot {
       }
     });
 
-    this.app.all('/onvif/media_service', (req, res, next) => {
+    this.app.all('/onvif/media_service', async (req, res, next) => {
       res.setHeader('Server', 'ONVIF/1.0');
       
       //if a header is a get request, serve html page with media information
@@ -250,6 +268,8 @@ class ONVIFHoneypot {
             features: {},
             specifications: {}
           };
+          const rtspUri = await this.soapService.getRtspUri();
+          const streamMetadata = this.soapService.getStreamMetadata();
         
         res.send(`
           <html>
@@ -290,6 +310,10 @@ class ONVIFHoneypot {
                     <span class="value">${deviceInfo.firmwareVersion}</span>
                   </div>
                   <div class="info-row">
+                    <span class="label">HTTP Server:</span>
+                    <span class="value">${brandConfig.server || 'Unknown'}</span>
+                  </div>
+                  <div class="info-row">
                     <span class="label">Serial Number:</span>
                     <span class="value">${deviceInfo.serialNumber}</span>
                   </div>
@@ -299,10 +323,11 @@ class ONVIFHoneypot {
                   <div class="capability-card">
                     <h4>Video Capabilities</h4>
                     <p><strong>Resolution:</strong> ${brandConfig.resolution || '1920x1080'}</p>
+                    <p><strong>Video Mode:</strong> ${brandConfig.videoMode || `${streamMetadata.width}x${streamMetadata.height}@${streamMetadata.frameRate}fps`}</p>
                     <p><strong>Sensor:</strong> ${brandConfig.specifications?.sensor || '1/3" CMOS'}</p>
                     <p><strong>Lens:</strong> ${brandConfig.specifications?.lens || '2.8mm'}</p>
-                    <p><strong>Frame Rate:</strong> ${brandConfig.specifications?.fps || '30fps@1080p'}</p>
-                    <p><strong>Compression:</strong> ${brandConfig.specifications?.compression || 'H.264'}</p>
+                    <p><strong>Frame Rate:</strong> ${brandConfig.specifications?.fps || `${streamMetadata.frameRate}fps`}</p>
+                    <p><strong>Compression:</strong> ${brandConfig.specifications?.compression || streamMetadata.compression}</p>
                   </div>
                   
                   <div class="streaming-card">
@@ -321,7 +346,7 @@ class ONVIFHoneypot {
                   <p><strong>Media Service:</strong> <span class="endpoint">/onvif/media_service</span></p>
                   <p><strong>Device Service:</strong> <span class="endpoint">/onvif/device_service</span></p>
                   <p><strong>Available Methods:</strong> GetProfiles, GetStreamUri, GetVideoSources, GetAudioSources, GetVideoEncoderConfigurations, GetAudioEncoderConfigurations</p>
-                  <p><strong>Stream URI Format:</strong> <span class="endpoint">rtsp://127.0.0.1:554/}</span></p>
+                  <p><strong>Stream URI:</strong> <span class="endpoint">${rtspUri}</span></p>
                 </div>
               </div>
             </body>
@@ -392,34 +417,50 @@ class ONVIFHoneypot {
     const mediaWsdl = this.createMediaWSDL();
 
     //setup SOAP services with custom handling
-    const deviceSoapServer = soap.listen(this.server, '/onvif/device_service/soap', this.soapService.createDeviceService(), deviceWsdl);
-    const mediaSoapServer = soap.listen(this.server, '/onvif/media_service/soap', this.soapService.createMediaService(), mediaWsdl);
+    const deviceSoapServer = soap.listen(this.server, '/onvif/device_service/soap', {
+      DeviceService: {
+        DeviceBinding: this.soapService.createDeviceService()
+      }
+    }, deviceWsdl);
+    const mediaSoapServer = soap.listen(this.server, '/onvif/media_service/soap', {
+      MediaService: {
+        MediaBinding: this.soapService.createMediaService()
+      }
+    }, mediaWsdl);
 
     deviceSoapServer.on('request', (request, response) => {
-      response.setHeader('Server', 'ONVIF/1.0');
-      response.setHeader('Content-Type', 'application/soap+xml; charset=utf-8');
-      
-      const soapAction = request.headers['soapaction'] || request.headers['soap-action'] || 'SOAP_REQUEST';
+      if (response?.setHeader) {
+        response.setHeader('Server', 'ONVIF/1.0');
+        response.setHeader('Content-Type', 'application/soap+xml; charset=utf-8');
+      }
+
+      const soapAction = request.headers?.['soapaction'] || request.headers?.['soap-action'] || 'SOAP_REQUEST';
       const brand = this.soapService.brand || 'hikvision';
-      onvifLogger.logSOAPRequest(request.connection.remoteAddress, soapAction, 'POST', '/onvif/device_service/soap', brand, this.port);
+      onvifLogger.logSOAPRequest(request.connection?.remoteAddress, soapAction, 'POST', '/onvif/device_service/soap', brand, this.port);
       
         //log SOAP response
-      response.on('finish', () => {
-        onvifLogger.logSOAPResponse(request.connection.remoteAddress, soapAction, response.statusCode, brand, this.port);
-      });
+      if (response?.on) {
+        response.on('finish', () => {
+          onvifLogger.logSOAPResponse(request.connection?.remoteAddress, soapAction, response.statusCode, brand, this.port);
+        });
+      }
     });
 
     mediaSoapServer.on('request', (request, response) => {
-      response.setHeader('Server', 'ONVIF/1.0');
-      response.setHeader('Content-Type', 'application/soap+xml; charset=utf-8');
-      
-      const soapAction = request.headers['soapaction'] || request.headers['soap-action'] || 'SOAP_REQUEST';
+      if (response?.setHeader) {
+        response.setHeader('Server', 'ONVIF/1.0');
+        response.setHeader('Content-Type', 'application/soap+xml; charset=utf-8');
+      }
+
+      const soapAction = request.headers?.['soapaction'] || request.headers?.['soap-action'] || 'SOAP_REQUEST';
       const brand = this.soapService.brand || 'hikvision';
-      onvifLogger.logSOAPRequest(request.connection.remoteAddress, soapAction, 'POST', '/onvif/media_service/soap', brand, this.port);
+      onvifLogger.logSOAPRequest(request.connection?.remoteAddress, soapAction, 'POST', '/onvif/media_service/soap', brand, this.port);
       
-      response.on('finish', () => {
-        onvifLogger.logSOAPResponse(request.connection.remoteAddress, soapAction, response.statusCode, brand, this.port);
-      });
+      if (response?.on) {
+        response.on('finish', () => {
+          onvifLogger.logSOAPResponse(request.connection?.remoteAddress, soapAction, response.statusCode, brand, this.port);
+        });
+      }
     });
   }
 
@@ -651,7 +692,7 @@ class ONVIFHoneypot {
 
   <service name="DeviceService">
     <port name="DeviceBinding" binding="tns:DeviceBinding">
-      <soap:address location="http://192.168.1.100:8080/onvif/device_service"/>
+      <soap:address location="${this.soapService.getPublicOnvifBaseUrl()}/onvif/device_service"/>
     </port>
   </service>
 </definitions>`;
@@ -680,6 +721,66 @@ class ONVIFHoneypot {
           </xsd:sequence>
         </xsd:complexType>
       </xsd:element>
+      <xsd:element name="GetStreamUri">
+        <xsd:complexType>
+          <xsd:sequence/>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="GetStreamUriResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="MediaUri" type="xsd:anyType"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="GetVideoSources">
+        <xsd:complexType>
+          <xsd:sequence/>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="GetVideoSourcesResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="VideoSources" type="xsd:anyType"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="GetAudioSources">
+        <xsd:complexType>
+          <xsd:sequence/>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="GetAudioSourcesResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="AudioSources" type="xsd:anyType"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="GetVideoEncoderConfigurations">
+        <xsd:complexType>
+          <xsd:sequence/>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="GetVideoEncoderConfigurationsResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="Configurations" type="xsd:anyType"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="GetAudioEncoderConfigurations">
+        <xsd:complexType>
+          <xsd:sequence/>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="GetAudioEncoderConfigurationsResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="Configurations" type="xsd:anyType"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
     </xsd:schema>
   </types>
 
@@ -689,11 +790,61 @@ class ONVIFHoneypot {
   <message name="GetProfilesResponse">
     <part name="body" element="tns:GetProfilesResponse"/>
   </message>
+  <message name="GetStreamUriRequest">
+    <part name="body" element="tns:GetStreamUri"/>
+  </message>
+  <message name="GetStreamUriResponse">
+    <part name="body" element="tns:GetStreamUriResponse"/>
+  </message>
+  <message name="GetVideoSourcesRequest">
+    <part name="body" element="tns:GetVideoSources"/>
+  </message>
+  <message name="GetVideoSourcesResponse">
+    <part name="body" element="tns:GetVideoSourcesResponse"/>
+  </message>
+  <message name="GetAudioSourcesRequest">
+    <part name="body" element="tns:GetAudioSources"/>
+  </message>
+  <message name="GetAudioSourcesResponse">
+    <part name="body" element="tns:GetAudioSourcesResponse"/>
+  </message>
+  <message name="GetVideoEncoderConfigurationsRequest">
+    <part name="body" element="tns:GetVideoEncoderConfigurations"/>
+  </message>
+  <message name="GetVideoEncoderConfigurationsResponse">
+    <part name="body" element="tns:GetVideoEncoderConfigurationsResponse"/>
+  </message>
+  <message name="GetAudioEncoderConfigurationsRequest">
+    <part name="body" element="tns:GetAudioEncoderConfigurations"/>
+  </message>
+  <message name="GetAudioEncoderConfigurationsResponse">
+    <part name="body" element="tns:GetAudioEncoderConfigurationsResponse"/>
+  </message>
 
   <portType name="MediaBinding">
     <operation name="GetProfiles">
       <input message="tns:GetProfilesRequest"/>
       <output message="tns:GetProfilesResponse"/>
+    </operation>
+    <operation name="GetStreamUri">
+      <input message="tns:GetStreamUriRequest"/>
+      <output message="tns:GetStreamUriResponse"/>
+    </operation>
+    <operation name="GetVideoSources">
+      <input message="tns:GetVideoSourcesRequest"/>
+      <output message="tns:GetVideoSourcesResponse"/>
+    </operation>
+    <operation name="GetAudioSources">
+      <input message="tns:GetAudioSourcesRequest"/>
+      <output message="tns:GetAudioSourcesResponse"/>
+    </operation>
+    <operation name="GetVideoEncoderConfigurations">
+      <input message="tns:GetVideoEncoderConfigurationsRequest"/>
+      <output message="tns:GetVideoEncoderConfigurationsResponse"/>
+    </operation>
+    <operation name="GetAudioEncoderConfigurations">
+      <input message="tns:GetAudioEncoderConfigurationsRequest"/>
+      <output message="tns:GetAudioEncoderConfigurationsResponse"/>
     </operation>
   </portType>
 
@@ -708,11 +859,56 @@ class ONVIFHoneypot {
         <soap:body use="literal"/>
       </output>
     </operation>
+    <operation name="GetStreamUri">
+      <soap:operation soapAction="http://www.onvif.org/ver10/media/wsdl/GetStreamUri"/>
+      <input>
+        <soap:body use="literal"/>
+      </input>
+      <output>
+        <soap:body use="literal"/>
+      </output>
+    </operation>
+    <operation name="GetVideoSources">
+      <soap:operation soapAction="http://www.onvif.org/ver10/media/wsdl/GetVideoSources"/>
+      <input>
+        <soap:body use="literal"/>
+      </input>
+      <output>
+        <soap:body use="literal"/>
+      </output>
+    </operation>
+    <operation name="GetAudioSources">
+      <soap:operation soapAction="http://www.onvif.org/ver10/media/wsdl/GetAudioSources"/>
+      <input>
+        <soap:body use="literal"/>
+      </input>
+      <output>
+        <soap:body use="literal"/>
+      </output>
+    </operation>
+    <operation name="GetVideoEncoderConfigurations">
+      <soap:operation soapAction="http://www.onvif.org/ver10/media/wsdl/GetVideoEncoderConfigurations"/>
+      <input>
+        <soap:body use="literal"/>
+      </input>
+      <output>
+        <soap:body use="literal"/>
+      </output>
+    </operation>
+    <operation name="GetAudioEncoderConfigurations">
+      <soap:operation soapAction="http://www.onvif.org/ver10/media/wsdl/GetAudioEncoderConfigurations"/>
+      <input>
+        <soap:body use="literal"/>
+      </input>
+      <output>
+        <soap:body use="literal"/>
+      </output>
+    </operation>
   </binding>
 
   <service name="MediaService">
     <port name="MediaBinding" binding="tns:MediaBinding">
-      <soap:address location="http://192.168.1.100:3702/onvif/media_service"/>
+      <soap:address location="${this.soapService.getPublicOnvifBaseUrl()}/onvif/media_service"/>
     </port>
   </service>
 </definitions>`;
@@ -720,6 +916,8 @@ class ONVIFHoneypot {
 
   async start() {
     try {
+      await this.soapService.loadProfileFromDatabase();
+      this.wsDiscovery.applyCameraProfile(this.soapService.getDiscoveryInfo());
       await this.wsDiscovery.start();
 
       this.server.listen(this.port, () => {
@@ -729,12 +927,14 @@ class ONVIFHoneypot {
         console.log(`- Media Service: http://localhost:${this.port}/onvif/media_service`);
         console.log(`- Health Check: http://localhost:${this.port}/health`);
         
-        onvifLogger.logONVIFServiceEvent('started', `ONVIF service started on port ${this.port}`, this.soapService.brandConfig.brand, this.port);
+        const brand = this.soapService.brandConfig.brand || this.soapService.brandConfig.manufacturer || this.soapService.brand;
+        onvifLogger.logONVIFServiceEvent('started', `ONVIF service started on port ${this.port}`, brand, this.port);
       });
 
     } catch (error) {
       console.error('Failed to start ONVIF:', error.message);
-      onvifLogger.logONVIFError(error, 'startup', null, this.soapService.brandConfig.brand, this.port);
+      const brand = this.soapService.brandConfig.brand || this.soapService.brandConfig.manufacturer || this.soapService.brand;
+      onvifLogger.logONVIFError(error, 'startup', null, brand, this.port);
       process.exit(1);
     }
   }
@@ -743,7 +943,8 @@ class ONVIFHoneypot {
     this.wsDiscovery.stop();
     this.server.close();
     console.log('ONVIF stopped');
-    onvifLogger.logONVIFServiceEvent('stopped', 'ONVIF service stopped', this.soapService.brandConfig.brand, this.port);
+    const brand = this.soapService.brandConfig.brand || this.soapService.brandConfig.manufacturer || this.soapService.brand;
+    onvifLogger.logONVIFServiceEvent('stopped', 'ONVIF service stopped', brand, this.port);
   }
 }
 
@@ -767,4 +968,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = ONVIFHoneypot; 
+module.exports = ONVIFHoneypot;

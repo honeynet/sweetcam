@@ -6,6 +6,8 @@ const brandConfigs = {
     serialNumber: "DS-2CD2T47G1-L20201201AACH123456789",
     hardwareId: "DS-2CD2T47G1-L",
     deviceId: "hikvision-device-001",
+    rtspPort: 8554,
+    rtspPath: "/Streaming/Channels/101",
     onvifVersion: "2.4",
     deviceType: "IP Camera",
     resolution: "2688 x 1520",
@@ -30,6 +32,8 @@ const brandConfigs = {
     serialNumber: "IPC-HDW4631C-A20201201AACH123456789",
     hardwareId: "IPC-HDW4631C-A",
     deviceId: "dahua-device-001",
+    rtspPort: 8555,
+    rtspPath: "/cam/realmonitor?channel=1&subtype=0",
     onvifVersion: "2.4",
     deviceType: "IP Camera",
     resolution: "1080p",
@@ -53,6 +57,8 @@ const brandConfigs = {
     serialNumber: "00408C123456",
     hardwareId: "M3047-P",
     deviceId: "axis-device-001",
+    rtspPort: 8556,
+    rtspPath: "/axis-media/media.amp",
     onvifVersion: "2.4",
     deviceType: "Network Camera",
     resolution: "360° panoramic",
@@ -76,6 +82,8 @@ const brandConfigs = {
     serialNumber: "E1-Zoom20201201AACH123456789",
     hardwareId: "E1-Zoom",
     deviceId: "reolink-device-001",
+    rtspPort: 8557,
+    rtspPath: "/h264Preview_01_main",
     onvifVersion: "2.4",
     deviceType: "Network Camera",
     resolution: "Full HD",
@@ -99,6 +107,8 @@ const brandConfigs = {
     serialNumber: "MX-VT1A-2-IR20201201AACH123456789",
     hardwareId: "MX-VT1A-2-IR",
     deviceId: "mobotix-device-001",
+    rtspPort: 8558,
+    rtspPath: "/control/faststream.jpg",
     onvifVersion: "2.4",
     deviceType: "IP Camera",
     resolution: "2MP",
@@ -122,6 +132,8 @@ const brandConfigs = {
     serialNumber: "C7824WIP20201201AACH123456789",
     hardwareId: "C7824WIP",
     deviceId: "vstarcam-device-001",
+    rtspPort: 8559,
+    rtspPath: "/videostream.cgi",
     onvifVersion: "2.4",
     deviceType: "Network Camera",
     resolution: "640x480",
@@ -139,4 +151,4 @@ const brandConfigs = {
   }
 };
 
-module.exports = brandConfigs; 
+module.exports = brandConfigs;

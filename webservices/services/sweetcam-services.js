@@ -24,21 +24,43 @@ const getLoginLimit = () => {
     return JSON.parse(jsonString).loginLimit;
 };
 
-const buildRtspAddress = (config, profile) => {
-    if (profile?.rtsp_path) {
-        const base = config.rtspAddress || "rtsp://public_ip:554";
-        const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
-        const normalizedPath = profile.rtsp_path.startsWith("/")
-            ? profile.rtsp_path
-            : `/${profile.rtsp_path}`;
+const PUBLIC_RTSP_HOST = process.env.PUBLIC_RTSP_HOST || process.env.RTSP_PUBLIC_HOST || "localhost";
 
-        return `${normalizedBase}${normalizedPath}`;
+const DEFAULT_RTSP_ENDPOINTS = {
+    hikvision: { port: 8554, path: "/Streaming/Channels/101" },
+    dahua: { port: 8555, path: "/cam/realmonitor?channel=1&subtype=0" },
+    axis: { port: 8556, path: "/axis-media/media.amp" },
+    reolink: { port: 8557, path: "/h264Preview_01_main" },
+    mobotix: { port: 8558, path: "/control/faststream.jpg" },
+    vstarcam: { port: 8559, path: "/videostream.cgi" },
+    foscam: { port: 8560, path: "/videoMain" }
+};
+
+const getCameraTypeFromConfig = (config = {}, profile = {}) => {
+    const brand = profile?.vendor || config.brand || "hikvision";
+    return String(brand).toLowerCase();
+};
+
+const normalizeRtspPath = (rtspPath) => {
+    if (!rtspPath) return null;
+    return rtspPath.startsWith("/") ? rtspPath : `/${rtspPath}`;
+};
+
+const buildRtspAddress = (config, profile) => {
+    if (config.rtspAddress) {
+        return config.rtspAddress;
     }
 
-    return config.rtspAddress || "rtsp://public_ip:554/mystream";
+    const cameraType = getCameraTypeFromConfig(config, profile);
+    const endpoint = DEFAULT_RTSP_ENDPOINTS[cameraType] || DEFAULT_RTSP_ENDPOINTS.hikvision;
+    const rtspPath = normalizeRtspPath(profile?.rtsp_path) || endpoint.path;
+
+    return `rtsp://${PUBLIC_RTSP_HOST}:${endpoint.port}${rtspPath}`;
 };
 
 const mergeCameraConfig = (config, profile) => {
+    const rtspAddress = buildRtspAddress(config, profile || config);
+
     return {
         // UI/static brand config
         ...config,
@@ -58,6 +80,10 @@ const mergeCameraConfig = (config, profile) => {
                 : "N/A"
         ),
         compression: profile?.compression || config?.specifications?.compression || "N/A",
+        rtspAddress,
+        rtspPublicAddress: rtspAddress,
+        videoPathMp4: config.videoPathMp4 || "/videos/camera-loop-720p15.mp4",
+        videoPathWebm: config.videoPathWebm || null,
         status: profile?.status || "Online",
 
         specifications: {
@@ -86,7 +112,8 @@ const getCamPictureConfig = async (cameraType = 'hikvision') => {
         height: config.height || 0.3,
         zoomRatio: config.zoomRatio || 83,
         imgPath: "/images/img.png",
-        rtspAddress: buildRtspAddress(config, config),
+        rtspAddress: config.rtspAddress,
+        rtspPublicAddress: config.rtspPublicAddress,
 
         brandImagePath: config.brandImagePath || "/brands/Hikvision.png",
         brandImageWidth: config.brandImageWidth || "30%",
@@ -114,11 +141,12 @@ const getCamVideoConfig = async (cameraType = 'hikvision') => {
         yRotationAngle: config.yRotationAngle || 10,
         width: config.width || 0.3,
         height: config.height || 0.3,
-        videoPathMp4: "/videos/jfk.mp4",
-        videoPathWebm: "/videos/jfk.webm",
+        videoPathMp4: config.videoPathMp4,
+        videoPathWebm: config.videoPathWebm,
         brandImagePath: config.brandImagePath || "/brands/Hikvision.png",
         brandImageWidth: config.brandImageWidth || "30%",
-        rtspAddress: buildRtspAddress(config, config),
+        rtspAddress: config.rtspAddress,
+        rtspPublicAddress: config.rtspPublicAddress,
 
         brand: config.brand,
         model: config.model,
@@ -147,6 +175,8 @@ const getBrandConfig = async (cameraType = 'hikvision') => {
         server: config.server,
         ports: config.ports,
         rtsp_path: config.rtsp_path,
+        rtspAddress: config.rtspAddress,
+        rtspPublicAddress: config.rtspPublicAddress,
         resolution: config.resolution,
         frame_rate: config.frame_rate,
         video_mode: config.video_mode,

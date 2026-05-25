@@ -4,6 +4,8 @@ const session = require('express-session');
 const i18n = require('i18n');
 const sweetcamServices = require('./services/sweetcam-services');
 const userServices = require('./services/user-services');
+const databaseLogger = require('./utils/database-logger');
+const sequelize = require('./database/database');
 const bcrypt = require('bcrypt');
 const fs = require('fs');
 const adminRouter = require('./controllers/admin');
@@ -150,6 +152,205 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/config', express.static(path.join(__dirname, 'config')));
 
+const MEDIA_ACTION_TO_METHOD = {
+    publish: 'ANNOUNCE',
+    read: 'PLAY',
+    playback: 'PLAY'
+};
+
+const parseBrandList = (value = '') => new Set(
+    String(value || '')
+        .split(',')
+        .map(brand => brand.trim().toLowerCase())
+        .filter(Boolean)
+);
+
+const NO_AUTH_RTSP_BRANDS = parseBrandList(process.env.NO_AUTH_RTSP_BRANDS);
+const NO_AUTH_WEB_BRANDS = parseBrandList(process.env.NO_AUTH_WEB_BRANDS);
+
+const MEDIAMTX_PUBLIC_RTSP_PORT = parseInt(process.env.MEDIAMTX_PUBLIC_RTSP_PORT, 10) || 8554;
+const BRAND_TO_PUBLIC_RTSP_PORT = {
+    hikvision: parseInt(process.env.MEDIAMTX_HIKVISION_RTSP_PORT, 10) || 8554,
+    dahua: parseInt(process.env.MEDIAMTX_DAHUA_RTSP_PORT, 10) || 8555,
+    axis: parseInt(process.env.MEDIAMTX_AXIS_RTSP_PORT, 10) || 8556,
+    reolink: parseInt(process.env.MEDIAMTX_REOLINK_RTSP_PORT, 10) || 8557,
+    mobotix: parseInt(process.env.MEDIAMTX_MOBOTIX_RTSP_PORT, 10) || 8558,
+    vstarcam: parseInt(process.env.MEDIAMTX_VSTARCAM_RTSP_PORT, 10) || 8559,
+    foscam: parseInt(process.env.MEDIAMTX_FOSCAM_RTSP_PORT, 10) || 8560
+};
+
+const isPrivateAddress = (ip = '') => {
+    const normalizedIp = ip.replace(/^::ffff:/, '');
+    return normalizedIp === '127.0.0.1' ||
+        normalizedIp === '::1' ||
+        normalizedIp.startsWith('10.') ||
+        normalizedIp.startsWith('172.') ||
+        normalizedIp.startsWith('192.168.');
+};
+
+const normalizeMediaPath = (mediaPath = '') => {
+    const pathOnly = String(mediaPath || '').split('?')[0].replace(/\/trackID=\d+$/, '');
+    const withSlash = pathOnly.startsWith('/') ? pathOnly : `/${pathOnly}`;
+    return withSlash.length > 1 ? withSlash.replace(/\/+$/, '') : withSlash;
+};
+
+const getBrandForRtspPath = async (mediaPath) => {
+    const normalizedPath = normalizeMediaPath(mediaPath);
+    const lowerPath = normalizedPath.toLowerCase();
+
+    try {
+        const matches = await sequelize.query(
+            `SELECT vendor FROM camera_profiles
+             WHERE SUBSTRING_INDEX(rtsp_path, CHAR(63), 1) = ?
+             ORDER BY id DESC
+             LIMIT 1`,
+            {
+                replacements: [normalizedPath],
+                type: sequelize.QueryTypes.SELECT
+            }
+        );
+
+        if (matches.length > 0 && matches[0].vendor) {
+            return String(matches[0].vendor).toLowerCase();
+        }
+    } catch (error) {
+        console.error('[MediaMTX Auth] Failed to resolve camera profile:', error.message);
+    }
+
+    if (lowerPath.includes('dahua') || lowerPath.includes('realmonitor')) {
+        return 'dahua';
+    }
+    if (lowerPath.includes('axis')) {
+        return 'axis';
+    }
+    if (lowerPath.includes('reolink') || lowerPath.includes('h264preview')) {
+        return 'reolink';
+    }
+    if (lowerPath.includes('mobotix') || lowerPath.includes('faststream') || lowerPath.includes('/control/')) {
+        return 'mobotix';
+    }
+    if (lowerPath.includes('vstarcam') || lowerPath.includes('videostream')) {
+        return 'vstarcam';
+    }
+    if (lowerPath.includes('foscam') || lowerPath.includes('videomain') || lowerPath.includes('videosub')) {
+        return 'foscam';
+    }
+
+    return 'hikvision';
+};
+
+const getPublicRtspPortForBrand = (brand) => {
+    return BRAND_TO_PUBLIC_RTSP_PORT[String(brand || '').toLowerCase()] || MEDIAMTX_PUBLIC_RTSP_PORT;
+};
+
+const isNoAuthRtspBrand = (brand) => {
+    return NO_AUTH_RTSP_BRANDS.has(String(brand || '').toLowerCase());
+};
+
+const isNoAuthWebBrand = (brand) => {
+    return NO_AUTH_WEB_BRANDS.has(String(brand || '').toLowerCase());
+};
+
+const logMediaMtxAuth = async ({ body, statusCode, brand, success, reason }) => {
+    const mediaPath = normalizeMediaPath(body.path || '');
+    const action = body.action || 'unknown';
+    const rtspMethod = MEDIA_ACTION_TO_METHOD[action] || action.toUpperCase();
+
+    try {
+        await databaseLogger.writeRTSPLog({
+            event_type: action === 'publish' ? 'media_publish' : 'auth_attempt',
+            log_level: success ? 'info' : 'warn',
+            ip_address: body.ip || null,
+            brand,
+            port: getPublicRtspPortForBrand(brand),
+            username: body.user || null,
+            password: body.password || null,
+            session_id: body.id || null,
+            rtsp_method: rtspMethod,
+            stream_path: mediaPath,
+            connection_id: body.id || null,
+            message: `MediaMTX ${action} ${success ? 'allowed' : 'rejected'} for ${mediaPath || '(no path)'}`,
+            payload: {
+                protocol: body.protocol,
+                action,
+                path: body.path,
+                query: body.query,
+                reason,
+                statusCode
+            },
+            raw_data: body
+        });
+    } catch (error) {
+        console.error('[MediaMTX Auth] Failed to write RTSP log:', error.message);
+    }
+};
+
+app.post('/api/mediamtx/auth', async (req, res) => {
+    const body = req.body || {};
+    const action = body.action || '';
+    const brand = await getBrandForRtspPath(body.path);
+
+    if (action === 'publish') {
+        const allowed = isPrivateAddress(body.ip);
+        await logMediaMtxAuth({
+            body,
+            statusCode: allowed ? 200 : 403,
+            brand,
+            success: allowed,
+            reason: allowed ? 'internal publisher' : 'publisher ip rejected'
+        });
+
+        return res.sendStatus(allowed ? 200 : 403);
+    }
+
+    if (action === 'read' || action === 'playback') {
+        if (isNoAuthRtspBrand(brand)) {
+            await logMediaMtxAuth({
+                body,
+                statusCode: 200,
+                brand,
+                success: true,
+                reason: 'public no-auth camera'
+            });
+
+            return res.sendStatus(200);
+        }
+
+        if (!body.user || !body.password) {
+            await logMediaMtxAuth({
+                body,
+                statusCode: 401,
+                brand,
+                success: false,
+                reason: 'missing credentials'
+            });
+
+            return res.sendStatus(401);
+        }
+
+        const validCredentials = await userServices.validateUserPassword(body.user, body.password);
+        await logMediaMtxAuth({
+            body,
+            statusCode: validCredentials ? 200 : 401,
+            brand,
+            success: validCredentials,
+            reason: validCredentials ? 'valid credentials' : 'invalid credentials'
+        });
+
+        return res.sendStatus(validCredentials ? 200 : 401);
+    }
+
+    await logMediaMtxAuth({
+        body,
+        statusCode: 403,
+        brand,
+        success: false,
+        reason: `unsupported action: ${action || 'unknown'}`
+    });
+
+    return res.sendStatus(403);
+});
+
 //health check endpoint
 app.get('/health', async (req, res) => {
     try {
@@ -274,6 +475,19 @@ function getCameraType(req) {
 
 //authentication middleware
 function requireAuth(req, res, next) {
+    const cameraType = getCameraType(req);
+
+    if (isNoAuthWebBrand(cameraType)) {
+        if (!req.session.username) {
+            req.session.username = process.env.PUBLIC_VIEWER_USERNAME || 'guest';
+            req.session.isPublicViewer = true;
+            req.session.isAdmin = false;
+        }
+
+        console.log(`Public no-auth web access allowed for ${cameraType}`);
+        return next();
+    }
+
     if (!req.session || !req.session.username) {
         console.log('Auth failed: No session or username, redirecting to login');
         return res.redirect('/login');
@@ -383,6 +597,10 @@ app.get('/', requireAuth, async (req, res) => {
             frame_rate: config.frame_rate,
             video_mode: config.video_mode,
             compression: config.compression,
+            videoPathMp4: config.videoPathMp4,
+            videoPathWebm: config.videoPathWebm,
+            rtspAddress: config.rtspAddress,
+            rtspPublicAddress: config.rtspPublicAddress,
             status: config.status,
             locale: req.session.locale || 'en',
             isAdmin: req.session.isAdmin || false

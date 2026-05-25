@@ -9,6 +9,11 @@
             "date": 1778625997571,
             "name": "/app/logs/onvif-app-2026-05-12.log",
             "hash": "39c9b76fef600cc812b2c6e118b5bb32b41f8ff9ff6eff680328e9e68985c10b"
+        },
+        {
+            "date": 1779724240994,
+            "name": "/app/logs/onvif-app-2026-05-25.log",
+            "hash": "0f904e970e20ec855bc453fb691ac866bd1adbed9206d29dd3728f650d796902"
         }
     ],
     "hashType": "sha256"

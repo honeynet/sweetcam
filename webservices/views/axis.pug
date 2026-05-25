@@ -132,7 +132,8 @@ html(lang="en")
                 overflow: hidden;
                 border-radius: 10px;
             }
-            #imageViewer img {
+            #imageViewer img,
+            #imageViewer video {
                 position: absolute;
                 top: 0;
                 left: 0;
@@ -380,27 +381,27 @@ html(lang="en")
                 h3= __('main.stream')
                 p
                   span.label= __('main.model')
-                  | : #{model}                  
+                  | : #{model}
                 p(style='color:#888;')= __('main.streamSettingsComingSoon')
             .axis-tab-content#tab-system(style='display:none;')
                 h3= __('main.systemInfo')
                 ul#system-info-list
                     style.
-                        
+
                         .rtsp-control-item {
                             border-top: 2px solid #e0e0e0;
                             padding-top: 15px;
                             margin-top: 10px;
                             list-style: none;
                         }
-                        
+
                         .rtsp-toggle-container {
                             display: flex;
                             align-items: center;
                             gap: 12px;
                             margin-top: 8px;
                         }
-                        
+
                         .rtsp-toggle {
                             position: relative;
                             display: inline-block;
@@ -408,13 +409,13 @@ html(lang="en")
                             height: 34px;
                             cursor: pointer;
                         }
-                        
+
                         .rtsp-toggle-input {
                             opacity: 0;
                             width: 0;
                             height: 0;
                         }
-                        
+
                         .rtsp-toggle-slider {
                             position: absolute;
                             cursor: pointer;
@@ -427,7 +428,7 @@ html(lang="en")
                             border-radius: 34px;
                             box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
                         }
-                        
+
                         .rtsp-toggle-slider:before {
                             position: absolute;
                             content: "";
@@ -440,48 +441,48 @@ html(lang="en")
                             border-radius: 50%;
                             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
                         }
-                        
+
                         .rtsp-toggle-input:checked + .rtsp-toggle-slider {
                             background-color: #4caf50;
                         }
-                        
+
                         .rtsp-toggle-input:checked + .rtsp-toggle-slider:before {
                             transform: translateX(26px);
                         }
-                        
+
                         .rtsp-toggle-input:disabled + .rtsp-toggle-slider {
                             opacity: 0.6;
                             cursor: not-allowed;
                         }
-                        
+
                         .rtsp-status-text {
                             font-weight: 500;
                             color: #666;
                             transition: color 0.3s ease;
                         }
-                        
+
                         .rtsp-status-text.enabled {
                             color: #4caf50;
                         }
-                        
+
                         .rtsp-status-text.disabled {
                             color: #f44336;
                         }
-                        
+
                         .onvif-control-item {
                             border-top: 2px solid #e0e0e0;
                             padding-top: 15px;
                             margin-top: 10px;
                             list-style: none;
                         }
-                        
+
                         .onvif-toggle-container {
                             display: flex;
                             align-items: center;
                             gap: 12px;
                             margin-top: 8px;
                         }
-                        
+
                         .onvif-toggle {
                             position: relative;
                             display: inline-block;
@@ -489,13 +490,13 @@ html(lang="en")
                             height: 34px;
                             cursor: pointer;
                         }
-                        
+
                         .onvif-toggle-input {
                             opacity: 0;
                             width: 0;
                             height: 0;
                         }
-                        
+
                         .onvif-toggle-slider {
                             position: absolute;
                             cursor: pointer;
@@ -508,7 +509,7 @@ html(lang="en")
                             border-radius: 34px;
                             box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
                         }
-                        
+
                         .onvif-toggle-slider:before {
                             position: absolute;
                             content: "";
@@ -521,30 +522,30 @@ html(lang="en")
                             border-radius: 50%;
                             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
                         }
-                        
+
                         .onvif-toggle-input:checked + .onvif-toggle-slider {
                             background-color: #2196f3;
                         }
-                        
+
                         .onvif-toggle-input:checked + .onvif-toggle-slider:before {
                             transform: translateX(26px);
                         }
-                        
+
                         .onvif-toggle-input:disabled + .onvif-toggle-slider {
                             opacity: 0.6;
                             cursor: not-allowed;
                         }
-                        
+
                         .onvif-status-text {
                             font-weight: 500;
                             color: #666;
                             transition: color 0.3s ease;
                         }
-                        
+
                         .onvif-status-text.enabled {
                             color: #2196f3;
                         }
-                        
+
                         .onvif-status-text.disabled {
                             color: #f44336;
                         }
@@ -555,20 +556,20 @@ html(lang="en")
                     li #{__('main.lens')}: <span id="lens-value"></span>
                     li #{__('main.fps')}: <span id="fps-value"></span>
                     li #{__('main.compression')}: <span id="compression-value"></span>
-                    li.rtsp-control-item#rtsp-control-item(style="display: none;") #{__('main.rtspService')}: 
+                    li.rtsp-control-item#rtsp-control-item(style="display: none;") #{__('main.rtspService')}:
                         .rtsp-toggle-container
                             label.rtsp-toggle
                                 input.rtsp-toggle-input(type="checkbox" id="rtsp-toggle")
                                 span.rtsp-toggle-slider
                             span.rtsp-status-text#rtsp-status-text= __('main.rtspDisabled')
-                    li.onvif-control-item#onvif-control-item(style="display: none;") #{__('main.onvifService')}: 
+                    li.onvif-control-item#onvif-control-item(style="display: none;") #{__('main.onvifService')}:
                         .onvif-toggle-container
                             label.onvif-toggle
                                 input.onvif-toggle-input(type="checkbox" id="onvif-toggle")
                                 span.onvif-toggle-slider
                             span.onvif-status-text#onvif-status-text= __('main.onvifDisabled')
         script.
-            
+
             const labels = {
               model: '!{__('main.model')}',
               type: '!{__('main.type')}',
@@ -580,86 +581,83 @@ html(lang="en")
               error: '!{__('main.errorLoadingSystemInfo')}'
             };
             let currentImage = null;
+            const cameraVideoPath = "#{videoPathMp4 || '/videos/camera-loop-720p15.mp4'}";
             let currentX = 0;
             let currentY = 0;
             let imageWidth = 0;
             let imageHeight = 0;
             let containerWidth = 0;
             let containerHeight = 0;
-            const moveStep = 50; 
+            const moveStep = 50;
 
-            function loadImage() {
-                const xhr = new XMLHttpRequest();
-                xhr.open('GET', '/api/images', true);
-                xhr.withCredentials = true;
-                xhr.onreadystatechange = function() {
-                    if (xhr.readyState === 4) {
-                        if (xhr.status === 200) {
-                            try {
-                                const images = JSON.parse(xhr.responseText);
-                                if (images.length > 0) {
-                                    displayImage(images[0]);
-                                } else {
-                                    document.getElementById('noImages').style.display = 'block';
-                                }
-                            } catch (error) {
-                                document.getElementById('noImages').style.display = 'block';
-                            }
-                        } else {
-                            document.getElementById('noImages').style.display = 'block';
-                        }
-                    }
-                };
-                xhr.onerror = function() {
-                    document.getElementById('noImages').style.display = 'block';
-                };
-                xhr.send();
+            function loadVideo() {
+                displayVideo(cameraVideoPath);
             }
 
-            
-            function displayImage(imageSrc) {
+
+            function displayVideo(videoSrc) {
                 const imageViewer = document.getElementById('imageViewer');
+                const imageInfo = document.getElementById('imageInfo');
+
                 imageViewer.innerHTML = '';
-                const img = document.createElement('img');
-                img.src = imageSrc;
-                img.alt = '360 VIEW';
-                img.style.position = 'absolute';
-                img.style.top = '0';
-                img.style.left = '0';
-                img.style.width = 'auto';
-                img.style.height = 'auto';
-                img.style.maxWidth = 'none';
-                img.style.maxHeight = 'none';
-                img.style.userSelect = 'none';
-                img.draggable = false;
-                img.onload = function() {
-                    imageWidth = this.naturalWidth;
-                    imageHeight = this.naturalHeight;
+
+                const video = document.createElement('video');
+                video.src = videoSrc;
+                video.autoplay = true;
+                video.loop = true;
+                video.muted = true;
+                video.playsInline = true;
+                video.preload = 'auto';
+                video.style.position = 'absolute';
+                video.style.top = '0';
+                video.style.left = '0';
+                video.style.width = 'auto';
+                video.style.height = 'auto';
+                video.style.maxWidth = 'none';
+                video.style.maxHeight = 'none';
+                video.style.userSelect = 'none';
+                video.draggable = false;
+
+                video.onloadedmetadata = function() {
+                    imageWidth = this.videoWidth || 1280;
+                    imageHeight = this.videoHeight || 544;
                     containerWidth = imageViewer.clientWidth;
                     containerHeight = imageViewer.clientHeight;
-                    
-                    currentX = imageWidth > containerWidth ? (imageWidth - containerWidth) / 2 : 0;
-                    currentY = imageHeight > containerHeight ? (imageHeight - containerHeight) / 2 : 0;
+                    currentX = Math.max(0, (imageWidth - containerWidth) / 2);
+                    currentY = Math.max(0, (imageHeight - containerHeight) / 2);
                     updateImagePosition();
-                    
-                    document.getElementById('up').disabled = !(imageHeight > containerHeight);
-                    document.getElementById('down').disabled = !(imageHeight > containerHeight);
-                    document.getElementById('left').disabled = !(imageWidth > containerWidth);
-                    document.getElementById('right').disabled = !(imageWidth > containerWidth);
+
+                    if (imageInfo) {
+                        imageInfo.textContent = `Stream: ${videoSrc.split('/').pop()}`;
+                        imageInfo.style.display = 'block';
+                    }
+
+                    const up = document.getElementById('up');
+                    const down = document.getElementById('down');
+                    const left = document.getElementById('left');
+                    const right = document.getElementById('right');
+                    if (up) up.disabled = !(imageHeight > containerHeight);
+                    if (down) down.disabled = !(imageHeight > containerHeight);
+                    if (left) left.disabled = !(imageWidth > containerWidth);
+                    if (right) right.disabled = !(imageWidth > containerWidth);
                 };
-                img.onerror = function() {
+
+                video.onerror = function() {
+                    console.error('Video failed to load:', videoSrc);
                     document.getElementById('noImages').style.display = 'block';
                 };
-                imageViewer.appendChild(img);
-                currentImage = img;
+
+                imageViewer.appendChild(video);
+                video.play().catch(error => console.debug('Autoplay waiting for browser permission:', error));
+                currentImage = video;
             }
 
-            
+
             function updateImagePosition() {
                 if (!currentImage) return;
                 const maxX = Math.max(0, imageWidth - containerWidth);
                 const maxY = Math.max(0, imageHeight - containerHeight);
-                
+
                 let offsetX = 0;
                 let offsetY = 0;
                 if (imageWidth <= containerWidth) {
@@ -677,7 +675,7 @@ html(lang="en")
                 currentImage.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
             }
 
-            
+
             document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('up').addEventListener('click', () => {
                     currentY -= moveStep;
@@ -695,9 +693,9 @@ html(lang="en")
                     currentX += moveStep;
                     updateImagePosition();
                 });
-                loadImage();
+                loadVideo();
 
-                
+
                 const settingsBtn = document.getElementById('settings-btn');
                 const settingsBar = document.getElementById('settings-bar');
                 const settingsClose = document.querySelector('.axis-settings-close');
@@ -732,8 +730,8 @@ html(lang="en")
                     });
                 });
             });
-            
-            
+
+
             async function loadSystemInfo() {
                 try {
                     const res = await fetch('/api/camera-info');
@@ -758,7 +756,7 @@ html(lang="en")
                     }
                 }
             }
-            
+
             function showNotification(message, type) {
                 const notification = document.createElement('div');
                 notification.className = `notification ${type}`;
@@ -775,9 +773,9 @@ html(lang="en")
                     animation: slideIn 0.3s ease;
                     background-color: ${type === 'success' ? '#4caf50' : '#f44336'};
                 `;
-                
+
                 document.body.appendChild(notification);
-                
+
                 setTimeout(() => {
                     notification.style.animation = 'slideOut 0.3s ease';
                     setTimeout(() => {
@@ -787,7 +785,7 @@ html(lang="en")
                     }, 300);
                 }, 3000);
             }
-            
+
             const style = document.createElement('style');
             style.textContent = `
                 @keyframes slideIn {
@@ -800,8 +798,8 @@ html(lang="en")
                 }
             `;
             document.head.appendChild(style);
-            
-            
+
+
             async function checkAdminStatus() {
                 // Only check admin status if user is an admin
                 if (!#{isAdmin}) {
@@ -811,7 +809,7 @@ html(lang="en")
                     }
                     return;
                 }
-                
+
                 try {
                     const response = await fetch('/admin/rtsp/status');
                     if (response.ok) {
@@ -835,31 +833,31 @@ html(lang="en")
                 }
             }
 
-            
+
             async function loadRTSPStatus() {
                 // Only load RTSP status if user is an admin
                 if (!#{isAdmin}) {
                     return;
                 }
-                
+
                 try {
-                    
+
                     const portsResponse = await fetch('/admin/rtsp/ports');
                     if (!portsResponse.ok) {
                         console.error('Failed to load RTSP ports');
                         updateRTSPToggle(false);
                         return;
-                    } 
+                    }
                     const ports = await portsResponse.json();
                     const currentPort = ports.rtsp_axis;
-                    
+
                     if (!currentPort) {
                         console.error('RTSP port not found for axis');
                         updateRTSPToggle(false);
                         return;
                     }
-                    
-                    
+
+
                     const response = await fetch(`/admin/rtsp/service/${currentPort}`);
                     if (response.ok) {
                         const data = await response.json();
@@ -873,47 +871,47 @@ html(lang="en")
                     updateRTSPToggle(false);
                 }
             }
-            
+
             function updateRTSPToggle(isEnabled) {
                 const toggle = document.getElementById('rtsp-toggle');
                 const statusText = document.getElementById('rtsp-status-text');
-                
+
                 if (toggle && statusText) {
                     toggle.checked = isEnabled;
                     statusText.textContent = isEnabled ? '!{__("main.rtspEnabled")}' : '!{__("main.rtspDisabled")}';
                     statusText.className = `rtsp-status-text ${isEnabled ? 'enabled' : 'disabled'}`;
                 }
             }
-            
+
             async function toggleRTSPService() {
                 // Only allow RTSP toggle if user is an admin
                 if (!#{isAdmin}) {
                     showNotification('Admin access required. Please log in as admin.', 'error');
                     return;
                 }
-                
+
                 const toggle = document.getElementById('rtsp-toggle');
                 const statusText = document.getElementById('rtsp-status-text');
-                
+
                 if (!toggle || !statusText) return;
-                
+
                 const currentState = toggle.checked;
                 const newState = !currentState;
-                
+
                 toggle.checked = newState;
                 statusText.textContent = newState ? '!{__("main.rtspEnabled")}' : '!{__("main.rtspDisabled")}';
                 statusText.className = `rtsp-status-text ${newState ? 'enabled' : 'disabled'}`;
-                
+
                 toggle.disabled = true;
-                
-                try {   
+
+                try {
                     const response = await fetch('/admin/rtsp/toggle/rtsp_axis', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
                         }
                     });
-                    
+
                     if (response.ok) {
                         const result = await response.json();
                         if (result.success) {
@@ -948,13 +946,13 @@ html(lang="en")
                 }
             }
 
-            
+
             async function loadONVIFStatus() {
                 // Only load ONVIF status if user is an admin
                 if (!#{isAdmin}) {
                     return;
                 }
-                
+
                 try {
                     const response = await fetch('/admin/onvif/service/8087');
                     if (response.ok) {
@@ -969,39 +967,39 @@ html(lang="en")
                     updateONVIFToggle(false);
                 }
             }
-            
+
             function updateONVIFToggle(isEnabled) {
                 const toggle = document.getElementById('onvif-toggle');
                 const statusText = document.getElementById('onvif-status-text');
-                
+
                 if (toggle && statusText) {
                     toggle.checked = isEnabled;
                     statusText.textContent = isEnabled ? '!{__("main.onvifEnabled")}' : '!{__("main.onvifDisabled")}';
                     statusText.className = `onvif-status-text ${isEnabled ? 'enabled' : 'disabled'}`;
                 }
             }
-            
+
             async function toggleONVIFService() {
                 // Only allow ONVIF toggle if user is an admin
                 if (!#{isAdmin}) {
                     showNotification('Admin access required. Please log in as admin.', 'error');
                     return;
                 }
-                
+
                 const toggle = document.getElementById('onvif-toggle');
                 const statusText = document.getElementById('onvif-status-text');
-                
+
                 if (!toggle || !statusText) return;
-                
+
                 const currentState = toggle.checked;
                 const newState = !currentState;
-                
+
                 toggle.checked = newState;
                 statusText.textContent = newState ? '!{__("main.onvifEnabled")}' : '!{__("main.onvifDisabled")}';
                 statusText.className = `onvif-status-text ${newState ? 'enabled' : 'disabled'}`;
-                
+
                 toggle.disabled = true;
-                
+
                 try {
                     const response = await fetch('/admin/onvif/toggle/onvif_axis_service', {
                         method: 'POST',
@@ -1009,7 +1007,7 @@ html(lang="en")
                             'Content-Type': 'application/json'
                         }
                     });
-                    
+
                     if (response.ok) {
                         const result = await response.json();
                         if (result.success) {
@@ -1044,7 +1042,7 @@ html(lang="en")
                 }
             }
 
-            
+
             async function checkONVIFAdminStatus() {
                 // Only check ONVIF admin status if user is an admin
                 if (!#{isAdmin}) {
@@ -1054,7 +1052,7 @@ html(lang="en")
                     }
                     return;
                 }
-                
+
                 try {
                     const response = await fetch('/admin/onvif/status');
                     if (response.ok) {
@@ -1077,7 +1075,7 @@ html(lang="en")
                     }
                 }
             }
-            
+
             const rtspToggle = document.getElementById('rtsp-toggle');
             if (rtspToggle) {
                 rtspToggle.addEventListener('change', toggleRTSPService);
@@ -1088,7 +1086,7 @@ html(lang="en")
             }
             checkAdminStatus();
             checkONVIFAdminStatus();
-            
+
             const lastActiveTab = localStorage.getItem('lastActiveTab');
             if (lastActiveTab) {
                 localStorage.removeItem('lastActiveTab');
@@ -1097,5 +1095,5 @@ html(lang="en")
                     tabButton.click();
                 }
             }
-            
+
             loadSystemInfo();

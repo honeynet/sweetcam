@@ -6,23 +6,23 @@ class DatabaseLogger {
         if (DatabaseLogger.instance) {
             return DatabaseLogger.instance;
         }
-        
+
         this.pool = null;
         this.initialized = false;
         this.initializing = false;
         this.lastWriteTime = 0;
         this.writeInterval = 50; // Reduced from 100ms to 50ms between writes
-        
+
         // Smart batching system
         this.logQueue = [];
         this.batchSize = 10;
         this.batchTimeout = 1000; // 1 second
         this.processingBatch = false;
         this.batchTimer = null;
-        
+
         // Priority system
         this.highPriorityEvents = ['login', 'admin', 'error', 'auth_failure'];
-        
+
         DatabaseLogger.instance = this;
     }
 
@@ -33,9 +33,9 @@ class DatabaseLogger {
             priority: priority,
             timestamp: Date.now()
         };
-        
+
         // High priority events go to front of queue
-        if (this.highPriorityEvents.some(event => 
+        if (this.highPriorityEvents.some(event =>
             logData.event_type && logData.event_type.includes(event) ||
             logData.message && logData.message.includes(event)
         )) {
@@ -43,12 +43,12 @@ class DatabaseLogger {
         } else {
             this.logQueue.push(entry);
         }
-        
+
         // Start batch processing if not already running
         if (!this.processingBatch) {
             this.processBatch();
         }
-        
+
         // Set timeout to process remaining items
         if (this.batchTimer) {
             clearTimeout(this.batchTimer);
@@ -62,33 +62,33 @@ class DatabaseLogger {
         if (this.processingBatch || this.logQueue.length === 0) {
             return;
         }
-        
+
         this.processingBatch = true;
-        
+
         try {
             // Process high priority items first
-            const highPriority = this.logQueue.filter(item => 
-                this.highPriorityEvents.some(event => 
+            const highPriority = this.logQueue.filter(item =>
+                this.highPriorityEvents.some(event =>
                     item.data.event_type && item.data.event_type.includes(event) ||
                     item.data.message && item.data.message.includes(event)
                 )
             );
-            
-            const normalPriority = this.logQueue.filter(item => 
-                !this.highPriorityEvents.some(event => 
+
+            const normalPriority = this.logQueue.filter(item =>
+                !this.highPriorityEvents.some(event =>
                     item.data.event_type && item.data.event_type.includes(event) ||
                     item.data.message && item.data.message.includes(event)
                 )
             );
-            
+
             // Combine high priority first, then normal priority
             const itemsToProcess = [...highPriority, ...normalPriority].slice(0, this.batchSize);
-            
+
             if (itemsToProcess.length === 0) {
                 this.processingBatch = false;
                 return;
             }
-            
+
             // Remove processed items from queue
             itemsToProcess.forEach(item => {
                 const index = this.logQueue.indexOf(item);
@@ -96,15 +96,15 @@ class DatabaseLogger {
                     this.logQueue.splice(index, 1);
                 }
             });
-            
+
             // Process batch
             await this.processBatchItems(itemsToProcess);
-            
+
         } catch (error) {
             console.error('[DATABASE] Error processing batch:', error.message);
         } finally {
             this.processingBatch = false;
-            
+
             // Continue processing if there are more items
             if (this.logQueue.length > 0) {
                 setTimeout(() => this.processBatch(), 100);
@@ -116,24 +116,24 @@ class DatabaseLogger {
         let connection = null;
         try {
             connection = await this.pool.getConnection();
-            
+
             for (const item of items) {
                 try {
                     // Check if this is a web service log that should go to web_service_logs table
-                    if (item.data.event_type === 'http_request' || 
+                    if (item.data.event_type === 'http_request' ||
                         item.data.event_type === 'http_request_response' ||
                         item.data.event_type === 'auth_failure' ||
                         item.data.event_type === 'login_attempt' ||
                         item.data.event_type === 'login_success' ||
                         item.data.isWebLog === true) {
                         await this.writeWebLogDirect(connection, item.data);
-                    } else if (item.data.service === 'cowrie' || 
+                    } else if (item.data.service === 'cowrie' ||
                                item.data.isCowrieLog === true) {
                         await this.writeCowrieLogDirect(connection, item.data);
-                    } else if (item.data.service === 'onvif' || 
+                    } else if (item.data.service === 'onvif' ||
                                item.data.isONVIFLog === true) {
                         await this.writeONVIFLogDirect(connection, item.data);
-                    } else if (item.data.service === 'rtsp' || 
+                    } else if (item.data.service === 'rtsp' ||
                                item.data.isRTSPLog === true) {
                         await this.writeRTSPLogDirect(connection, item.data);
                     } else {
@@ -174,9 +174,9 @@ class DatabaseLogger {
             };
 
             const query = `
-                INSERT INTO web_service_logs 
-                (timestamp, event_type, log_level, ip_address, brand, port, username, 
-                 password, session_id, user_agent, request_path, request_method, 
+                INSERT INTO web_service_logs
+                (timestamp, event_type, log_level, ip_address, brand, port, username,
+                 password, session_id, user_agent, request_path, request_method,
                  response_code, message, payload, raw_data)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
@@ -201,7 +201,7 @@ class DatabaseLogger {
             ];
 
         const [result] = await connection.execute(query, params);
-        
+
         // Analyze and track unique payloads
         try {
             if (logData.username && logData.username.trim()) {
@@ -215,7 +215,7 @@ class DatabaseLogger {
                     timestamp: logData.timestamp || new Date()
                 });
             }
-            
+
             if (logData.password && logData.password.trim()) {
                 await payloadAnalyzer.processPayload({
                     service: 'web',
@@ -227,7 +227,7 @@ class DatabaseLogger {
                     timestamp: logData.timestamp || new Date()
                 });
             }
-            
+
             if (logData.payload && typeof logData.payload === 'object') {
                 // Extract content-type and other payload fields
                 for (const [key, value] of Object.entries(logData.payload)) {
@@ -247,7 +247,7 @@ class DatabaseLogger {
         } catch (error) {
             console.error('[DATABASE] Error analyzing payloads:', error.message);
         }
-        
+
         return result.insertId;
     }
 
@@ -273,9 +273,9 @@ class DatabaseLogger {
         };
 
         const query = `
-            INSERT INTO cowrie_service_logs 
-            (timestamp, event_type, log_level, ip_address, brand, port, username, 
-             password, session_id, command, file_path, file_size, geoip_country, 
+            INSERT INTO cowrie_service_logs
+            (timestamp, event_type, log_level, ip_address, brand, port, username,
+             password, session_id, command, file_path, file_size, geoip_country,
              geoip_city, alert_type, message, raw_data)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
@@ -295,14 +295,14 @@ class DatabaseLogger {
             logEntry.file_size,
             logEntry.geoip_country,
             logEntry.geoip_city,
-            
+
             logEntry.alert_type,
             logEntry.message,
             logEntry.raw_data
         ];
 
         const [result] = await connection.execute(query, params);
-        
+
         // Analyze and track unique payloads for Cowrie
         try {
             if (logData.username && logData.username.trim()) {
@@ -316,7 +316,7 @@ class DatabaseLogger {
                     timestamp: logData.timestamp || new Date()
                 });
             }
-            
+
             if (logData.password && logData.password.trim()) {
                 await payloadAnalyzer.processPayload({
                     service: 'cowrie',
@@ -328,7 +328,7 @@ class DatabaseLogger {
                     timestamp: logData.timestamp || new Date()
                 });
             }
-            
+
             if (logData.command && logData.command.trim()) {
                 await payloadAnalyzer.processPayload({
                     service: 'cowrie',
@@ -343,7 +343,7 @@ class DatabaseLogger {
         } catch (error) {
             console.error('[DATABASE] Error analyzing Cowrie payloads:', error.message);
         }
-        
+
         return result.insertId;
     }
 
@@ -358,7 +358,7 @@ class DatabaseLogger {
         };
 
         const query = `
-            INSERT INTO service_logs 
+            INSERT INTO service_logs
             (timestamp, ip_address, service, port, time_end, brand)
             VALUES (?, ?, ?, ?, ?, ?)
         `;
@@ -397,9 +397,9 @@ class DatabaseLogger {
         };
 
         const query = `
-            INSERT INTO onvif_service_logs 
-            (timestamp, event_type, log_level, ip_address, brand, port, username, 
-             password, session_id, user_agent, request_method, request_url, 
+            INSERT INTO onvif_service_logs
+            (timestamp, event_type, log_level, ip_address, brand, port, username,
+             password, session_id, user_agent, request_method, request_url,
              response_status, message, payload, raw_data)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
@@ -424,7 +424,7 @@ class DatabaseLogger {
         ];
 
         const [result] = await connection.execute(query, params);
-        
+
         // Analyze and track unique payloads for ONVIF
         try {
             if (logData.username && logData.username.trim()) {
@@ -438,7 +438,7 @@ class DatabaseLogger {
                     timestamp: logData.timestamp || new Date()
                 });
             }
-            
+
             if (logData.password && logData.password.trim()) {
                 await payloadAnalyzer.processPayload({
                     service: 'onvif',
@@ -450,7 +450,7 @@ class DatabaseLogger {
                     timestamp: logData.timestamp || new Date()
                 });
             }
-            
+
             if (logData.payload && typeof logData.payload === 'object') {
                 // Extract SOAP actions and other payload fields
                 for (const [key, value] of Object.entries(logData.payload)) {
@@ -470,7 +470,7 @@ class DatabaseLogger {
         } catch (error) {
             console.error('[DATABASE] Error analyzing ONVIF payloads:', error.message);
         }
-        
+
         return result.insertId;
     }
 
@@ -483,23 +483,22 @@ class DatabaseLogger {
             brand: logData.brand || null,
             port: logData.port || null,
             username: logData.username || null,
-            password: logData.password || null,
-            session_id: logData.session_id || null,
-            user_agent: logData.user_agent || null,
-            rtsp_method: logData.rtsp_method || null,
-            stream_path: logData.stream_path || null,
-            connection_id: logData.connection_id || null,
+                password: logData.password || null,
+                session_id: logData.session_id || null,
+                rtsp_method: logData.rtsp_method || null,
+                stream_path: logData.stream_path || null,
+                connection_id: logData.connection_id || null,
             message: logData.message || null,
             payload: logData.payload ? JSON.stringify(logData.payload) : null,
             raw_data: logData.raw_data ? JSON.stringify(logData.raw_data) : null
         };
 
         const query = `
-            INSERT INTO rtsp_service_logs 
-            (timestamp, event_type, log_level, ip_address, brand, port, username, 
-             password, session_id, user_agent, rtsp_method, stream_path, 
+            INSERT INTO rtsp_service_logs
+            (timestamp, event_type, log_level, ip_address, brand, port, username,
+             password, session_id, rtsp_method, stream_path,
              connection_id, message, payload, raw_data)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const params = [
@@ -509,20 +508,19 @@ class DatabaseLogger {
             logEntry.ip_address,
             logEntry.brand,
             logEntry.port,
-            logEntry.username,
-            logEntry.password,
-            logEntry.session_id,
-            logEntry.user_agent,
-            logEntry.rtsp_method,
-            logEntry.stream_path,
-            logEntry.connection_id,
+                logEntry.username,
+                logEntry.password,
+                logEntry.session_id,
+                logEntry.rtsp_method,
+                logEntry.stream_path,
+                logEntry.connection_id,
             logEntry.message,
             logEntry.payload,
             logEntry.raw_data
         ];
 
         const [result] = await connection.execute(query, params);
-        
+
         // Analyze and track unique payloads for RTSP
         try {
             if (logData.username && logData.username.trim()) {
@@ -536,7 +534,7 @@ class DatabaseLogger {
                     timestamp: logData.timestamp || new Date()
                 });
             }
-            
+
             if (logData.password && logData.password.trim()) {
                 await payloadAnalyzer.processPayload({
                     service: 'rtsp',
@@ -548,7 +546,7 @@ class DatabaseLogger {
                     timestamp: logData.timestamp || new Date()
                 });
             }
-            
+
             if (logData.payload && typeof logData.payload === 'object') {
                 // Extract RTSP method and other payload fields
                 for (const [key, value] of Object.entries(logData.payload)) {
@@ -568,7 +566,7 @@ class DatabaseLogger {
         } catch (error) {
             console.error('[DATABASE] Error analyzing RTSP payloads:', error.message);
         }
-        
+
         return result.insertId;
     }
 
@@ -581,9 +579,9 @@ class DatabaseLogger {
             }
             return;
         }
-        
+
         this.initializing = true;
-        
+
         try {
             const config = {
                 host: process.env.DB_HOST || 'mysql_service',
@@ -598,11 +596,11 @@ class DatabaseLogger {
             };
 
             this.pool = mysql.createPool(config);
-            
+
             // Test the connection
             const connection = await this.pool.getConnection();
             connection.release(); // Release the test connection immediately
-            
+
             // Set up pool event listeners for monitoring
             this.pool.on('connection', (connection) => {
                 // Only log when debugging is enabled
@@ -610,27 +608,27 @@ class DatabaseLogger {
                     console.log('[DATABASE] New connection created');
                 }
             });
-            
+
             this.pool.on('acquire', (connection) => {
                 // Only log when debugging is enabled
                 if (process.env.DEBUG_DB_CONNECTIONS === 'true') {
                     console.log('[DATABASE] Connection acquired');
                 }
             });
-            
+
             this.pool.on('release', (connection) => {
                 // Only log when debugging is enabled
                 if (process.env.DEBUG_DB_CONNECTIONS === 'true') {
                     console.log('[DATABASE] Connection released');
                 }
             });
-            
+
             this.pool.on('enqueue', () => {
                 console.log('[DATABASE] Waiting for available connection slot');
             });
-            
+
             await this.ensurePayloadFieldExists();
-            
+
             this.initialized = true;
             console.log('[DATABASE] Database logger initialized successfully');
         } catch (error) {
@@ -645,21 +643,21 @@ class DatabaseLogger {
         let connection = null;
         try {
             connection = await this.pool.getConnection();
-            
+
             //check if payload field exists in service_logs table
             const [columns] = await connection.execute(`
-                SELECT COLUMN_NAME 
-                FROM INFORMATION_SCHEMA.COLUMNS 
-                WHERE TABLE_SCHEMA = ? 
-                AND TABLE_NAME = 'service_logs' 
+                SELECT COLUMN_NAME
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = ?
+                AND TABLE_NAME = 'service_logs'
                 AND COLUMN_NAME = 'payload'
             `, [process.env.DB_NAME || 'sweetcam']);
 
             if (columns.length === 0) {
                 console.log('[DATABASE] Adding payload field to service_logs table...');
                 await connection.execute(`
-                    ALTER TABLE service_logs 
-                    ADD COLUMN payload JSON DEFAULT NULL 
+                    ALTER TABLE service_logs
+                    ADD COLUMN payload JSON DEFAULT NULL
                     COMMENT 'HTTP request and response payloads'
                 `);
                 console.log('[DATABASE] Payload field added successfully');
@@ -667,18 +665,18 @@ class DatabaseLogger {
 
             //check if payload field exists in web_service_logs table
             const [webColumns] = await connection.execute(`
-                SELECT COLUMN_NAME 
-                FROM INFORMATION_SCHEMA.COLUMNS 
-                WHERE TABLE_SCHEMA = ? 
-                AND TABLE_NAME = 'web_service_logs' 
+                SELECT COLUMN_NAME
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = ?
+                AND TABLE_NAME = 'web_service_logs'
                 AND COLUMN_NAME = 'payload'
             `, [process.env.DB_NAME || 'sweetcam']);
 
             if (webColumns.length === 0) {
                 console.log('[DATABASE] Adding payload field to web_service_logs table...');
                 await connection.execute(`
-                    ALTER TABLE web_service_logs 
-                    ADD COLUMN payload JSON DEFAULT NULL 
+                    ALTER TABLE web_service_logs
+                    ADD COLUMN payload JSON DEFAULT NULL
                     COMMENT 'HTTP request and response payloads'
                 `);
                 console.log('[DATABASE] Payload field added to web_service_logs successfully');
@@ -768,7 +766,7 @@ class DatabaseLogger {
         if (!this.pool) {
             return { status: 'not_initialized' };
         }
-        
+
         return {
             status: 'active',
             totalConnections: this.pool.pool.config.connectionLimit,
@@ -785,14 +783,14 @@ class DatabaseLogger {
             connection.release();
             return { status: 'healthy', message: 'Database connection is working' };
         } catch (error) {
-            return { 
-                status: 'unhealthy', 
-                message: 'Database connection failed', 
-                error: error.message 
+            return {
+                status: 'unhealthy',
+                message: 'Database connection failed',
+                error: error.message
             };
         }
     }
 }
 
 const databaseLogger = new DatabaseLogger();
-module.exports = databaseLogger; 
+module.exports = databaseLogger;

@@ -9,13 +9,67 @@ class RTSPManagementService {
     constructor() {
         this.rtspServices = {
             'rtsp_main': { port: 554, brand: 'auto' },
-            'rtsp_hikvision': { port: 8554, brand: 'hikvision' },
-            'rtsp_dahua': { port: 8555, brand: 'dahua' },
-            'rtsp_axis': { port: 8556, brand: 'axis' },
-            'rtsp_reolink': { port: 8557, brand: 'reolink' },
-            'rtsp_mobotix': { port: 8558, brand: 'mobotix' },
-            'rtsp_vstarcam': { port: 8559, brand: 'vstarcam' }
+            'rtsp_hikvision': {
+                port: 8554,
+                brand: 'hikvision',
+                containerName: 'rtsp_h264_publisher_hikvision_101_service',
+                composeService: 'rtsp_h264_publisher_hikvision_101',
+                fixedPort: true,
+                legacyPort: 8655
+            },
+            'rtsp_dahua': {
+                port: 8555,
+                brand: 'dahua',
+                containerName: 'rtsp_h264_publisher_dahua_service',
+                composeService: 'rtsp_h264_publisher_dahua',
+                fixedPort: true,
+                legacyPort: 8656
+            },
+            'rtsp_axis': {
+                port: 8556,
+                brand: 'axis',
+                containerName: 'rtsp_h264_publisher_axis_service',
+                composeService: 'rtsp_h264_publisher_axis',
+                fixedPort: true,
+                legacyPort: 8657
+            },
+            'rtsp_reolink': {
+                port: 8557,
+                brand: 'reolink',
+                containerName: 'rtsp_h264_publisher_reolink_service',
+                composeService: 'rtsp_h264_publisher_reolink',
+                fixedPort: true,
+                legacyPort: 8658
+            },
+            'rtsp_mobotix': {
+                port: 8558,
+                brand: 'mobotix',
+                containerName: 'rtsp_h264_publisher_mobotix_service',
+                composeService: 'rtsp_h264_publisher_mobotix',
+                fixedPort: true,
+                legacyPort: 8659
+            },
+            'rtsp_vstarcam': {
+                port: 8559,
+                brand: 'vstarcam',
+                containerName: 'rtsp_h264_publisher_vstarcam_service',
+                composeService: 'rtsp_h264_publisher_vstarcam',
+                fixedPort: true,
+                legacyPort: 8660
+            },
+            'rtsp_foscam': {
+                port: 8560,
+                brand: 'foscam',
+                containerName: 'rtsp_h264_publisher_foscam_service',
+                composeService: 'rtsp_h264_publisher_foscam',
+                fixedPort: true,
+                legacyPort: null
+            }
         };
+    }
+
+    getContainerName(serviceName) {
+        return this.rtspServices[serviceName]?.containerName || `${serviceName}_service`;
     }
 
     async executeDockerCommand(command, useSudo = false) {
@@ -47,12 +101,7 @@ class RTSPManagementService {
                 return await this.executeDockerCommand(command, true);
             }
             
-            if (error.message.includes('rtsp_hikvision_service') || 
-                error.message.includes('rtsp_dahua_service') ||
-                error.message.includes('rtsp_axis_service') ||
-                error.message.includes('rtsp_reolink_service') ||
-                error.message.includes('rtsp_mobotix_service') ||
-                error.message.includes('rtsp_vstarcam_service')) {
+            if (error.message.includes('_service')) {
                 console.log('Command appears to have succeeded despite error message');
                 return { success: true, stdout: error.message, stderr: '' };
             }
@@ -63,7 +112,8 @@ class RTSPManagementService {
 
     async getServiceStatus(serviceName) {
         try {
-            const command = `docker ps --filter "name=${serviceName}_service" --format "table {{.Names}}\t{{.Status}}"`;
+            const containerName = this.getContainerName(serviceName);
+            const command = `docker ps --filter "name=${containerName}" --format "table {{.Names}}\t{{.Status}}"`;
             const result = await this.executeDockerCommand(command);
             
             console.log(`Status check output for ${serviceName}:`, result.stdout);
@@ -71,15 +121,15 @@ class RTSPManagementService {
             const lines = result.stdout.trim().split('\n');
             
             if (lines.length <= 1) {
-                console.log(`No running container found for ${serviceName}_service`);
+                console.log(`No running container found for ${containerName}`);
                 return { running: false, status: 'Stopped' };
             }
             
             const statusLine = lines[1];
             console.log(`Status line for ${serviceName}:`, statusLine);
             
-            const isRunning = statusLine.includes(`${serviceName}_service`) && 
-                             !statusLine.includes('Exited') && 
+            const isRunning = statusLine.includes(containerName) &&
+                             !statusLine.includes('Exited') &&
                              !statusLine.includes('Created') &&
                              statusLine.includes('Up');
             
@@ -111,7 +161,7 @@ class RTSPManagementService {
     async startService(serviceName) {
         try {
             console.log(`Starting RTSP service: ${serviceName}`);
-            const command = `docker start ${serviceName}_service`;
+            const command = `docker start ${this.getContainerName(serviceName)}`;
             const result = await this.executeDockerCommand(command);
             
             console.log(`Start output: ${result.stdout}`);
@@ -125,12 +175,13 @@ class RTSPManagementService {
     async stopService(serviceName) {
         try {
             console.log(`Stopping RTSP service: ${serviceName}`);
-            const command = `docker stop ${serviceName}_service`;
+            const containerName = this.getContainerName(serviceName);
+            const command = `docker stop ${containerName}`;
             const result = await this.executeDockerCommand(command);
             
             console.log(`Stop output: ${result.stdout}`);
             
-            if (result.stdout && result.stdout.trim() === `${serviceName}_service`) {
+            if (result.stdout && result.stdout.trim() === containerName) {
                 return { success: true, message: `${serviceName} stopped successfully` };
             }
             
@@ -213,6 +264,11 @@ class RTSPManagementService {
             const currentPorts = {};
             
             for (const [serviceName, config] of Object.entries(this.rtspServices)) {
+                if (config.fixedPort) {
+                    currentPorts[serviceName] = { ...config };
+                    continue;
+                }
+
                 const port = this.getServicePortFromCompose(lines, serviceName);
                 if (port) {
                     currentPorts[serviceName] = { ...config, port };
@@ -299,4 +355,4 @@ class RTSPManagementService {
     }
 }
 
-module.exports = new RTSPManagementService(); 
+module.exports = new RTSPManagementService();

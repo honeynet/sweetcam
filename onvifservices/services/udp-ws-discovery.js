@@ -1,5 +1,5 @@
 const dgram = require('dgram');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('crypto');
 const brandConfigs = require('../config/brand-configs');
 
 class UDPWSDiscoveryService {
@@ -17,11 +17,22 @@ class UDPWSDiscoveryService {
     };
     
     this.httpPort = process.env.ONVIF_HTTP_PORT || 8080;
-    this.httpAddress = '127.0.0.1';
+    this.httpAddress = process.env.PUBLIC_ONVIF_HOST ||
+      process.env.ONVIF_PUBLIC_HOST ||
+      process.env.ONVIF_HTTP_ADDRESS ||
+      '127.0.0.1';
     this.port = process.env.ONVIF_UDP_PORT || 3702;
     this.multicastAddress = '239.255.255.250';
     
     this.socket = dgram.createSocket('udp4');
+  }
+
+  applyCameraProfile(deviceInfo = {}) {
+    this.deviceInfo = {
+      ...this.deviceInfo,
+      ...deviceInfo,
+      deviceId: deviceInfo.deviceId || this.deviceInfo.deviceId
+    };
   }
 
   start() {
@@ -122,7 +133,7 @@ class UDPWSDiscoveryService {
     try {
       const sourceIp = remote.address;
       const sourcePort = remote.port;
-      const messageId = uuidv4();
+      const messageId = randomUUID();
       
       //extract MessageID from probe if present (handle different namespace prefixes)
       const messageIdMatch = probeMessage.match(/<[^:]*:MessageID[^>]*>([^<]+)<\/[^:]*:MessageID>/);
@@ -143,7 +154,7 @@ class UDPWSDiscoveryService {
     try {
       const sourceIp = remote.address;
       const sourcePort = remote.port;
-      const messageId = uuidv4();
+      const messageId = randomUUID();
       
       //extract MessageID from resolve if present
       const messageIdMatch = resolveMessage.match(/MessageID>([^<]+)<\/a:MessageID/);
@@ -161,7 +172,7 @@ class UDPWSDiscoveryService {
 
   createProbeMatchesResponse(messageId, relatesTo) {
     //use the provided relatesTo or generate a new one
-    const relatesToId = relatesTo || `urn:uuid:${uuidv4()}`;
+    const relatesToId = relatesTo || `urn:uuid:${randomUUID()}`;
     
     return `<?xml version="1.0" encoding="UTF-8"?>
 <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://www.w3.org/2003/05/soap-envelope" xmlns:SOAP-ENC="http://www.w3.org/2003/05/soap-encoding" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:d="http://schemas.xmlsoap.org/ws/2005/04/discovery" xmlns:d3="http://www.onvif.org/ver10/network/wsdl/RemoteDiscoveryBinding" xmlns:d4="http://www.onvif.org/ver10/network/wsdl/DiscoveryLookupBinding" xmlns:dn="http://www.onvif.org/ver10/network/wsdl">
@@ -240,4 +251,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = UDPWSDiscoveryService; 
+module.exports = UDPWSDiscoveryService;

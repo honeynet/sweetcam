@@ -257,28 +257,28 @@ html(lang="en")
         padding: 0;
         margin: 0;
       }
-      
+
       .settings-modal-scrollable {
         flex: 1;
         overflow-y: auto;
         padding-right: 8px;
         margin-right: -8px;
       }
-      
+
       .settings-modal-scrollable::-webkit-scrollbar {
         width: 8px;
       }
-      
+
       .settings-modal-scrollable::-webkit-scrollbar-track {
         background: #f1f1f1;
         border-radius: 4px;
       }
-      
+
       .settings-modal-scrollable::-webkit-scrollbar-thumb {
         background: #c1c1c1;
         border-radius: 4px;
       }
-      
+
       .settings-modal-scrollable::-webkit-scrollbar-thumb:hover {
         background: #a8a8a8;
       }
@@ -379,82 +379,82 @@ html(lang="en")
       }
       .rtsp-status-text.disabled {
         color: #f44336;
-      } 
-            
-            .onvif-control-item { 
+      }
+
+            .onvif-control-item {
                 margin-top: 20px;
                 padding: 20px;
                 border-radius: 8px;
                 border-left: 4px solid #1e90ff;
-            } 
-            
-            .onvif-toggle-container { 
-                display: flex; 
-                align-items: center; 
-                gap: 15px; 
-            } 
-            
-            .onvif-toggle { 
-                position: relative; 
-                display: inline-block; 
-                width: 60px; 
-                height: 34px; 
-            } 
-            
-            .onvif-toggle-input { 
-                opacity: 0; 
-                width: 0; 
-                height: 0; 
-            } 
-            
-            .onvif-toggle-slider { 
-                position: absolute; 
-                cursor: pointer; 
-                top: 0; 
-                left: 0; 
-                right: 0; 
-                bottom: 0; 
+            }
+
+            .onvif-toggle-container {
+                display: flex;
+                align-items: center;
+                gap: 15px;
+            }
+
+            .onvif-toggle {
+                position: relative;
+                display: inline-block;
+                width: 60px;
+                height: 34px;
+            }
+
+            .onvif-toggle-input {
+                opacity: 0;
+                width: 0;
+                height: 0;
+            }
+
+            .onvif-toggle-slider {
+                position: absolute;
+                cursor: pointer;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
                 background-color: #ccc;
                 transition: .4s;
                 border-radius: 34px;
-            } 
-            
-            .onvif-toggle-slider:before { 
-                position: absolute; 
-                content: ""; 
-                height: 26px; 
-                width: 26px; 
-                left: 4px; 
-                bottom: 4px; 
+            }
+
+            .onvif-toggle-slider:before {
+                position: absolute;
+                content: "";
+                height: 26px;
+                width: 26px;
+                left: 4px;
+                bottom: 4px;
                 background-color: white;
                 transition: .4s;
                 border-radius: 50%;
-            } 
-            
-            .onvif-toggle-input:checked + .onvif-toggle-slider { 
+            }
+
+            .onvif-toggle-input:checked + .onvif-toggle-slider {
                 background-color: #1e90ff;
-            } 
-            
-            .onvif-toggle-input:checked + .onvif-toggle-slider:before { 
-                transform: translateX(26px); 
-            } 
-            
-            .onvif-toggle-input:disabled + .onvif-toggle-slider { 
-                opacity: 0.6; 
-                cursor: not-allowed; 
-            } 
-            
-            .onvif-status-text { 
-                font-weight: 600; 
+            }
+
+            .onvif-toggle-input:checked + .onvif-toggle-slider:before {
+                transform: translateX(26px);
+            }
+
+            .onvif-toggle-input:disabled + .onvif-toggle-slider {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
+
+            .onvif-status-text {
+                font-weight: 600;
                 font-size: 14px;
-            } 
-            
-            .onvif-status-text.enabled { 
-                color: #4caf50; 
-            } 
-            
-            .onvif-status-text.disabled { 
-                color: #f44336; 
+            }
+
+            .onvif-status-text.enabled {
+                color: #4caf50;
+            }
+
+            .onvif-status-text.disabled {
+                color: #f44336;
             }
 
   body
@@ -540,6 +540,7 @@ html(lang="en")
     script(src='https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js')
     script.
       let currentImage = null;
+            const cameraVideoPath = "#{videoPathMp4 || '/videos/camera-loop-720p15.mp4'}";
       let currentX = 0;
       let currentY = 0;
       let imageWidth = 0;
@@ -559,48 +560,70 @@ html(lang="en")
         error: '!{__('main.errorLoadingSystemInfo')}'
       };
 
-      function loadImage() {
-        const xhr = new XMLHttpRequest();
-        xhr.open('GET', '/api/images', true);
-        xhr.onreadystatechange = function () {
-          if (xhr.readyState === 4 && xhr.status === 200) {
-              try {
-                const images = JSON.parse(xhr.responseText);
-              if (images.length > 0) displayImage(images[0]);
-              else document.getElementById('noImages').style.display = 'block';
-            } catch {
-              document.getElementById('noImages').style.display = 'block';
+      function loadVideo() {
+                displayVideo(cameraVideoPath);
             }
-          }
-        };
-        xhr.send();
-      }
 
-      function displayImage(imageSrc) {
-        const imageViewer = document.getElementById('imageViewer');
-        imageViewer.innerHTML = '';
-        const img = document.createElement('img');
-        img.src = imageSrc;
-        img.style.position = 'absolute';
-        img.style.top = '0';
-        img.style.left = '0';
-        img.style.maxWidth = 'none';
-        img.style.maxHeight = 'none';
-        img.draggable = false;
-        img.onload = function () {
-          imageWidth = this.naturalWidth;
-          imageHeight = this.naturalHeight;
-          containerWidth = imageViewer.clientWidth;
-          containerHeight = imageViewer.clientHeight;
-          currentX = Math.max(0, (imageWidth - containerWidth) / 2);
-          currentY = Math.max(0, (imageHeight - containerHeight) / 2);
-          updateImagePosition();
-        };
-        imageViewer.appendChild(img);
-        currentImage = img;
-      }
 
-      function updateImagePosition() {
+            function displayVideo(videoSrc) {
+                const imageViewer = document.getElementById('imageViewer');
+                const imageInfo = document.getElementById('imageInfo');
+
+                imageViewer.innerHTML = '';
+
+                const video = document.createElement('video');
+                video.src = videoSrc;
+                video.autoplay = true;
+                video.loop = true;
+                video.muted = true;
+                video.playsInline = true;
+                video.preload = 'auto';
+                video.style.position = 'absolute';
+                video.style.top = '0';
+                video.style.left = '0';
+                video.style.width = 'auto';
+                video.style.height = 'auto';
+                video.style.maxWidth = 'none';
+                video.style.maxHeight = 'none';
+                video.style.userSelect = 'none';
+                video.draggable = false;
+
+                video.onloadedmetadata = function() {
+                    imageWidth = this.videoWidth || 1280;
+                    imageHeight = this.videoHeight || 544;
+                    containerWidth = imageViewer.clientWidth;
+                    containerHeight = imageViewer.clientHeight;
+                    currentX = Math.max(0, (imageWidth - containerWidth) / 2);
+                    currentY = Math.max(0, (imageHeight - containerHeight) / 2);
+                    updateImagePosition();
+
+                    if (imageInfo) {
+                        imageInfo.textContent = `Stream: ${videoSrc.split('/').pop()}`;
+                        imageInfo.style.display = 'block';
+                    }
+
+                    const up = document.getElementById('up');
+                    const down = document.getElementById('down');
+                    const left = document.getElementById('left');
+                    const right = document.getElementById('right');
+                    if (up) up.disabled = !(imageHeight > containerHeight);
+                    if (down) down.disabled = !(imageHeight > containerHeight);
+                    if (left) left.disabled = !(imageWidth > containerWidth);
+                    if (right) right.disabled = !(imageWidth > containerWidth);
+                };
+
+                video.onerror = function() {
+                    console.error('Video failed to load:', videoSrc);
+                    document.getElementById('noImages').style.display = 'block';
+                };
+
+                imageViewer.appendChild(video);
+                video.play().catch(error => console.debug('Autoplay waiting for browser permission:', error));
+                currentImage = video;
+            }
+
+
+            function updateImagePosition() {
         if (!currentImage) return;
         const maxX = Math.max(0, imageWidth - containerWidth);
         const maxY = Math.max(0, imageHeight - containerHeight);
@@ -617,8 +640,8 @@ html(lang="en")
 
       let moveInterval = null;
       let moveDirection = { x: 0, y: 0 };
-      const moveDelay = 30; 
-      const threshold = 5; 
+      const moveDelay = 30;
+      const threshold = 5;
 
       function startContinuousMove(dx, dy) {
         if (moveInterval) clearInterval(moveInterval);
@@ -640,8 +663,8 @@ html(lang="en")
         let dragging = false;
         let origin = { x: 0, y: 0 };
         let lastDx = 0, lastDy = 0;
-        const maxRadius = 40; 
-        const maxPan = 60; 
+        const maxRadius = 40;
+        const maxPan = 60;
 
         knob.addEventListener('mousedown', (e) => {
           dragging = true;
@@ -656,16 +679,16 @@ html(lang="en")
           if (!dragging) return;
           let dx = e.clientX - origin.x;
           let dy = e.clientY - origin.y;
-          
+
           const dist = Math.sqrt(dx*dx + dy*dy);
           if (dist > maxRadius) {
             dx = dx * maxRadius / dist;
             dy = dy * maxRadius / dist;
           }
           knob.style.transform = `translate(${dx}px, ${dy}px)`;
-          
+
           if (Math.abs(dx) > threshold || Math.abs(dy) > threshold) {
-            
+
             let dirX = dx === 0 ? 0 : dx / Math.abs(dx);
             let dirY = dy === 0 ? 0 : dy / Math.abs(dy);
             startContinuousMove(Math.round(dirX * moveStep), Math.round(dirY * moveStep));
@@ -683,7 +706,7 @@ html(lang="en")
           stopContinuousMove();
         });
 
-        
+
         document.addEventListener('keydown', (e) => {
           switch (e.key.toLowerCase()) {
             case 'arrowup':
@@ -697,7 +720,7 @@ html(lang="en")
           }
         });
 
-        loadImage();
+        loadVideo();
       });
 
       document.addEventListener('DOMContentLoaded', function() {
@@ -745,13 +768,13 @@ html(lang="en")
         });
       });
 
-      
+
       async function loadRTSPStatus() {
         // Only load RTSP status if user is an admin
         if (!#{isAdmin}) {
           return;
         }
-        
+
         try {
           const response = await fetch('/admin/rtsp/service/8559');
           if (response.ok) {
@@ -770,7 +793,7 @@ html(lang="en")
       function updateRTSPToggle(isEnabled) {
         const toggle = document.getElementById('rtsp-toggle');
         const statusText = document.getElementById('rtsp-status-text');
-        
+
         if (toggle && statusText) {
           toggle.checked = isEnabled;
           statusText.textContent = isEnabled ? 'RTSP Enabled' : 'RTSP Disabled';
@@ -784,24 +807,24 @@ html(lang="en")
           showNotification('Admin access required. Please log in as admin.', 'error');
           return;
         }
-        
+
         const toggle = document.getElementById('rtsp-toggle');
         const statusText = document.getElementById('rtsp-status-text');
-        
+
         if (!toggle || !statusText) return;
-        
-        
+
+
         const currentState = toggle.checked;
         const newState = !currentState;
-        
-        
+
+
         toggle.checked = newState;
         statusText.textContent = newState ? 'RTSP Enabled' : 'RTSP Disabled';
         statusText.className = `rtsp-status-text ${newState ? 'enabled' : 'disabled'}`;
-        
-        
+
+
         toggle.disabled = true;
-        
+
         try {
           const response = await fetch('/admin/rtsp/toggle/rtsp_vstarcam', {
             method: 'POST',
@@ -809,190 +832,190 @@ html(lang="en")
               'Content-Type': 'application/json'
             }
           });
-          
+
           if (response.ok) {
             const result = await response.json();
             if (result.success) {
-              
+
               showNotification('RTSP service toggled successfully', 'success');
-              
+
               await loadRTSPStatus();
             } else {
-              
+
               showNotification(result.message || 'Failed to toggle RTSP service', 'error');
-              
+
               await loadRTSPStatus();
             }
           } else if (response.status === 401) {
-            
+
             showNotification('Authentication required. Please log in again.', 'error');
             await loadRTSPStatus();
             setTimeout(() => {
               window.location.href = '/login';
             }, 1500);
           } else if (response.status === 403) {
-            
+
             showNotification('Admin access required. Please log in as admin.', 'error');
             await loadRTSPStatus();
             setTimeout(() => {
               window.location.href = '/login';
             }, 1500);
           } else {
-            
+
             showNotification('Failed to toggle RTSP service', 'error');
             await loadRTSPStatus();
           }
         } catch (error) {
           console.error('Error toggling RTSP service:', error);
           showNotification('Failed to toggle RTSP service', 'error');
-          
+
           await loadRTSPStatus();
         } finally {
-          
+
           toggle.disabled = false;
         }
       }
 
-      
-      async function loadONVIFStatus() { 
+
+      async function loadONVIFStatus() {
           // Only load ONVIF status if user is an admin
           if (!#{isAdmin}) {
               return;
           }
-          
-          try { 
-              const response = await fetch("/admin/onvif/service/8090"); 
-              if (response.ok) { 
-                  const data = await response.json(); 
-                  updateONVIFToggle(data.running); 
-              } else { 
-                  console.error("Failed to load ONVIF status"); 
-                  updateONVIFToggle(false); 
-              } 
-          } catch (error) { 
-              console.error("Error loading ONVIF status:", error); 
-              updateONVIFToggle(false); 
-          } 
-      } 
-      
-      function updateONVIFToggle(isEnabled) { 
-          const toggle = document.getElementById("onvif-toggle"); 
-          const statusText = document.getElementById("onvif-status-text"); 
-          
-          if (toggle && statusText) { 
-              toggle.checked = isEnabled; 
-              statusText.textContent = isEnabled ? "!{__("main.onvifEnabled")}" : "!{__("main.onvifDisabled")}"; 
-              statusText.className = `onvif-status-text ${isEnabled ? "enabled" : "disabled"}`; 
-          } 
-      } 
-      
-      async function toggleONVIFService() { 
+
+          try {
+              const response = await fetch("/admin/onvif/service/8090");
+              if (response.ok) {
+                  const data = await response.json();
+                  updateONVIFToggle(data.running);
+              } else {
+                  console.error("Failed to load ONVIF status");
+                  updateONVIFToggle(false);
+              }
+          } catch (error) {
+              console.error("Error loading ONVIF status:", error);
+              updateONVIFToggle(false);
+          }
+      }
+
+      function updateONVIFToggle(isEnabled) {
+          const toggle = document.getElementById("onvif-toggle");
+          const statusText = document.getElementById("onvif-status-text");
+
+          if (toggle && statusText) {
+              toggle.checked = isEnabled;
+              statusText.textContent = isEnabled ? "!{__("main.onvifEnabled")}" : "!{__("main.onvifDisabled")}";
+              statusText.className = `onvif-status-text ${isEnabled ? "enabled" : "disabled"}`;
+          }
+      }
+
+      async function toggleONVIFService() {
           // Only allow ONVIF toggle if user is an admin
           if (!#{isAdmin}) {
               showNotification('Admin access required. Please log in as admin.', 'error');
               return;
           }
-          
-          const toggle = document.getElementById("onvif-toggle"); 
-          const statusText = document.getElementById("onvif-status-text"); 
-          
-          if (!toggle || !statusText) return; 
-          
-          
+
+          const toggle = document.getElementById("onvif-toggle");
+          const statusText = document.getElementById("onvif-status-text");
+
+          if (!toggle || !statusText) return;
+
+
           const currentState = toggle.checked;
           const newState = !currentState;
-          
-          
+
+
           toggle.checked = newState;
           statusText.textContent = newState ? "!{__("main.onvifEnabled")}" : "!{__("main.onvifDisabled")}";
           statusText.className = `onvif-status-text ${newState ? "enabled" : "disabled"}`;
-          
-          
-          toggle.disabled = true; 
-          
-          try { 
-              const response = await fetch("/admin/onvif/toggle/onvif_vstarcam_service", { 
-                  method: "POST", 
-                  headers: { 
-                      "Content-Type": "application/json" 
-                  } 
-              }); 
-              
-              if (response.ok) { 
-                  const result = await response.json(); 
-                                          if (result.success) { 
-                            
+
+
+          toggle.disabled = true;
+
+          try {
+              const response = await fetch("/admin/onvif/toggle/onvif_vstarcam_service", {
+                  method: "POST",
+                  headers: {
+                      "Content-Type": "application/json"
+                  }
+              });
+
+              if (response.ok) {
+                  const result = await response.json();
+                                          if (result.success) {
+
                             showNotification("!{__("main.onvifToggleSuccess")}", "success");
-                            
+
                             await loadONVIFStatus();
-                        } else { 
-                      
+                        } else {
+
                       showNotification(result.message || "!{__("main.onvifToggleError")}", "error");
-                      
+
                       await loadONVIFStatus();
-                  } 
+                  }
               } else if (response.status === 401) {
-                  
+
                   showNotification('Authentication required. Please log in again.', 'error');
                   await loadONVIFStatus();
                   setTimeout(() => {
                       window.location.href = '/login';
                   }, 1500);
               } else if (response.status === 403) {
-                  
+
                   showNotification('Admin access required. Please log in as admin.', 'error');
                   await loadONVIFStatus();
                   setTimeout(() => {
                       window.location.href = '/login';
                   }, 1500);
-              } else { 
-                  
+              } else {
+
                   showNotification("!{__("main.onvifToggleError")}", "error");
                   await loadONVIFStatus();
-              } 
-          } catch (error) { 
-              console.error("Error toggling ONVIF service:", error); 
+              }
+          } catch (error) {
+              console.error("Error toggling ONVIF service:", error);
               showNotification("!{__("main.onvifToggleError")}", "error");
-              
+
               await loadONVIFStatus();
-          } finally { 
-              
-              toggle.disabled = false; 
-          } 
-      } 
-      
-      
-      async function checkONVIFAdminStatus() { 
+          } finally {
+
+              toggle.disabled = false;
+          }
+      }
+
+
+      async function checkONVIFAdminStatus() {
           // Only check ONVIF admin status if user is an admin
           if (!#{isAdmin}) {
-              const onvifControlItem = document.getElementById("onvif-control-item"); 
-              if (onvifControlItem) { 
-                  onvifControlItem.style.display = "none"; 
-              } 
+              const onvifControlItem = document.getElementById("onvif-control-item");
+              if (onvifControlItem) {
+                  onvifControlItem.style.display = "none";
+              }
               return;
           }
-          
-          try { 
-              const response = await fetch("/admin/onvif/status"); 
-              if (response.ok) { 
-                  const onvifControlItem = document.getElementById("onvif-control-item"); 
-                  if (onvifControlItem) { 
-                      onvifControlItem.style.display = "block"; 
-                  } 
-                  loadONVIFStatus(); 
-              } else if (response.status === 403) { 
-                  const onvifControlItem = document.getElementById("onvif-control-item"); 
-                  if (onvifControlItem) { 
-                      onvifControlItem.style.display = "none"; 
-                  } 
-              } 
-          } catch (error) { 
-              console.error("Error checking ONVIF admin status:", error); 
-              const onvifControlItem = document.getElementById("onvif-control-item"); 
-              if (onvifControlItem) { 
-                  onvifControlItem.style.display = "none"; 
-              } 
-          } 
+
+          try {
+              const response = await fetch("/admin/onvif/status");
+              if (response.ok) {
+                  const onvifControlItem = document.getElementById("onvif-control-item");
+                  if (onvifControlItem) {
+                      onvifControlItem.style.display = "block";
+                  }
+                  loadONVIFStatus();
+              } else if (response.status === 403) {
+                  const onvifControlItem = document.getElementById("onvif-control-item");
+                  if (onvifControlItem) {
+                      onvifControlItem.style.display = "none";
+                  }
+              }
+          } catch (error) {
+              console.error("Error checking ONVIF admin status:", error);
+              const onvifControlItem = document.getElementById("onvif-control-item");
+              if (onvifControlItem) {
+                  onvifControlItem.style.display = "none";
+              }
+          }
       }
 
       function showNotification(message, type) {
@@ -1009,9 +1032,9 @@ html(lang="en")
           background-color: ${type === 'success' ? '#4caf50' : '#f44336'};
         `;
         notification.textContent = message;
-        
+
         document.body.appendChild(notification);
-        
+
         setTimeout(() => {
           if (notification.parentNode) {
             notification.parentNode.removeChild(notification);
@@ -1028,7 +1051,7 @@ html(lang="en")
           }
           return;
         }
-        
+
         try {
           const response = await fetch('/admin/rtsp/status');
           if (response.ok) {
@@ -1055,16 +1078,16 @@ html(lang="en")
       document.addEventListener('DOMContentLoaded', function() {
         checkAdminStatus();
                 checkONVIFAdminStatus();
-        
+
         const rtspToggle = document.getElementById('rtsp-toggle');
         if (rtspToggle) {
           rtspToggle.addEventListener('change', toggleRTSPService);
-                const onvifToggle = document.getElementById("onvif-toggle"); 
-                if (onvifToggle) { 
-                    onvifToggle.addEventListener("change", toggleONVIFService); 
+                const onvifToggle = document.getElementById("onvif-toggle");
+                if (onvifToggle) {
+                    onvifToggle.addEventListener("change", toggleONVIFService);
                 }
         }
-        
+
         const lastModalState = localStorage.getItem('lastModalState');
         if (lastModalState === 'open') {
           localStorage.removeItem('lastModalState');

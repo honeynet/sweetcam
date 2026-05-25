@@ -63,11 +63,20 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
       - DB_PORT=${DB_PORT}
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
       - ADMIN_PATH=admin
       - COWRIE_INGESTOR_ENABLED=true
       - COWRIE_CONTAINER_NAME=cowrie-services
       - COWRIE_LOG_PATH=/cowrie/cowrie-git/var/log/cowrie/cowrie.json
       - COWRIE_PY=python3
+      - MEDIAMTX_PUBLIC_RTSP_PORT=8554
+      - MEDIAMTX_HIKVISION_RTSP_PORT=8554
+      - MEDIAMTX_DAHUA_RTSP_PORT=8555
+      - MEDIAMTX_AXIS_RTSP_PORT=8556
+      - MEDIAMTX_REOLINK_RTSP_PORT=8557
+      - MEDIAMTX_MOBOTIX_RTSP_PORT=8558
+      - MEDIAMTX_VSTARCAM_RTSP_PORT=8559
+      - MEDIAMTX_FOSCAM_RTSP_PORT=8560
     ports:
       - "3000:3000"
     stdin_open: true
@@ -101,6 +110,11 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
       - DB_PORT=${DB_PORT}
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
+      # Set RTSP_MEDIA_MODE=h264-prep to make Node advertise H.264 SDP
+      # while leaving SETUP/PLAY disabled until redirect/proxy/hooks are chosen.
+      # - RTSP_MEDIA_MODE=h264-prep
+      # - RTSP_H264_UPSTREAM=rtsp://rtsp_h264_media:8554
     cap_add:
       - NET_BIND_SERVICE
     ports:
@@ -132,10 +146,13 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
       - DB_PORT=${DB_PORT}
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
+      # - RTSP_MEDIA_MODE=h264-prep
+      # - RTSP_H264_UPSTREAM=rtsp://rtsp_h264_media:8554
     cap_add:
       - NET_BIND_SERVICE
     ports:
-      - "8554:8554"
+      - "8655:8554"
       - "8006:8002"
       - "8007:8003"
     volumes:
@@ -160,10 +177,11 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
       - DB_PORT=${DB_PORT}
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
     cap_add:
       - NET_BIND_SERVICE
     ports:
-      - "8555:8555"
+      - "8656:8555"
       - "8008:8002/udp"
       - "8009:8003/udp"
     volumes:
@@ -187,10 +205,11 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
       - DB_PORT=${DB_PORT}
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
     cap_add:
       - NET_BIND_SERVICE
     ports:  
-      - "8556:8556"
+      - "8657:8556"
       - "8010:8002"
       - "8011:8003"
     volumes:
@@ -214,10 +233,11 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
       - DB_PORT=${DB_PORT}
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
     cap_add:
       - NET_BIND_SERVICE
     ports:
-      - "8557:8557"
+      - "8658:8557"
       - "8012:8002"
       - "8013:8003"
     volumes:
@@ -244,10 +264,11 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
       - DB_PORT=${DB_PORT}
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
     cap_add:
       - NET_BIND_SERVICE
     ports:
-      - "8558:8558"
+      - "8659:8558"
       - "8014:8002"
       - "8015:8003"
     volumes:
@@ -272,10 +293,11 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
       - DB_PORT=${DB_PORT}
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
     cap_add:
       - NET_BIND_SERVICE
     ports:
-      - "8559:8559"
+      - "8660:8559"
       - "8016:8002"
       - "8017:8003"
     volumes:
@@ -283,6 +305,420 @@ services:
     depends_on:
       mysql_service:
         condition: service_healthy
+
+  rtsp_h264_media:
+    image: bluenviron/mediamtx:latest
+    container_name: rtsp_h264_media_service
+    restart: unless-stopped
+    ports:
+      - "8554:8554"
+      - "8555:8554"
+      - "8556:8554"
+      - "8557:8554"
+      - "8558:8554"
+      - "8559:8554"
+      - "8560:8554"
+    volumes:
+      - ./rtspservices/mediamtx.yml:/mediamtx.yml:ro
+    depends_on:
+      web_service:
+        condition: service_started
+
+  rtsp_h264_publisher_hikvision_101:
+    build:
+      context: ./rtspservices
+      dockerfile: Dockerfile
+    container_name: rtsp_h264_publisher_hikvision_101_service
+    restart: unless-stopped
+    command:
+      - ffmpeg
+      - -re
+      - -stream_loop
+      - "-1"
+      - -i
+      - /app/media/camera-loop-720p15.mp4
+      - -an
+      - -vf
+      - format=yuv420p
+      - -c:v
+      - libx264
+      - -preset
+      - veryfast
+      - -tune
+      - zerolatency
+      - -profile:v
+      - baseline
+      - -level
+      - "3.1"
+      - -r
+      - "15"
+      - -g
+      - "30"
+      - -keyint_min
+      - "30"
+      - -bf
+      - "0"
+      - -x264-params
+      - repeat-headers=1:scenecut=0
+      - -f
+      - rtsp
+      - -rtsp_transport
+      - tcp
+      - rtsp://rtsp_h264_media:8554/Streaming/Channels/101
+    depends_on:
+      - rtsp_h264_media
+
+  rtsp_h264_publisher_hikvision_102:
+    build:
+      context: ./rtspservices
+      dockerfile: Dockerfile
+    container_name: rtsp_h264_publisher_hikvision_102_service
+    restart: unless-stopped
+    command:
+      - ffmpeg
+      - -re
+      - -stream_loop
+      - "-1"
+      - -i
+      - /app/media/camera-loop-720p15.mp4
+      - -an
+      - -vf
+      - format=yuv420p
+      - -c:v
+      - libx264
+      - -preset
+      - veryfast
+      - -tune
+      - zerolatency
+      - -profile:v
+      - baseline
+      - -level
+      - "3.1"
+      - -r
+      - "15"
+      - -g
+      - "30"
+      - -keyint_min
+      - "30"
+      - -bf
+      - "0"
+      - -x264-params
+      - repeat-headers=1:scenecut=0
+      - -f
+      - rtsp
+      - -rtsp_transport
+      - tcp
+      - rtsp://rtsp_h264_media:8554/Streaming/Channels/102
+    depends_on:
+      - rtsp_h264_media
+
+  rtsp_h264_publisher_dahua:
+    build:
+      context: ./rtspservices
+      dockerfile: Dockerfile
+    container_name: rtsp_h264_publisher_dahua_service
+    restart: unless-stopped
+    command:
+      - ffmpeg
+      - -re
+      - -stream_loop
+      - "-1"
+      - -i
+      - /app/media/camera-loop-720p15.mp4
+      - -an
+      - -vf
+      - format=yuv420p
+      - -c:v
+      - libx264
+      - -preset
+      - veryfast
+      - -tune
+      - zerolatency
+      - -profile:v
+      - baseline
+      - -level
+      - "3.1"
+      - -r
+      - "15"
+      - -g
+      - "30"
+      - -keyint_min
+      - "30"
+      - -bf
+      - "0"
+      - -x264-params
+      - repeat-headers=1:scenecut=0
+      - -f
+      - rtsp
+      - -rtsp_transport
+      - tcp
+      - rtsp://rtsp_h264_media:8554/cam/realmonitor
+    depends_on:
+      - rtsp_h264_media
+
+  rtsp_h264_publisher_axis:
+    build:
+      context: ./rtspservices
+      dockerfile: Dockerfile
+    container_name: rtsp_h264_publisher_axis_service
+    restart: unless-stopped
+    command:
+      - ffmpeg
+      - -re
+      - -stream_loop
+      - "-1"
+      - -i
+      - /app/media/camera-loop-720p15.mp4
+      - -an
+      - -vf
+      - format=yuv420p
+      - -c:v
+      - libx264
+      - -preset
+      - veryfast
+      - -tune
+      - zerolatency
+      - -profile:v
+      - baseline
+      - -level
+      - "3.1"
+      - -r
+      - "15"
+      - -g
+      - "30"
+      - -keyint_min
+      - "30"
+      - -bf
+      - "0"
+      - -x264-params
+      - repeat-headers=1:scenecut=0
+      - -f
+      - rtsp
+      - -rtsp_transport
+      - tcp
+      - rtsp://rtsp_h264_media:8554/axis-media/media.amp
+    depends_on:
+      - rtsp_h264_media
+
+  rtsp_h264_publisher_reolink:
+    build:
+      context: ./rtspservices
+      dockerfile: Dockerfile
+    container_name: rtsp_h264_publisher_reolink_service
+    restart: unless-stopped
+    command:
+      - ffmpeg
+      - -re
+      - -stream_loop
+      - "-1"
+      - -i
+      - /app/media/camera-loop-720p15.mp4
+      - -an
+      - -vf
+      - format=yuv420p
+      - -c:v
+      - libx264
+      - -preset
+      - veryfast
+      - -tune
+      - zerolatency
+      - -profile:v
+      - baseline
+      - -level
+      - "3.1"
+      - -r
+      - "15"
+      - -g
+      - "30"
+      - -keyint_min
+      - "30"
+      - -bf
+      - "0"
+      - -x264-params
+      - repeat-headers=1:scenecut=0
+      - -f
+      - rtsp
+      - -rtsp_transport
+      - tcp
+      - rtsp://rtsp_h264_media:8554/h264Preview_01_main
+    depends_on:
+      - rtsp_h264_media
+
+  rtsp_h264_publisher_mobotix:
+    build:
+      context: ./rtspservices
+      dockerfile: Dockerfile
+    container_name: rtsp_h264_publisher_mobotix_service
+    restart: unless-stopped
+    command:
+      - ffmpeg
+      - -re
+      - -stream_loop
+      - "-1"
+      - -i
+      - /app/media/camera-loop-720p15.mp4
+      - -an
+      - -vf
+      - format=yuv420p
+      - -c:v
+      - libx264
+      - -preset
+      - veryfast
+      - -tune
+      - zerolatency
+      - -profile:v
+      - baseline
+      - -level
+      - "3.1"
+      - -r
+      - "15"
+      - -g
+      - "30"
+      - -keyint_min
+      - "30"
+      - -bf
+      - "0"
+      - -x264-params
+      - repeat-headers=1:scenecut=0
+      - -f
+      - rtsp
+      - -rtsp_transport
+      - tcp
+      - rtsp://rtsp_h264_media:8554/control/faststream.jpg
+    depends_on:
+      - rtsp_h264_media
+
+  rtsp_h264_publisher_vstarcam:
+    build:
+      context: ./rtspservices
+      dockerfile: Dockerfile
+    container_name: rtsp_h264_publisher_vstarcam_service
+    restart: unless-stopped
+    command:
+      - ffmpeg
+      - -re
+      - -stream_loop
+      - "-1"
+      - -i
+      - /app/media/camera-loop-720p15.mp4
+      - -an
+      - -vf
+      - format=yuv420p
+      - -c:v
+      - libx264
+      - -preset
+      - veryfast
+      - -tune
+      - zerolatency
+      - -profile:v
+      - baseline
+      - -level
+      - "3.1"
+      - -r
+      - "15"
+      - -g
+      - "30"
+      - -keyint_min
+      - "30"
+      - -bf
+      - "0"
+      - -x264-params
+      - repeat-headers=1:scenecut=0
+      - -f
+      - rtsp
+      - -rtsp_transport
+      - tcp
+      - rtsp://rtsp_h264_media:8554/videostream.cgi
+    depends_on:
+      - rtsp_h264_media
+
+  rtsp_h264_publisher_foscam:
+    build:
+      context: ./rtspservices
+      dockerfile: Dockerfile
+    container_name: rtsp_h264_publisher_foscam_service
+    restart: unless-stopped
+    command:
+      - ffmpeg
+      - -re
+      - -stream_loop
+      - "-1"
+      - -i
+      - /app/media/camera-loop-720p15.mp4
+      - -an
+      - -vf
+      - format=yuv420p
+      - -c:v
+      - libx264
+      - -preset
+      - veryfast
+      - -tune
+      - zerolatency
+      - -profile:v
+      - baseline
+      - -level
+      - "3.1"
+      - -r
+      - "15"
+      - -g
+      - "30"
+      - -keyint_min
+      - "30"
+      - -bf
+      - "0"
+      - -x264-params
+      - repeat-headers=1:scenecut=0
+      - -f
+      - rtsp
+      - -rtsp_transport
+      - tcp
+      - rtsp://rtsp_h264_media:8554/videoMain
+    depends_on:
+      - rtsp_h264_media
+
+  rtsp_h264_publisher_foscam_sub:
+    build:
+      context: ./rtspservices
+      dockerfile: Dockerfile
+    container_name: rtsp_h264_publisher_foscam_sub_service
+    restart: unless-stopped
+    command:
+      - ffmpeg
+      - -re
+      - -stream_loop
+      - "-1"
+      - -i
+      - /app/media/camera-loop-720p15.mp4
+      - -an
+      - -vf
+      - format=yuv420p
+      - -c:v
+      - libx264
+      - -preset
+      - veryfast
+      - -tune
+      - zerolatency
+      - -profile:v
+      - baseline
+      - -level
+      - "3.1"
+      - -r
+      - "15"
+      - -g
+      - "30"
+      - -keyint_min
+      - "30"
+      - -bf
+      - "0"
+      - -x264-params
+      - repeat-headers=1:scenecut=0
+      - -f
+      - rtsp
+      - -rtsp_transport
+      - tcp
+      - rtsp://rtsp_h264_media:8554/videoSub
+    depends_on:
+      - rtsp_h264_media
 
   axis_service:
     build:
@@ -300,6 +736,7 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
       - DB_PORT=${DB_PORT}
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
     ports:
       - "10000:10000"
     user: root
@@ -328,6 +765,7 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
       - DB_PORT=${DB_PORT}
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
     ports:
       - "37777:37777"
     user: root
@@ -356,6 +794,7 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
       - DB_PORT=${DB_PORT}
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
     ports:
       - "80:80"
     user: root
@@ -384,6 +823,7 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
       - DB_PORT=${DB_PORT}
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
     ports:
       - "443:443"
     user: root
@@ -412,6 +852,7 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
       - DB_PORT=${DB_PORT}
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
     ports:
       - "8081:8081"
     user: root
@@ -440,6 +881,7 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
       - DB_PORT=${DB_PORT}
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
     ports:
       - "81:81"
     user: root
@@ -469,6 +911,8 @@ services:
       - DB_PORT=${DB_PORT}
       - ONVIF_HTTP_PORT=8080
       - ONVIF_HTTP_ADDRESS=192.168.1.100
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
+      - ONVIF_PUBLIC_HOST=${ONVIF_PUBLIC_HOST:-192.168.1.100}
     ports:
       - "3702:3702/udp"
       - "8080:8080"
@@ -496,6 +940,8 @@ services:
       - DB_PORT=${DB_PORT}
       - ONVIF_HTTP_PORT=8086
       - ONVIF_HTTP_ADDRESS=192.168.1.100
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
+      - ONVIF_PUBLIC_HOST=${ONVIF_PUBLIC_HOST:-192.168.1.100}
     ports:
       - "3703:3702/udp"
       - "8086:8086"
@@ -523,6 +969,8 @@ services:
       - DB_PORT=${DB_PORT}
       - ONVIF_HTTP_PORT=8087
       - ONVIF_HTTP_ADDRESS=192.168.1.100
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
+      - ONVIF_PUBLIC_HOST=${ONVIF_PUBLIC_HOST:-192.168.1.100}
     ports:
       - "3704:3702/udp"
       - "8087:8087"
@@ -550,6 +998,8 @@ services:
       - DB_PORT=${DB_PORT}
       - ONVIF_HTTP_PORT=8088
       - ONVIF_HTTP_ADDRESS=192.168.1.100
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
+      - ONVIF_PUBLIC_HOST=${ONVIF_PUBLIC_HOST:-192.168.1.100}
     ports:
       - "3705:3702/udp"
       - "8088:8088"
@@ -577,6 +1027,8 @@ services:
       - DB_PORT=${DB_PORT}
       - ONVIF_HTTP_PORT=8089
       - ONVIF_HTTP_ADDRESS=192.168.1.100
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
+      - ONVIF_PUBLIC_HOST=${ONVIF_PUBLIC_HOST:-192.168.1.100}
     ports:
       - "3706:3702/udp"
       - "8089:8089"
@@ -604,6 +1056,8 @@ services:
       - DB_PORT=${DB_PORT}
       - ONVIF_HTTP_PORT=8090
       - ONVIF_HTTP_ADDRESS=192.168.1.100
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
+      - ONVIF_PUBLIC_HOST=${ONVIF_PUBLIC_HOST:-192.168.1.100}
     ports:
       - "3707:3702/udp"
       - "8090:8090"

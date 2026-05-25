@@ -119,7 +119,8 @@ html(lang="en")
                 height: 100%;
                 overflow: hidden;
             }
-            #imageViewer img {
+            #imageViewer img,
+            #imageViewer video {
                 position: absolute;
                 top: 0;
                 left: 0;
@@ -535,6 +536,7 @@ html(lang="en")
             }
 
             let currentImage = null;
+            const cameraVideoPath = "#{videoPathMp4 || '/videos/camera-loop-720p15.mp4'}";
             let currentX = 0;
             let currentY = 0;
             let imageWidth = 0;
@@ -544,83 +546,66 @@ html(lang="en")
             const moveStep = 50; 
             
             
-            function loadImage() {
-                
-                const xhr = new XMLHttpRequest();
-                xhr.open('GET', '/api/images', true);
-                xhr.withCredentials = true;
-                
-                xhr.onreadystatechange = function() {
-                    if (xhr.readyState === 4) {
-                        
-                        if (xhr.status === 200) {
-                            try {
-                                const images = JSON.parse(xhr.responseText);
-                                if (images.length > 0) {
-                                    displayImage(images[0]);
-                                } else {
-                                    document.getElementById('noImages').style.display = 'block';
-                                }
-                            } catch (error) {
-                                console.error('Error parsing response:', error);
-                                document.getElementById('noImages').style.display = 'block';
-                            }
-                        } else {
-                            console.error('API request failed:', xhr.status);
-                            document.getElementById('noImages').style.display = 'block';
-                        }
-                    }
-                };
-                
-                xhr.onerror = function() {
-                    console.error('XHR error occurred');
-                    document.getElementById('noImages').style.display = 'block';
-                };
-                
-                xhr.send();
+            function loadVideo() {
+                displayVideo(cameraVideoPath);
             }
             
             
-            function displayImage(imageSrc) {
+            function displayVideo(videoSrc) {
                 const imageViewer = document.getElementById('imageViewer');
                 const imageInfo = document.getElementById('imageInfo');
-                
-                
+
                 imageViewer.innerHTML = '';
-                
-                
-                const img = document.createElement('img');
-                img.src = imageSrc;
-                img.alt = '360 VIEW';
-                
-                img.onload = function() {
-                    
-                    imageWidth = this.naturalWidth;
-                    imageHeight = this.naturalHeight;
-                    
-                    
+
+                const video = document.createElement('video');
+                video.src = videoSrc;
+                video.autoplay = true;
+                video.loop = true;
+                video.muted = true;
+                video.playsInline = true;
+                video.preload = 'auto';
+                video.style.position = 'absolute';
+                video.style.top = '0';
+                video.style.left = '0';
+                video.style.width = 'auto';
+                video.style.height = 'auto';
+                video.style.maxWidth = 'none';
+                video.style.maxHeight = 'none';
+                video.style.userSelect = 'none';
+                video.draggable = false;
+
+                video.onloadedmetadata = function() {
+                    imageWidth = this.videoWidth || 1280;
+                    imageHeight = this.videoHeight || 544;
                     containerWidth = imageViewer.clientWidth;
                     containerHeight = imageViewer.clientHeight;
-                    
-                    
                     currentX = Math.max(0, (imageWidth - containerWidth) / 2);
                     currentY = Math.max(0, (imageHeight - containerHeight) / 2);
-                    
-                    
                     updateImagePosition();
-                    
-                    
-                    imageInfo.textContent = `Image: ${imageSrc.split('/').pop()}`;
-                    imageInfo.style.display = 'block';
+
+                    if (imageInfo) {
+                        imageInfo.textContent = `Stream: ${videoSrc.split('/').pop()}`;
+                        imageInfo.style.display = 'block';
+                    }
+
+                    const up = document.getElementById('up');
+                    const down = document.getElementById('down');
+                    const left = document.getElementById('left');
+                    const right = document.getElementById('right');
+                    if (up) up.disabled = !(imageHeight > containerHeight);
+                    if (down) down.disabled = !(imageHeight > containerHeight);
+                    if (left) left.disabled = !(imageWidth > containerWidth);
+                    if (right) right.disabled = !(imageWidth > containerWidth);
                 };
-                
-                img.onerror = function() {
-                    console.error('Image failed to load:', imageSrc);
+
+                video.onerror = function() {
+                    console.error('Video failed to load:', videoSrc);
                     document.getElementById('noImages').style.display = 'block';
                 };
-                
-                imageViewer.appendChild(img);
-                currentImage = img;
+
+                imageViewer.appendChild(video);
+                video.play().catch(error => console.debug('Autoplay waiting for browser permission:', error));
+                currentImage = video;
             }
             
             
@@ -661,7 +646,7 @@ html(lang="en")
             
             
             
-            document.addEventListener('DOMContentLoaded', loadImage);
+            document.addEventListener('DOMContentLoaded', loadVideo);
 
             async function loadRTSPStatus() {
                 // Only load RTSP status if user is an admin
