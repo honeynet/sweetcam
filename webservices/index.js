@@ -498,12 +498,10 @@ function requireAuth(req, res, next) {
     const cameraType = getCameraType(req);
 
     if (isNoAuthWebBrand(cameraType)) {
-        if (!req.session.username) {
-            req.session.username = process.env.PUBLIC_VIEWER_USERNAME || 'guest';
-            req.session.isPublicViewer = true;
-            req.session.isAdmin = false;
-        }
-
+        req.publicViewer = {
+            username: process.env.PUBLIC_VIEWER_USERNAME || 'guest',
+            isAdmin: false
+        };
         console.log(`Public no-auth web access allowed for ${cameraType}`);
         return next();
     }
@@ -723,9 +721,11 @@ app.get('/', requireAuth, async (req, res) => {
             req.sessionID
         );
 
+        const publicViewer = req.publicViewer || {};
+
         res.render(cameraType, { 
             config: config,
-            userName: req.session.username,
+            userName: req.session?.username || publicViewer.username || process.env.PUBLIC_VIEWER_USERNAME || 'guest',
             model: config.model,
             brand: config.brand,
             brandImagePath: config.brandImagePath,
@@ -740,8 +740,8 @@ app.get('/', requireAuth, async (req, res) => {
             rtspAddress: config.rtspAddress,
             rtspPublicAddress: config.rtspPublicAddress,
             status: config.status,
-            locale: req.session.locale || 'en',
-            isAdmin: req.session.isAdmin || false
+            locale: req.session?.locale || 'en',
+            isAdmin: req.session?.isAdmin || publicViewer.isAdmin || false
         });
     } catch (error) {
         console.error('Error rendering main camera page:', error);
