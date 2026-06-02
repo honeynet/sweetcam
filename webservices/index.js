@@ -19,6 +19,21 @@ let beginTimeOfLogin = 0;
 app.disable('x-powered-by');
 app.disable('etag');
 
+const SESSION_COOKIE_NAMES = {
+    hikvision: 'WebSession',
+    dahua: 'DWebClientSession',
+    axis: 'axis_session',
+    reolink: 'rl_session',
+    mobotix: 'mx_session',
+    vstarcam: 'vstar_session',
+    foscam: 'foscam_session'
+};
+
+const getSessionCookieName = () => {
+    const brand = String(process.env.BRAND || '').trim().toLowerCase();
+    return process.env.SESSION_COOKIE_NAME || SESSION_COOKIE_NAMES[brand] || 'web_session';
+};
+
 //configure i18n
 i18n.configure({
     locales: ['en', 'es'],
@@ -45,7 +60,7 @@ app.use(session({
         sameSite: 'lax',
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
     },
-    name: 'sweetcam_session'
+    name: getSessionCookieName()
 }));
 
 
@@ -55,16 +70,13 @@ app.use(i18n.init);
 
 //language switching middleware
 app.use((req, res, next) => {
-    //set default locale if not set
-    if (!req.session.locale) {
-        req.session.locale = 'en';
-    }
+    const currentLocale = req.session?.locale || 'en';
     
     //set locale for i18n
-    req.setLocale(req.session.locale);
+    req.setLocale(currentLocale);
     
     //make locale available to templates
-    res.locals.locale = req.session.locale;
+    res.locals.locale = currentLocale;
     
     next();
 });
