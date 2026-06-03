@@ -26,6 +26,15 @@ const getLoginLimit = () => {
 
 const PUBLIC_RTSP_HOST = process.env.PUBLIC_RTSP_HOST || process.env.RTSP_PUBLIC_HOST || "localhost";
 
+const getPublicRtspPort = (cameraType, defaultPort) => {
+    const normalizedType = String(cameraType || '').toUpperCase();
+    const brandPort = process.env[`MEDIAMTX_${normalizedType}_RTSP_PORT`];
+    const sharedPort = process.env.MEDIAMTX_PUBLIC_RTSP_PORT || process.env.PUBLIC_RTSP_PORT;
+    const parsedPort = parseInt(brandPort || sharedPort, 10);
+
+    return Number.isFinite(parsedPort) ? parsedPort : defaultPort;
+};
+
 const DEFAULT_RTSP_ENDPOINTS = {
     hikvision: { port: 8554, path: "/Streaming/Channels/101" },
     dahua: { port: 8555, path: "/cam/realmonitor?channel=1&subtype=0" },
@@ -55,7 +64,9 @@ const buildRtspAddress = (config, profile) => {
     const endpoint = DEFAULT_RTSP_ENDPOINTS[cameraType] || DEFAULT_RTSP_ENDPOINTS.hikvision;
     const rtspPath = normalizeRtspPath(profile?.rtsp_path) || endpoint.path;
 
-    return `rtsp://${PUBLIC_RTSP_HOST}:${endpoint.port}${rtspPath}`;
+    const publicPort = getPublicRtspPort(cameraType, endpoint.port);
+
+    return `rtsp://${PUBLIC_RTSP_HOST}:${publicPort}${rtspPath}`;
 };
 
 const mergeCameraConfig = (config, profile) => {

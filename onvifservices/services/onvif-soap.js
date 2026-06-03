@@ -170,6 +170,15 @@ class ONVIFSoapService {
       '127.0.0.1';
   }
 
+  getPublicRtspPort(defaultPort = 8554) {
+    const normalizedBrand = String(this.brand || this.brandConfig?.manufacturer || '').toUpperCase();
+    const brandPort = process.env[`MEDIAMTX_${normalizedBrand}_RTSP_PORT`];
+    const sharedPort = process.env.MEDIAMTX_PUBLIC_RTSP_PORT || process.env.PUBLIC_RTSP_PORT;
+    const parsedPort = parseInt(brandPort || sharedPort, 10);
+
+    return Number.isFinite(parsedPort) ? parsedPort : defaultPort;
+  }
+
   getPublicOnvifBaseUrl() {
     const host = process.env.PUBLIC_ONVIF_HOST ||
       process.env.ONVIF_PUBLIC_HOST ||
@@ -205,7 +214,7 @@ class ONVIFSoapService {
 
   async getRtspUri() {
     const host = this.getPublicRtspHost();
-    const port = this.brandConfig.rtspPort || 8554;
+    const port = this.getPublicRtspPort(this.brandConfig.rtspPort || 8554);
     const path = await this.getProfileRtspPath() ||
       normalizeRtspPath(this.brandConfig.rtspPath) ||
       '/Streaming/Channels/101';
@@ -215,7 +224,7 @@ class ONVIFSoapService {
 
   getRtspUriSync() {
     const host = this.getPublicRtspHost();
-    const port = this.brandConfig.rtspPort || 8554;
+    const port = this.getPublicRtspPort(this.brandConfig.rtspPort || 8554);
     const path = normalizeRtspPath(this.profile?.rtsp_path) ||
       normalizeRtspPath(this.brandConfig.rtspPath) ||
       '/Streaming/Channels/101';

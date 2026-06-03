@@ -1,0 +1,39 @@
+services:
+  web_service:
+    environment:
+      - NO_AUTH_RTSP_BRANDS=
+      - NO_AUTH_WEB_BRANDS=
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
+      - ONVIF_PUBLIC_HOST=${ONVIF_PUBLIC_HOST:-localhost}
+      - PUBLIC_ONVIF_HOST=${PUBLIC_ONVIF_HOST:-localhost}
+      - MEDIAMTX_PUBLIC_RTSP_PORT=554
+      - MEDIAMTX_HIKVISION_RTSP_PORT=554
+    ports: !reset []
+
+  mysql_service:
+    ports: !reset []
+
+  grafana:
+    ports: !reset []
+
+  cowrie_service:
+    ports: !reset []
+
+  rtsp_h264_media:
+    ports: !override
+      - "554:8554"
+
+  hikvision_service:
+    environment:
+      - NO_AUTH_WEB_BRANDS=
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
+      - MEDIAMTX_PUBLIC_RTSP_PORT=554
+      - MEDIAMTX_HIKVISION_RTSP_PORT=554
+
+  onvif_service:
+    environment:
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
+      - ONVIF_PUBLIC_HOST=${ONVIF_PUBLIC_HOST:-localhost}
+      - PUBLIC_ONVIF_HOST=${PUBLIC_ONVIF_HOST:-localhost}
+      - MEDIAMTX_PUBLIC_RTSP_PORT=554
+      - MEDIAMTX_HIKVISION_RTSP_PORT=554
