@@ -34,6 +34,48 @@ const getSessionCookieName = () => {
     return process.env.SESSION_COOKIE_NAME || SESSION_COOKIE_NAMES[brand] || 'web_session';
 };
 
+const HTTP_FINGERPRINTS = {
+    hikvision: {
+        server: 'App-webs/',
+        realm: 'IP Camera',
+        favicon: '/brands/Hikvision.png'
+    },
+    dahua: {
+        server: 'Webs',
+        realm: 'Dahua',
+        favicon: '/brands/Dahua.png'
+    },
+    axis: {
+        server: 'lighttpd',
+        realm: 'AXIS',
+        favicon: '/brands/Axis.png'
+    },
+    reolink: {
+        server: 'Reolink',
+        realm: 'Reolink',
+        favicon: '/brands/Reolink.png'
+    },
+    mobotix: {
+        server: 'MxServer',
+        realm: 'MOBOTIX',
+        favicon: '/brands/Mobotix.png'
+    },
+    vstarcam: {
+        server: 'GoAhead-Webs',
+        realm: 'VStarcam',
+        favicon: '/brands/Vstarcam.png'
+    },
+    foscam: {
+        server: 'GoAhead-Webs',
+        realm: 'Foscam',
+        favicon: '/brands/Foscam.png'
+    }
+};
+
+const getHttpFingerprint = (cameraType) => {
+    return HTTP_FINGERPRINTS[cameraType] || HTTP_FINGERPRINTS.hikvision;
+};
+
 //configure i18n
 i18n.configure({
     locales: ['en', 'es'],
@@ -47,6 +89,11 @@ i18n.configure({
 //middleware
 app.use((req, res, next) => {
     res.removeHeader('X-Powered-By');
+    const fingerprint = getHttpFingerprint(getCameraType(req));
+
+    res.setHeader('Server', fingerprint.server);
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Cache-Control', 'no-cache');
     next();
 });
 
@@ -621,7 +668,9 @@ const mjpegStreamPaths = [
 
 const jpegSnapshotPaths = [
     '/cgi-bin/snapshot.cgi',
-    '/axis-cgi/jpg/image.cgi'
+    '/axis-cgi/jpg/image.cgi',
+    '/snapshot.jpg',
+    '/SnapshotJPEG'
 ];
 
 mjpegStreamPaths.forEach(routePath => {
@@ -630,6 +679,114 @@ mjpegStreamPaths.forEach(routePath => {
 
 jpegSnapshotPaths.forEach(routePath => {
     app.get(routePath, requireCameraStreamAccess, sendJpegSnapshot);
+});
+
+app.get('/favicon.ico', (req, res) => {
+    const fingerprint = getHttpFingerprint(getCameraType(req));
+    res.type('png');
+    res.sendFile(path.join(__dirname, 'public', fingerprint.favicon));
+});
+
+app.get('/ISAPI/System/deviceInfo', async (req, res) => {
+    const cameraType = getCameraType(req);
+    if (cameraType !== 'hikvision') {
+        return res.status(404).send('Not Found');
+    }
+
+    const config = await sweetcamServices.getMergedCameraConfig(cameraType);
+    res.type('application/xml');
+    res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<DeviceInfo version="2.0" xmlns="http://www.hikvision.com/ver20/XMLSchema">
+  <deviceName>IP Camera</deviceName>
+  <deviceID>${config.model || 'DS-2CD3T52H2-K'}</deviceID>
+  <model>${config.model || 'DS-2CD3T52H2-K'}</model>
+  <serialNumber>${config.serialNumber || `${config.model || 'DS-2CD3T52H2-K'}20240601`}</serialNumber>
+  <macAddress>${config.macAddress || '00:11:32:66:88:01'}</macAddress>
+  <firmwareVersion>${config.firmware || 'V5.5.82'}</firmwareVersion>
+  <firmwareReleasedDate>build 240101</firmwareReleasedDate>
+  <deviceType>IPCamera</deviceType>
+</DeviceInfo>`);
+});
+
+app.get('/cgi-bin/magicBox.cgi', async (req, res) => {
+    const cameraType = getCameraType(req);
+    if (cameraType !== 'dahua') {
+        return res.status(404).send('Not Found');
+    }
+
+    const action = String(req.query.action || '').toLowerCase();
+    const config = await sweetcamServices.getMergedCameraConfig(cameraType);
+
+    if (action === 'getsysteminfo') {
+        res.type('text/plain');
+        return res.send([
+            `deviceType=${config.model || 'IPC-HDW4631C-A'}`,
+            `hardwareVersion=${config.model || 'IPC-HDW4631C-A'}`,
+            `processor=SSC325`,
+            `serialNumber=${config.serialNumber || '8D01234PAZA0012'}`,
+            `updateSerial=IPC`,
+            `updateSerialCloudUpgrade=IPC`,
+            `deviceClass=IPC`
+        ].join('\r\n'));
+    }
+
+    res.status(401).set('WWW-Authenticate', 'Basic realm="Dahua"').send('Error: No permission');
+});
+
+app.get('/cgi-bin/configManager.cgi', async (req, res) => {
+    const cameraType = getCameraType(req);
+    if (cameraType !== 'dahua') {
+        return res.status(404).send('Not Found');
+    }
+
+    const config = await sweetcamServices.getMergedCameraConfig(cameraType);
+    res.type('text/plain');
+    res.send([
+        `table.Encode[0].MainFormat[0].Video.Compression=${config.compression || 'H.264'}`,
+        `table.Encode[0].MainFormat[0].Video.FPS=${parseInt(config.frame_rate, 10) || 15}`,
+        `table.Encode[0].MainFormat[0].Video.resolution=${config.resolution || '1280x720'}`
+    ].join('\r\n'));
+});
+
+app.get(['/axis-cgi/param.cgi', '/axis-cgi/admin/param.cgi'], async (req, res) => {
+    const cameraType = getCameraType(req);
+    if (cameraType !== 'axis') {
+        return res.status(404).send('Not Found');
+    }
+
+    const config = await sweetcamServices.getMergedCameraConfig(cameraType);
+    res.type('text/plain');
+    res.send([
+        'root.Brand.Brand=AXIS',
+        `root.Brand.ProdFullName=AXIS ${config.model || 'M3047-P'} Network Camera`,
+        `root.Brand.ProdNbr=${config.model || 'M3047-P'}`,
+        `root.Properties.Firmware.Version=${config.firmware || '9.80.3.4'}`,
+        `root.Properties.API.HTTP.Version=3`
+    ].join('\n'));
+});
+
+app.get(['/cgi-bin/api.cgi', '/api.cgi'], async (req, res) => {
+    const cameraType = getCameraType(req);
+    if (cameraType !== 'reolink') {
+        return res.status(404).send('Not Found');
+    }
+
+    const config = await sweetcamServices.getMergedCameraConfig(cameraType);
+    res.json([{
+        cmd: req.query.cmd || 'GetDevInfo',
+        code: 0,
+        value: {
+            DevInfo: {
+                name: config.model || 'E1 Zoom',
+                model: config.model || 'E1 Zoom',
+                version: config.firmware || 'v3.1.0.956',
+                type: 'IPC',
+                channelNum: 1,
+                hardVer: 'IPC_51316M',
+                serial: config.serialNumber || '95270001'
+            }
+        }
+    }]);
 });
 
 

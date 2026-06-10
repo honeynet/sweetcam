@@ -31,11 +31,17 @@ services:
       - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
       - MEDIAMTX_PUBLIC_RTSP_PORT=554
       - MEDIAMTX_DAHUA_RTSP_PORT=554
+    ports: !override
+      - "80:37777"
 
   onvif_dahua_service:
     environment:
+      - ONVIF_HTTP_PORT=8080
       - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
       - ONVIF_PUBLIC_HOST=${ONVIF_PUBLIC_HOST:-localhost}
       - PUBLIC_ONVIF_HOST=${PUBLIC_ONVIF_HOST:-localhost}
       - MEDIAMTX_PUBLIC_RTSP_PORT=554
       - MEDIAMTX_DAHUA_RTSP_PORT=554
+    ports: !override
+      - "3702:3702/udp"
+      - "8080:8080"
