@@ -48,13 +48,6 @@ onvif_dahua_service
 
 The important thing is that `rtsp_h264_media` is the MediaMTX RTSP server, and the `rtsp_h264_publisher_*` services publish the looped H.264 video into it.
 
-In the current implementation, MediaMTX is not pulled from `bluenviron/mediamtx:latest` anymore. SweetCam builds a pinned custom MediaMTX image from `rtspservices/mediamtx-custom`, using MediaMTX `v1.18.2`. This keeps the RTSP behavior stable and changes the scanner-visible RTSP server banner to:
-
-```text
-Server: RTSP Server
-```
-
-This is still the same MediaMTX-based H.264 RTSP setup, but with a less library-specific fingerprint.
 
 ## 2. Install The Necessary Software On The VM
 
