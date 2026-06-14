@@ -4,9 +4,9 @@ services:
       - NO_AUTH_RTSP_BRANDS=dahua
       - NO_AUTH_WEB_BRANDS=dahua
       - PUBLIC_VIEWER_USERNAME=guest
-      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
-      - ONVIF_PUBLIC_HOST=${ONVIF_PUBLIC_HOST:-localhost}
-      - PUBLIC_ONVIF_HOST=${PUBLIC_ONVIF_HOST:-localhost}
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-${PUBLIC_IP:-localhost}}
+      - ONVIF_PUBLIC_HOST=${ONVIF_PUBLIC_HOST:-${PUBLIC_IP:-localhost}}
+      - PUBLIC_ONVIF_HOST=${PUBLIC_ONVIF_HOST:-${PUBLIC_IP:-localhost}}
       - MEDIAMTX_PUBLIC_RTSP_PORT=554
       - MEDIAMTX_DAHUA_RTSP_PORT=554
     ports: !reset []
@@ -28,7 +28,7 @@ services:
     environment:
       - NO_AUTH_WEB_BRANDS=dahua
       - PUBLIC_VIEWER_USERNAME=guest
-      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-${PUBLIC_IP:-localhost}}
       - MEDIAMTX_PUBLIC_RTSP_PORT=554
       - MEDIAMTX_DAHUA_RTSP_PORT=554
     ports: !override
@@ -37,9 +37,9 @@ services:
   onvif_dahua_service:
     environment:
       - ONVIF_HTTP_PORT=8080
-      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
-      - ONVIF_PUBLIC_HOST=${ONVIF_PUBLIC_HOST:-localhost}
-      - PUBLIC_ONVIF_HOST=${PUBLIC_ONVIF_HOST:-localhost}
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-${PUBLIC_IP:-localhost}}
+      - ONVIF_PUBLIC_HOST=${ONVIF_PUBLIC_HOST:-${PUBLIC_IP:-localhost}}
+      - PUBLIC_ONVIF_HOST=${PUBLIC_ONVIF_HOST:-${PUBLIC_IP:-localhost}}
       - MEDIAMTX_PUBLIC_RTSP_PORT=554
       - MEDIAMTX_DAHUA_RTSP_PORT=554
     ports: !override

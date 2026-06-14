@@ -307,7 +307,12 @@ services:
         condition: service_healthy
 
   rtsp_h264_media:
-    image: bluenviron/mediamtx:latest
+    image: sweetcam-mediamtx:1.18.2-rtsp-server
+    build:
+      context: ./rtspservices/mediamtx-custom
+      args:
+        MEDIAMTX_VERSION: v1.18.2
+        RTSP_SERVER_HEADER: RTSP Server
     container_name: rtsp_h264_media_service
     restart: unless-stopped
     ports:

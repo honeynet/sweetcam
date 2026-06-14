@@ -48,6 +48,14 @@ onvif_dahua_service
 
 The important thing is that `rtsp_h264_media` is the MediaMTX RTSP server, and the `rtsp_h264_publisher_*` services publish the looped H.264 video into it.
 
+In the current implementation, MediaMTX is not pulled from `bluenviron/mediamtx:latest` anymore. SweetCam builds a pinned custom MediaMTX image from `rtspservices/mediamtx-custom`, using MediaMTX `v1.18.2`. This keeps the RTSP behavior stable and changes the scanner-visible RTSP server banner to:
+
+```text
+Server: RTSP Server
+```
+
+This is still the same MediaMTX-based H.264 RTSP setup, but with a less library-specific fingerprint.
+
 ## 2. Install The Necessary Software On The VM
 
 This is for a fresh Ubuntu VM. These are the necessary packages. Node.js, MySQL, FFmpeg, MediaMTX, and Grafana do not need to be installed manually on the host because Docker handles them inside containers.
@@ -103,15 +111,16 @@ free -h
 Clone SweetCam:
 
 ```bash
+cd /opt
 sudo git clone https://github.com/honeynet/sweetcam.git
-cd /sweetcam
+cd /opt/sweetcam
 ```
 
-Use the branch with the current changes:
+Use the branch with the current changes. Replace `mediamtx-custom-banner` with the branch you want to deploy if needed:
 
 ```bash
-git checkout RaduUpdates
-git pull --ff-only origin RaduUpdates
+git checkout mediamtx-custom-banner
+git pull --ff-only origin mediamtx-custom-banner
 ```
 
 ## 4. Choose The Correct IP
@@ -140,23 +149,47 @@ Do not use Docker internal IPs like:
 172.18.x.x
 ```
 
-Set the public host variables:
+For the current override files, you usually only need one IP variable:
 
 ```bash
-export PUBLIC_RTSP_HOST=VM_IP
-export ONVIF_PUBLIC_HOST=VM_IP
-export PUBLIC_ONVIF_HOST=VM_IP
+export PUBLIC_IP=VM_IP
 ```
 
 Example:
 
 ```bash
-export PUBLIC_RTSP_HOST=192.168.1.45
-export ONVIF_PUBLIC_HOST=192.168.1.45
-export PUBLIC_ONVIF_HOST=192.168.1.45
+export PUBLIC_IP=192.168.1.45
 ```
 
-These variables only exist in the current shell. If you open a new SSH session, set them again before running `docker compose up`.
+The Compose files automatically use `PUBLIC_IP` for:
+
+```text
+PUBLIC_RTSP_HOST
+ONVIF_PUBLIC_HOST
+PUBLIC_ONVIF_HOST
+```
+
+This variable only exists in the current shell. If you open a new SSH session, set it again before running `docker compose up`.
+
+To avoid setting it every time, add it once to the `.env` file on that VM:
+
+```bash
+nano .env
+```
+
+Add the correct IP:
+
+```env
+PUBLIC_IP=VM_IP
+```
+
+You can also put no-auth settings in `.env` if that VM should always start with the same public camera behavior:
+
+```env
+NO_AUTH_WEB_BRANDS=dahua
+NO_AUTH_RTSP_BRANDS=dahua
+PUBLIC_VIEWER_USERNAME=guest
+```
 
 ## 5. Authentication Settings
 
@@ -194,7 +227,7 @@ admin:12345
 
 Use this table when building a custom deployment command.
 
-| Vendor | Web Service | RTSP Publisher | ONVIF Service | Default Web URL | Default RTSP URL |
+| Vendor | Web Service | RTSP Publisher | ONVIF Service | Multi-camera Web URL | Multi-camera RTSP URL |
 |---|---|---|---|---|---|
 | Hikvision | `hikvision_service` | `rtsp_h264_publisher_hikvision_101`, `rtsp_h264_publisher_hikvision_102` | `onvif_service` | `http://VM_IP` | `rtsp://admin:12345@VM_IP:8554/Streaming/Channels/101` |
 | Dahua | `dahua_service` | `rtsp_h264_publisher_dahua` | `onvif_dahua_service` | `http://VM_IP:37777` | `rtsp://VM_IP:8555/cam/realmonitor?channel=1&subtype=0` |
@@ -211,20 +244,27 @@ web_service
 rtsp_h264_media
 ```
 
+For single-camera-per-VM deployments, the override files expose the camera web page on port `80`, RTSP on port `554`, and ONVIF HTTP on port `8080`. In that case the public URLs are simpler:
+
+| Vendor | Single-VM Web URL | Single-VM RTSP URL |
+|---|---|---|
+| Hikvision | `http://VM_IP` | `rtsp://admin:12345@VM_IP/Streaming/Channels/101` |
+| Dahua | `http://VM_IP` | `rtsp://VM_IP/cam/realmonitor?channel=1&subtype=0` |
+| Axis | `http://VM_IP` | `rtsp://VM_IP/axis-media/media.amp` |
+| Reolink | `http://VM_IP` | `rtsp://VM_IP/h264Preview_01_main` |
+
 ## 7. Deploy One Camera On One VM
 
 ### 7.1 Hikvision With Authentication
 
 ```bash
-export PUBLIC_RTSP_HOST=VM_IP
-export ONVIF_PUBLIC_HOST=VM_IP
-export PUBLIC_ONVIF_HOST=VM_IP
+export PUBLIC_IP=VM_IP
 ```
 
 Start Hikvision:
 
 ```bash
-docker compose -f docker-compose.yml up -d --build --remove-orphans mysql_service web_service rtsp_h264_media rtsp_h264_publisher_hikvision_101 rtsp_h264_publisher_hikvision_102 hikvision_service onvif_service
+docker compose -f docker-compose.yml -f docker-compose.hikvision-single.yml up -d --build --remove-orphans mysql_service web_service rtsp_h264_media rtsp_h264_publisher_hikvision_101 rtsp_h264_publisher_hikvision_102 hikvision_service onvif_service
 ```
 
 Test:
@@ -236,7 +276,7 @@ curl -I http://VM_IP
 RTSP test from Windows:
 
 ```powershell
-ffplay "rtsp://admin:12345@VM_IP:8554/Streaming/Channels/101"
+ffplay "rtsp://admin:12345@VM_IP/Streaming/Channels/101"
 ```
 
 ### 7.2 Dahua Without Authentication
@@ -247,27 +287,25 @@ Set Dahua as no-auth:
 export NO_AUTH_WEB_BRANDS=dahua
 export NO_AUTH_RTSP_BRANDS=dahua
 export PUBLIC_VIEWER_USERNAME=guest
-export PUBLIC_RTSP_HOST=VM_IP
-export ONVIF_PUBLIC_HOST=VM_IP
-export PUBLIC_ONVIF_HOST=VM_IP
+export PUBLIC_IP=VM_IP
 ```
 
 Start Dahua:
 
 ```bash
-docker compose -f docker-compose.yml up -d --build --remove-orphans mysql_service web_service rtsp_h264_media rtsp_h264_publisher_dahua dahua_service onvif_dahua_service
+docker compose -f docker-compose.yml -f docker-compose.dahua-single.yml up -d --build --remove-orphans mysql_service web_service rtsp_h264_media rtsp_h264_publisher_dahua dahua_service onvif_dahua_service
 ```
 
 Test:
 
 ```bash
-curl -I http://VM_IP:37777
+curl -I http://VM_IP
 ```
 
 RTSP test from Windows:
 
 ```powershell
-ffplay "rtsp://VM_IP:8555/cam/realmonitor?channel=1&subtype=0"
+ffplay "rtsp://VM_IP/cam/realmonitor?channel=1&subtype=0"
 ```
 
 If the stream works without `admin:12345@`, then no-auth RTSP is working.
@@ -282,9 +320,7 @@ This example deploys:
 Set environment:
 
 ```bash
-export PUBLIC_RTSP_HOST=VM_IP
-export ONVIF_PUBLIC_HOST=VM_IP
-export PUBLIC_ONVIF_HOST=VM_IP
+export PUBLIC_IP=VM_IP
 export NO_AUTH_WEB_BRANDS=dahua
 export NO_AUTH_RTSP_BRANDS=dahua
 export PUBLIC_VIEWER_USERNAME=guest
@@ -305,32 +341,32 @@ services:
       - NO_AUTH_RTSP_BRANDS=dahua
       - NO_AUTH_WEB_BRANDS=dahua
       - PUBLIC_VIEWER_USERNAME=guest
-      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
-      - ONVIF_PUBLIC_HOST=${ONVIF_PUBLIC_HOST:-localhost}
-      - PUBLIC_ONVIF_HOST=${PUBLIC_ONVIF_HOST:-localhost}
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-${PUBLIC_IP:-localhost}}
+      - ONVIF_PUBLIC_HOST=${ONVIF_PUBLIC_HOST:-${PUBLIC_IP:-localhost}}
+      - PUBLIC_ONVIF_HOST=${PUBLIC_ONVIF_HOST:-${PUBLIC_IP:-localhost}}
 
   dahua_service:
     environment:
       - NO_AUTH_WEB_BRANDS=dahua
       - PUBLIC_VIEWER_USERNAME=guest
-      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-${PUBLIC_IP:-localhost}}
 
   hikvision_service:
     environment:
       - NO_AUTH_WEB_BRANDS=dahua
-      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-${PUBLIC_IP:-localhost}}
 
   onvif_service:
     environment:
-      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
-      - ONVIF_PUBLIC_HOST=${ONVIF_PUBLIC_HOST:-localhost}
-      - PUBLIC_ONVIF_HOST=${PUBLIC_ONVIF_HOST:-localhost}
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-${PUBLIC_IP:-localhost}}
+      - ONVIF_PUBLIC_HOST=${ONVIF_PUBLIC_HOST:-${PUBLIC_IP:-localhost}}
+      - PUBLIC_ONVIF_HOST=${PUBLIC_ONVIF_HOST:-${PUBLIC_IP:-localhost}}
 
   onvif_dahua_service:
     environment:
-      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-localhost}
-      - ONVIF_PUBLIC_HOST=${ONVIF_PUBLIC_HOST:-localhost}
-      - PUBLIC_ONVIF_HOST=${PUBLIC_ONVIF_HOST:-localhost}
+      - PUBLIC_RTSP_HOST=${PUBLIC_RTSP_HOST:-${PUBLIC_IP:-localhost}}
+      - ONVIF_PUBLIC_HOST=${ONVIF_PUBLIC_HOST:-${PUBLIC_IP:-localhost}}
+      - PUBLIC_ONVIF_HOST=${PUBLIC_ONVIF_HOST:-${PUBLIC_IP:-localhost}}
 ```
 
 Start the two-camera deployment:
@@ -366,9 +402,7 @@ The pattern is the same:
 Example: deploy Hikvision with auth, and Dahua + Axis + Reolink without auth:
 
 ```bash
-export PUBLIC_RTSP_HOST=VM_IP
-export ONVIF_PUBLIC_HOST=VM_IP
-export PUBLIC_ONVIF_HOST=VM_IP
+export PUBLIC_IP=VM_IP
 export NO_AUTH_WEB_BRANDS=dahua,axis,reolink
 export NO_AUTH_RTSP_BRANDS=dahua,axis,reolink
 export PUBLIC_VIEWER_USERNAME=guest
@@ -402,19 +436,37 @@ These expose RTSP on the realistic default port:
 Example Hikvision single-camera VM:
 
 ```bash
-export PUBLIC_RTSP_HOST=VM_IP
-export ONVIF_PUBLIC_HOST=VM_IP
-export PUBLIC_ONVIF_HOST=VM_IP
+export PUBLIC_IP=VM_IP
 docker compose -f docker-compose.yml -f docker-compose.hikvision-single.yml up -d --build --remove-orphans mysql_service web_service rtsp_h264_media rtsp_h264_publisher_hikvision_101 rtsp_h264_publisher_hikvision_102 hikvision_service onvif_service
 ```
 
 Example Dahua single-camera VM:
 
 ```bash
-export PUBLIC_RTSP_HOST=VM_IP
-export ONVIF_PUBLIC_HOST=VM_IP
-export PUBLIC_ONVIF_HOST=VM_IP
+export PUBLIC_IP=VM_IP
 docker compose -f docker-compose.yml -f docker-compose.dahua-single.yml up -d --build --remove-orphans mysql_service web_service rtsp_h264_media rtsp_h264_publisher_dahua dahua_service onvif_dahua_service
+```
+
+Example Axis single-camera VM:
+
+```bash
+export PUBLIC_IP=VM_IP
+docker compose -f docker-compose.yml -f docker-compose.axis-single.yml up -d --build --remove-orphans mysql_service web_service rtsp_h264_media rtsp_h264_publisher_axis axis_service onvif_axis_service
+```
+
+Example Reolink single-camera VM:
+
+```bash
+export PUBLIC_IP=VM_IP
+docker compose -f docker-compose.yml -f docker-compose.reolink-single.yml up -d --build --remove-orphans mysql_service web_service rtsp_h264_media rtsp_h264_publisher_reolink reolink_service onvif_reolink_service
+```
+
+For no-auth single-camera VMs, also set the matching brand in `NO_AUTH_WEB_BRANDS` and `NO_AUTH_RTSP_BRANDS` before starting the containers. For example:
+
+```bash
+export NO_AUTH_WEB_BRANDS=axis
+export NO_AUTH_RTSP_BRANDS=axis
+export PUBLIC_VIEWER_USERNAME=guest
 ```
 
 RTSP tests for single-camera VMs:
@@ -441,6 +493,8 @@ Check MediaMTX logs:
 ```bash
 docker logs --tail 80 rtsp_h264_media_service
 ```
+
+The custom MediaMTX image should still show normal MediaMTX runtime logs, but external RTSP scanners should see the generic banner `RTSP Server` instead of the default library name.
 
 Check resource usage:
 
@@ -581,6 +635,15 @@ If using an override add the custom .yml file in the command as well:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.local-2cam.yml down
+```
+
+For a single-camera VM, use the same single-camera override that was used when starting it:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.hikvision-single.yml down
+docker compose -f docker-compose.yml -f docker-compose.dahua-single.yml down
+docker compose -f docker-compose.yml -f docker-compose.axis-single.yml down
+docker compose -f docker-compose.yml -f docker-compose.reolink-single.yml down
 ```
 
 Do not run this unless you intentionally want to delete MySQL data:

@@ -1,0 +1,24 @@
+diff --git a/internal/servers/rtsp/server.go b/internal/servers/rtsp/server.go
+index 4d2e7be..5d6e4d7 100644
+--- a/internal/servers/rtsp/server.go
++++ b/internal/servers/rtsp/server.go
+@@ -20,6 +20,8 @@ import (
+ 	"github.com/bluenviron/mediamtx/internal/packetdumper"
+ )
+ 
++const rtspServerHeader = "RTSP Server"
++
+ // ErrConnNotFound is returned when a connection is not found.
+ var ErrConnNotFound = errors.New("connection not found")
+ 
+@@ -303,6 +305,10 @@ func (s *Server) OnRequest(sc *gortsplib.ServerConn, req *base.Request) {
+ 
+ // OnResponse implements gortsplib.ServerHandlerOnResponse.
+ func (s *Server) OnResponse(sc *gortsplib.ServerConn, res *base.Response) {
++	if res.Header == nil {
++		res.Header = make(base.Header)
++	}
++	res.Header["Server"] = base.HeaderValue{rtspServerHeader}
+ 	c := sc.UserData().(*conn)
+ 	c.OnResponse(res)
+ }
