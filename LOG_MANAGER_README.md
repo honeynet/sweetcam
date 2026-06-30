@@ -124,19 +124,32 @@ node log_manager.js --docker --delete-by-date 2025-08-30
 
 ## Docker Integration
 
-The `--docker` flag enables reading logs directly from Docker containers:
+The `--docker` flag enables reading logs from the running Docker deployment.
+Most useful analysis should be done from the MySQL tables because the current
+services write structured events there.
 
-- **web_service**: Web service logs
-- **rtsp_main_service**: RTSP service logs  
-- **onvif_service**: ONVIF service logs
+The important containers are:
+
+- **web_service**: internal backend logs, RTSP authorization decisions, and shared service events
+- **vendor web services**: `hikvision_service`, `dahua_service`, `axis_service`, `reolink_service`, etc.
+- **rtsp_h264_media_service**: MediaMTX runtime logs for the public H.264 RTSP server
+- **rtsp_h264_publisher_*_service**: FFmpeg publisher containers for each stream
+- **onvif_service** and vendor ONVIF services: ONVIF SOAP and WS-Discovery logs
+- **cowrie-services**: SSH honeypot logs
 
 ### Docker Container Mapping
 
-| Service | Container Name | Log Location |
-|---------|----------------|--------------|
-| Web | `web_service` | `/app/logs/webservices/` |
-| RTSP | `rtsp_main_service` | `/app/logs/` |
-| ONVIF | `onvif_service` | `/app/logs/` |
+| Area | Current Containers | Main Persistent Data |
+|---------|------------------------------|------------------------------|
+| Web | `web_service`, vendor web containers | `web_service_logs`, `service_logs` |
+| RTSP public stream | `rtsp_h264_media_service`, `rtsp_h264_publisher_*_service` | `rtsp_service_logs`, MediaMTX container logs |
+| RTSP legacy fallback | `rtsp_main_service`, `rtsp_hikvision_service`, etc. if started manually | `rtsp_service_logs` |
+| ONVIF | `onvif_service`, `onvif_dahua_service`, `onvif_axis_service`, etc. | `onvif_service_logs` |
+| SSH | `cowrie-services` | `cowrie_service_logs` |
+
+For current deployments, the realistic public RTSP traffic is handled by
+MediaMTX. The old Node RTSP containers are only relevant if they are started
+explicitly as legacy/fallback services.
 
 ## Event Types by Service
 
@@ -154,6 +167,11 @@ The `--docker` flag enables reading logs directly from Docker containers:
 - `service_event`: General service events
 - `auth_attempt`: Authentication attempts
 - `database_auth`: Database authentication events
+
+For MediaMTX deployments, RTSP authorization and request metadata are logged by
+the web backend hooks and stored in `rtsp_service_logs`. MediaMTX itself also
+prints runtime connection and publisher status to the Docker logs of
+`rtsp_h264_media_service`.
 
 ### ONVIF Services
 - `soap_request`: SOAP requests

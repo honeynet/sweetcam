@@ -2,6 +2,13 @@
 
 The SweetCam Port Manager is a CLI tool designed to manage port configurations for all SweetCam honeypot services. It provides an intuitive interface for changing service ports, checking port availability and automatically updating Docker Compose configurations.
 
+> **Current deployment note:** for the latest camera deployments, prefer the
+> Compose override files documented in `CUSTOM_CAMERA_DEPLOYMENT_TUTORIAL.md`.
+> The single-camera override files already expose the realistic public ports
+> used for deployment: web on `80`, RTSP on `554`, ONVIF HTTP on `8080`, and
+> WS-Discovery on UDP `3702`. The Port Manager is still useful for manual
+> experiments, but it should not be needed for the normal MediaMTX-based setup.
+
 ## Features
 
 - **Port Availability Checking**: Automatically verifies if a port is available before making changes
@@ -62,13 +69,14 @@ hikvision_service       80             80             In Use
 mobotix_service         443            443            Available
 reolink_service         8081           8081           Available
 vstarcam_service        81             81             Available
-rtsp_main              554            554            Available
-rtsp_hikvision         8554           8554           Available
-rtsp_dahua             8555           8555           Available
-rtsp_axis              8556           8556           Available
-rtsp_reolink           8557           8557           Available
-rtsp_mobotix           8558           8558           Available
-rtsp_vstarcam          8559           8559           Available
+rtsp_h264_media        8554-8560      8554           Available
+rtsp_main              554            554            Legacy fallback
+rtsp_hikvision         8655           8554           Legacy fallback
+rtsp_dahua             8656           8555           Legacy fallback
+rtsp_axis              8657           8556           Legacy fallback
+rtsp_reolink           8658           8557           Legacy fallback
+rtsp_mobotix           8659           8558           Legacy fallback
+rtsp_vstarcam          8660           8559           Legacy fallback
 onvif_service          3702           3702           Available
 onvif_dahua_service    3703           3702           Available
 onvif_axis_service     3704           3702           Available
@@ -104,6 +112,19 @@ Successfully changed port for dahua_service from 37777 to 8080!
 ```
 
 ## How It Works
+
+For current single-camera deployments, prefer editing or selecting the matching
+override file instead of changing ports manually:
+
+```text
+docker-compose.hikvision-single.yml
+docker-compose.dahua-single.yml
+docker-compose.axis-single.yml
+docker-compose.reolink-single.yml
+```
+
+Those overrides use Compose `!override` and `!reset` rules to replace the public
+ports cleanly without editing the base `docker-compose.yml`.
 
 ### 1. Port Availability Check
 The tool first checks if the requested port is available using `netstat`:

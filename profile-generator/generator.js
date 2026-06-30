@@ -33,7 +33,6 @@ function loadCameraData() {
 
 const CAMERA_DATA = loadCameraData();
 
-// Utility functions
 function randomChoice(arr) {
   if (!Array.isArray(arr) || arr.length === 0) {
     throw new Error("randomChoice received an empty or invalid array.");
@@ -117,7 +116,6 @@ async function createDatabaseConnection() {
     }
   }
 
-  // Only print failures if ALL attempts failed
   console.error("[DB] Failed to connect using all hosts:");
   candidateHosts.forEach((host) => {
     console.error(` - ${host}:${baseDbConfig.port}`);

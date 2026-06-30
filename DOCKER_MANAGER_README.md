@@ -2,6 +2,13 @@
 
 The SweetCam Docker Manager is an interactive CLI tool that provides  management capabilities for the SweetCam honeypot environment. It offers flexible deployment options, service management, health monitoring and automated container orchestration.
 
+> **Current deployment note:** the main maintained deployment path is now the
+> Docker Compose workflow documented in `CUSTOM_CAMERA_DEPLOYMENT_TUTORIAL.md`.
+> That workflow uses the shared `rtsp_h264_media` MediaMTX service plus
+> `rtsp_h264_publisher_*` containers for realistic H.264 RTSP streams. The
+> Docker Manager can still be useful for older/manual service management, but
+> some menu examples below refer to the legacy Node RTSP services.
+
 ## Features
 
 - **Interactive Menu System**: User-friendly CLI interface with numbered menu options
@@ -101,13 +108,14 @@ Available Camera Brands:
 Select camera brand: 2
 ```
 
-**What gets deployed:**
+**Current recommended equivalent:**
 - MySQL database service
-- Cowrie SSH honeypot (if SSH is supported)
-- Camera-specific web service
-- Camera-specific ONVIF service
-- Camera-specific RTSP service
-- Grafana dashboard
+- internal `web_service`
+- camera-specific web service
+- camera-specific ONVIF service
+- shared `rtsp_h264_media` service
+- matching `rtsp_h264_publisher_*` service
+- Grafana dashboard if wanted
 
 ### 2. Multi-Camera Setup
 
@@ -177,13 +185,15 @@ Available Services:
 14. onvif_reolink_service
 15. onvif_mobotix_service
 16. onvif_vstarcam_service
-17. rtsp_main
-18. rtsp_hikvision
-19. rtsp_dahua
-20. rtsp_axis
-21. rtsp_reolink
-22. rtsp_mobotix
-23. rtsp_vstarcam
+17. rtsp_main                  # legacy Node RTSP fallback
+18. rtsp_hikvision             # legacy Node RTSP fallback
+19. rtsp_dahua                 # legacy Node RTSP fallback
+20. rtsp_axis                  # legacy Node RTSP fallback
+21. rtsp_reolink               # legacy Node RTSP fallback
+22. rtsp_mobotix               # legacy Node RTSP fallback
+23. rtsp_vstarcam              # legacy Node RTSP fallback
+24. rtsp_h264_media            # current MediaMTX RTSP server
+25. rtsp_h264_publisher_*      # current FFmpeg stream publishers
 
 Select services (enter numbers separated by commas): 1,2,5,17
 ```
@@ -287,7 +297,7 @@ The Docker Manager automatically handles service dependencies:
 Each camera brand automatically includes:
 - Web interface service
 - ONVIF service (if supported)
-- RTSP service (if supported)
+- Current deployments should use the MediaMTX RTSP service and matching H.264 publisher
 - Grafana service (if supported)
 
 ## Configuration Files

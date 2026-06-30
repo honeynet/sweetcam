@@ -28,7 +28,8 @@ This document provides a list of all tools, frameworks, libraries and their vers
 | **Base Images** | | |
 | ├── mysql:8.0 | 8.0 | Database service |
 | ├── cowrie/cowrie | latest | SSH honeypot service |
-| └── grafana/grafana | latest | Monitoring dashboard |
+| ├── grafana/grafana | latest | Monitoring dashboard |
+| └── sweetcam-mediamtx | MediaMTX v1.18.2 | Custom RTSP/H.264 server image |
 
 
 ## Database
@@ -49,6 +50,17 @@ This document provides a list of all tools, frameworks, libraries and their vers
 | **cookie-parser** | 1.4.6 | Cookie parsing middleware |
 | **express-session** | 1.17.3 | Session management |
 | **multer** | 1.4.5-lts.1 | File upload handling |
+
+## RTSP And Video Streaming
+
+| Tool | Version | Usage |
+|------|---------|-------|
+| **MediaMTX** | v1.18.2 | Public RTSP H.264 server, built as `sweetcam-mediamtx:1.18.2-rtsp-server` |
+| **FFmpeg** | Provided by container package image | Loops and publishes the H.264 camera video into MediaMTX |
+| **x264/libx264** | Provided by FFmpeg build | H.264 encoding for the looped camera stream |
+
+The MediaMTX image is pinned instead of using `latest` so the RTSP behavior and
+the custom `RTSP Server` banner patch stay reproducible.
 
 ## Testing Framework
 

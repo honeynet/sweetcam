@@ -429,9 +429,60 @@ CREATE TABLE `log_statistics` (
 - Trend analysis
 - Performance optimization
 
+#### 11. `camera_profiles` - Generated Camera Metadata
+**Purpose**: Store generated camera identities that can be reused by the web,
+ONVIF, and RTSP-facing parts of SweetCam.
+
+**Structure**:
+```sql
+CREATE TABLE IF NOT EXISTS `camera_profiles`
+(
+    `id` bigint NOT NULL AUTO_INCREMENT,
+    `vendor` varchar(50) NOT NULL,
+    `model` varchar(100) NOT NULL,
+    `firmware` varchar(100) DEFAULT NULL,
+    `server` varchar(100) DEFAULT NULL,
+    `ports` json NOT NULL,
+    `rtsp_path` varchar(255) DEFAULT NULL,
+    `resolution` varchar(50) DEFAULT NULL,
+    `frame_rate` varchar(50) DEFAULT NULL,
+    `video_mode` varchar(100) DEFAULT NULL,
+    `compression` varchar(50) DEFAULT NULL,
+    `status` varchar(20) NOT NULL DEFAULT 'Online',
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    INDEX `idx_vendor` (`vendor`),
+    INDEX `idx_model` (`model`),
+    INDEX `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+**Use Cases**:
+- Store output from the profile generator.
+- Keep vendor, model, firmware, RTSP path, resolution, frame rate, and server
+  metadata consistent across web and ONVIF responses.
+- Let services use generated camera metadata when a matching vendor row exists,
+  while still falling back to static defaults when it does not.
+
+**Example Queries**:
+```sql
+-- Show available camera profiles
+SELECT id, vendor, model, firmware, rtsp_path, resolution, frame_rate
+FROM camera_profiles
+ORDER BY id;
+
+-- Show the active profile for one vendor
+SELECT *
+FROM camera_profiles
+WHERE LOWER(vendor) = 'hikvision'
+ORDER BY id
+LIMIT 1;
+```
+
 ### Views
 
-#### 11. `all_logs` - Unified Log View
+#### 12. `all_logs` - Unified Log View
 **Purpose**: Provide a unified view of all log data across services.
 
 **Structure**:
@@ -457,7 +508,7 @@ FROM cowrie_service_logs;
 
 ## New: Unique Payloads Table
 
-### 12. `unique_payloads` - Unique Payload Tracking
+### 13. `unique_payloads` - Unique Payload Tracking
 **Purpose**: Track and analyze unique payloads across all services to detect custom attacks and automated tools.
 
 **Structure**:

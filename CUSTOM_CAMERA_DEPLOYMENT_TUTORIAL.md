@@ -109,11 +109,11 @@ sudo git clone https://github.com/honeynet/sweetcam.git
 cd /opt/sweetcam
 ```
 
-Use the branch with the current changes. Replace `mediamtx-custom-banner` with the branch you want to deploy if needed:
+Use the branch with the current changes. Replace `RaduUpdates` with the branch you want to deploy if needed:
 
 ```bash
-git checkout mediamtx-custom-banner
-git pull --ff-only origin mediamtx-custom-banner
+git checkout RaduUpdates
+git pull --ff-only origin RaduUpdates
 ```
 
 ## 4. Choose The Correct IP
@@ -454,7 +454,11 @@ export PUBLIC_IP=VM_IP
 docker compose -f docker-compose.yml -f docker-compose.reolink-single.yml up -d --build --remove-orphans mysql_service web_service rtsp_h264_media rtsp_h264_publisher_reolink reolink_service onvif_reolink_service
 ```
 
-For no-auth single-camera VMs, also set the matching brand in `NO_AUTH_WEB_BRANDS` and `NO_AUTH_RTSP_BRANDS` before starting the containers. For example:
+The provided Dahua, Axis, and Reolink single-camera override files already set
+the matching no-auth variables. If you create your own custom single-camera
+override, or if you want the values to be visible in `.env`, set the matching
+brand in `NO_AUTH_WEB_BRANDS` and `NO_AUTH_RTSP_BRANDS` before starting the
+containers. For example:
 
 ```bash
 export NO_AUTH_WEB_BRANDS=axis

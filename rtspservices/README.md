@@ -1,240 +1,208 @@
-# RTSP Server
+# SweetCam RTSP Services
 
-A Real-Time Streaming Protocol (RTSP) server with authentication and brand-specific camera emulation.
+This folder contains both the current H.264 RTSP streaming pipeline and the
+older Node.js RTSP implementation that is kept as a legacy/research fallback.
 
-## Features
+## Current Public RTSP Pipeline
 
-- **Authentication**: RTSP streams only work with valid database credentials
-- **Brand Emulation**: Supports multiple camera brands with authentic responses
-- **Nmap Recognition**: Each brand appears as the correct camera version to network scanners
-- **Comprehensive Logging**: All requests, responses, and payloads are logged to database
-- **Session Management**: Full RTSP session lifecycle support
+The current realistic RTSP stream is served through MediaMTX:
 
-## Supported Camera Brands
-
-- **Hikvision**: Port 80, authentic Hikvision DVR responses
-- **Dahua**: Port 37777, authentic Dahua IP camera responses  
-- **Axis**: Port 10000, authentic Axis network camera responses
-- **Reolink**: Port 8081, authentic Reolink IP camera responses
-- **Mobotix**: Port 443, authentic Mobotix IP camera responses
-- **Vstarcam**: Port 81, authentic Vstarcam IP camera responses
-
-## Functionality
-
-### RTSP protocol support
-- **OPTIONS** - Server capabilities discovery
-- **DESCRIBE** - Stream information and SDP 
-- **SETUP** - Session establishment and transport configuration 
-- **PLAY** - Start video streaming 
-- **PAUSE** - Pause video streaming 
-- **TEARDOWN** - Session termination 
-
-### Authentication System
-The RTSP server implements **HTTP Basic Authentication** with **database integration**.
-
-#### Authentication Methods
-**URL Credentials** (VLC style):
-   ```shell
-   vlc rtsp://jimmy:1234567@127.0.0.1:554/stream
-   ```
-
-#### Session-Based Authentication
-- Authentication is required for DESCRIBE, SETUP, PLAY, PAUSE, and TEARDOWN methods
-- OPTIONS requests are allowed without authentication for client discovery
-- Once authenticated during SETUP, the session remains authenticated for subsequent requests
-- Username comparison is case-insensitive (e.g., 'jimmy', 'Jimmy', 'JIMMY' all work)
-
-## Installation
-
-```bash
-npm install
+```text
+rtsp_h264_media
 ```
 
-## Configuration
+The camera video is published by FFmpeg containers:
 
-Set environment variables:
-
-```bash
-export RTSP_PORT=554
-export BRAND=auto  # or specific brand name
-export DB_HOST=localhost
-export DB_USER=root
-export DB_PASSWORD=password
-export DB_NAME=sweetcam
-export DB_PORT=3306
+```text
+rtsp_h264_publisher_hikvision_101
+rtsp_h264_publisher_hikvision_102
+rtsp_h264_publisher_dahua
+rtsp_h264_publisher_axis
+rtsp_h264_publisher_reolink
+rtsp_h264_publisher_mobotix
+rtsp_h264_publisher_vstarcam
+rtsp_h264_publisher_foscam
+rtsp_h264_publisher_foscam_sub
 ```
 
-## Usage
+Each publisher loops:
 
-### Start Server
-```bash
-npm start
+```text
+rtspservices/media/camera-loop-720p15.mp4
 ```
 
-### Development Mode
-```bash
-npm run dev
+and publishes it into MediaMTX as H.264. The encoding settings in
+`docker-compose.yml` use `libx264`, 15 fps, baseline profile, repeated SPS/PPS
+headers, and low-latency settings so RTSP clients can join the stream reliably.
+
+## Custom MediaMTX Image
+
+The MediaMTX image is built from:
+
+```text
+rtspservices/mediamtx-custom/
 ```
+
+It pins MediaMTX to:
+
+```text
+v1.18.2
+```
+
+and replaces the default RTSP library banner:
+
+```text
+Gortsplib
+```
+
+with:
+
+```text
+RTSP Server
+```
+
+This avoids exposing the underlying RTSP library name to external scanners while
+keeping MediaMTX's RTSP/H.264 behavior.
+
+The MediaMTX runtime configuration is:
+
+```text
+rtspservices/mediamtx.yml
+```
+
+Authentication checks are delegated to the web backend through MediaMTX HTTP
+hooks. The backend uses the database credentials and the no-auth brand settings
+to decide whether a reader is allowed.
+
+## Public Stream Paths
+
+### Multi-camera deployment
+
+When several cameras run on the same VM, `rtsp_h264_media` maps the same
+MediaMTX listener to several public ports:
+
+| Vendor | Public URL |
+|---|---|
+| Hikvision main stream | `rtsp://admin:12345@VM_IP:8554/Streaming/Channels/101` |
+| Hikvision substream | `rtsp://admin:12345@VM_IP:8554/Streaming/Channels/102` |
+| Dahua | `rtsp://VM_IP:8555/cam/realmonitor?channel=1&subtype=0` |
+| Axis | `rtsp://VM_IP:8556/axis-media/media.amp` |
+| Reolink | `rtsp://VM_IP:8557/h264Preview_01_main` |
+| Mobotix | `rtsp://VM_IP:8558/control/faststream.jpg` |
+| VStarCam | `rtsp://VM_IP:8559/videostream.cgi` |
+| Foscam main stream | `rtsp://VM_IP:8560/videoMain` |
+| Foscam substream | `rtsp://VM_IP:8560/videoSub` |
+
+### Single-camera deployment
+
+When one camera runs on one VM, the single-camera override files expose RTSP on
+the realistic default RTSP port:
+
+```text
+554
+```
+
+Example URLs:
+
+| Vendor | Single-VM RTSP URL |
+|---|---|
+| Hikvision | `rtsp://admin:12345@VM_IP/Streaming/Channels/101` |
+| Dahua | `rtsp://VM_IP/cam/realmonitor?channel=1&subtype=0` |
+| Axis | `rtsp://VM_IP/axis-media/media.amp` |
+| Reolink | `rtsp://VM_IP/h264Preview_01_main` |
+
+Port `554` does not need to be written in the URL because it is the RTSP default.
+
+## No-auth RTSP Cameras
+
+No-auth RTSP behavior is controlled by:
+
+```env
+NO_AUTH_RTSP_BRANDS=dahua,axis,reolink
+```
+
+If a brand is listed there, RTSP readers for that brand are allowed without
+credentials. If a brand is not listed, the stream requires valid credentials.
+
+The same idea exists for the web pages:
+
+```env
+NO_AUTH_WEB_BRANDS=dahua,axis,reolink
+```
+
+The current single-camera override files already set no-auth values for Dahua,
+Axis, and Reolink. Hikvision single-camera deployment keeps authentication
+enabled by default.
 
 ## Testing
 
-This project includes a comprehensive Jest test suite that verifies:
+Use `ffplay` from a client machine:
 
-### Authentication Tests
-- RTSP streams only work with valid database credentials
-- Invalid credentials are properly rejected
-- Session authentication persistence
-- Database connection error handling
+```powershell
+ffplay "rtsp://admin:12345@VM_IP/Streaming/Channels/101"
+ffplay "rtsp://VM_IP/cam/realmonitor?channel=1&subtype=0"
+ffplay "rtsp://VM_IP/axis-media/media.amp"
+ffplay "rtsp://VM_IP/h264Preview_01_main"
+```
 
-### Brand Detection Tests
-- Port-based brand detection
-- Path-based brand detection  
-- User-Agent-based brand detection
-- Brand configuration validation
+For a multi-camera deployment, include the vendor-specific public port:
 
-### Nmap Recognition Tests
-- Each camera brand returns authentic server signatures
-- Response patterns match real camera behavior
-- Port mappings are correct for each brand
-- Consistent unauthorized response formats
+```powershell
+ffplay "rtsp://admin:12345@VM_IP:8554/Streaming/Channels/101"
+ffplay "rtsp://VM_IP:8555/cam/realmonitor?channel=1&subtype=0"
+ffplay "rtsp://VM_IP:8556/axis-media/media.amp"
+ffplay "rtsp://VM_IP:8557/h264Preview_01_main"
+```
 
-### Logging Tests
-- All RTSP requests and responses are logged
-- Payload data is captured and stored
-- Database logging functionality works correctly
-- Error handling in logging system
-
-### Running Tests
+Check MediaMTX logs:
 
 ```bash
-# Run all tests
-npm test
-
-# Run tests with coverage
-npm run test:coverage
-
-# Run tests in watch mode
-npm run test:watch
-
-# Run tests with verbose output
-npm run test:verbose
-
-# Run tests with debug information
-npm run test:debug
+docker logs --tail 80 rtsp_h264_media_service
 ```
 
-### Test Structure
+You should see publishers becoming available, for example:
 
-```
-rtspservices/
-├── __tests__/
-│   ├── authentication.test.js    # Authentication functionality tests
-│   ├── brand-detection.test.js   # Brand detection tests
-│   ├── logging.test.js          # Logging system tests
-│   └── nmap-recognition.test.js # Nmap fingerprinting tests
-├── rtsp.test.js                 # Main comprehensive test suite
-├── jest.config.js               # Jest configuration
-├── jest.setup.js                # Test setup and utilities
-├── jest.global-setup.js         # Global test environment setup
-└── jest.global-teardown.js      # Global test cleanup
+```text
+stream is available and online, 1 track (H264)
 ```
 
-### Test Coverage
+Check the public RTSP banner with an `OPTIONS` request. A successful updated
+deployment should expose:
 
-The test suite aims for 80%+ coverage across:
-- Branches: 80%
-- Functions: 80%  
-- Lines: 80%
-- Statements: 80%
-
-### Test Utilities
-
-The test suite includes custom Jest matchers:
-
-- `toBeValidRTSPResponse()` - Validates RTSP response format
-- `toBeValidRTSPStatus()` - Checks for specific HTTP status codes
-- `toBeValidPort()` - Validates port numbers
-- `toBeValidIPAddress()` - Validates IP address format
-- `toBeValidBrand()` - Validates camera brand names
-- `toContainPayload()` - Checks for payload data in responses
-
-### Mock System
-
-Tests use comprehensive mocking to:
-- Prevent actual network connections
-- Mock database operations
-- Mock file system operations
-- Mock external dependencies
-
-## Database Schema
-
-The server logs to two main tables:
-
-### service_logs
-- General service event logging
-- Includes payload data for RTSP requests/responses
-- Stores authentication attempts and session events
-
-### rtsp_service_logs  
-- RTSP-specific event logging
-- Detailed stream and session information
-- Complete request/response payloads
-
-## Security Features
-
-- **Authentication Required**: All RTSP methods except OPTIONS require valid credentials
-- **Session Management**: Authenticated sessions persist across requests
-- **Input Validation**: All RTSP requests are parsed and validated
-- **Error Handling**: Graceful handling of malformed requests and errors
-
-## Network Scanner Compatibility
-
-The server is designed to appear as authentic camera hardware to network scanners like nmap:
-
-- **Port Mapping**: Each brand uses its standard port
-- **Server Signatures**: Authentic server headers and response patterns
-- **Protocol Compliance**: Full RTSP/1.0 protocol implementation
-- **Brand Consistency**: Responses match expected camera behavior
-
-## Development
-
-### Adding New Camera Brands
-
-1. Add brand configuration to `config/brand-configs.js`
-2. Update brand detection logic in `utils/brand-detector.js`
-3. Add corresponding tests in the test suite
-4. Verify nmap recognition works correctly
-
-### Extending Test Coverage
-
-1. Add new test files to `__tests__/` directory
-2. Use existing test utilities and mock system
-3. Follow established testing patterns
-4. Ensure coverage thresholds are maintained
-
-## Troubleshooting
-
-### Common Test Issues
-
-- **Port Conflicts**: Ensure test port 554 is available
-- **Database Connection**: Verify database credentials in test environment
-- **Mock Failures**: Check that all dependencies are properly mocked
-- **Timeout Issues**: Increase test timeout for network operations
-
-### Debug Mode
-
-Run tests with debug information:
-
-```bash
-npm run test:debug
+```text
+Server: RTSP Server
 ```
 
-This will show:
-- Open handles and timers
-- Network connection attempts
-- Database query details
-- Mock interaction logs
+## Legacy Node RTSP Service
 
+The Node.js RTSP server still exists in this folder and is still useful for
+research around RTSP request parsing, authentication behavior, logging, and
+brand-specific protocol emulation.
 
+In the current deployment it should be treated as a fallback/legacy component.
+The realistic public video feed is the H.264 MediaMTX stream, not the old MJPEG
+Node stream.
 
+Legacy services in `docker-compose.yml` include:
 
+```text
+rtsp_main
+rtsp_hikvision
+rtsp_dahua
+rtsp_axis
+rtsp_reolink
+rtsp_mobotix
+rtsp_vstarcam
+```
+
+Do not start those services for the normal current deployment unless you are
+explicitly testing the old Node RTSP implementation.
+
+## Useful Files
+
+- `Dockerfile`: base image used by the FFmpeg publisher containers and legacy Node RTSP service.
+- `rtsp-server.js`: legacy Node RTSP server.
+- `media/camera-loop-720p15.mp4`: current looped H.264 source video.
+- `mediamtx.yml`: MediaMTX runtime configuration.
+- `mediamtx-custom/Dockerfile`: custom pinned MediaMTX build.
+- `mediamtx-custom/rtsp-server-banner.patch`: patch for the RTSP banner string.
